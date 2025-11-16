@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CloudTopology",
+  "description": "Schema for defining synthetic cloud environments",
+  "type": "object",
+  "required": ["topology_id", "name", "accounts", "networks", "identities"],
+  "properties": {
+    "topology_id": {
+      "type": "string",
+      "description": "Unique topology identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable topology name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Topology description"
+    },
+    "accounts": {
+      "type": "array",
+      "description": "Cloud accounts in this topology",
+      "items": {
+        "type": "object",
+        "required": ["account_id", "account_name", "region"],
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "pattern": "^[0-9]{12}$"
+          },
+          "account_name": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "account_type": {
+            "type": "string",
+            "enum": ["production", "development", "security", "shared_services"]
+          }
+        }
+      }
+    },
+    "networks": {
+      "type": "array",
+      "description": "Network configurations",
+      "items": {
+        "type": "object",
+        "required": ["vpc_id", "cidr_block", "account_id"],
+        "properties": {
+          "vpc_id": {
+            "type": "string"
+          },
+          "cidr_block": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "string"
+          },
+          "subnets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "subnet_id": {"type": "string"},
+                "cidr_block": {"type": "string"},
+                "availability_zone": {"type": "string"},
+                "public": {"type": "boolean"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "identities": {
+      "type": "array",
+      "description": "IAM identities (users, roles, service accounts)",
+      "items": {
+        "type": "object",
+        "required": ["principal_arn", "principal_type"],
+        "properties": {
+          "principal_arn": {
+            "type": "string"
+          },
+          "principal_type": {
+            "type": "string",
+            "enum": ["user", "role", "service"]
+          },
+          "permissions": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "tags": {
+            "type": "object",
+            "additionalProperties": {"type": "string"}
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "description": "Cloud resources (buckets, instances, functions)",
+      "items": {
+        "type": "object",
+        "required": ["resource_id", "resource_type", "account_id"],
+        "properties": {
+          "resource_id": {"type": "string"},
+          "resource_type": {"type": "string"},
+          "account_id": {"type": "string"},
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

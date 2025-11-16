@@ -1,0 +1,106 @@
+{
+  "topology_id": "topo-multi-hub-spoke-001",
+  "name": "Multi-Account Hub and Spoke",
+  "description": "Enterprise hub-and-spoke architecture with security, shared services, and workload accounts",
+  "accounts": [
+    {
+      "account_id": "111111111111",
+      "account_name": "security-hub",
+      "region": "us-east-1",
+      "account_type": "security"
+    },
+    {
+      "account_id": "222222222222",
+      "account_name": "shared-services",
+      "region": "us-east-1",
+      "account_type": "shared_services"
+    },
+    {
+      "account_id": "333333333333",
+      "account_name": "production-workloads",
+      "region": "us-east-1",
+      "account_type": "production"
+    },
+    {
+      "account_id": "444444444444",
+      "account_name": "development-workloads",
+      "region": "us-east-1",
+      "account_type": "development"
+    }
+  ],
+  "networks": [
+    {
+      "vpc_id": "vpc-security-hub",
+      "cidr_block": "10.0.0.0/16",
+      "account_id": "111111111111",
+      "subnets": [
+        {
+          "subnet_id": "subnet-security-1a",
+          "cidr_block": "10.0.1.0/24",
+          "availability_zone": "us-east-1a",
+          "public": false
+        }
+      ]
+    },
+    {
+      "vpc_id": "vpc-shared-services",
+      "cidr_block": "10.1.0.0/16",
+      "account_id": "222222222222",
+      "subnets": [
+        {
+          "subnet_id": "subnet-shared-1a",
+          "cidr_block": "10.1.1.0/24",
+          "availability_zone": "us-east-1a",
+          "public": false
+        }
+      ]
+    },
+    {
+      "vpc_id": "vpc-prod-workloads",
+      "cidr_block": "10.2.0.0/16",
+      "account_id": "333333333333",
+      "subnets": [
+        {
+          "subnet_id": "subnet-prod-1a",
+          "cidr_block": "10.2.1.0/24",
+          "availability_zone": "us-east-1a",
+          "public": false
+        }
+      ]
+    },
+    {
+      "vpc_id": "vpc-dev-workloads",
+      "cidr_block": "10.3.0.0/16",
+      "account_id": "444444444444",
+      "subnets": [
+        {
+          "subnet_id": "subnet-dev-1a",
+          "cidr_block": "10.3.1.0/24",
+          "availability_zone": "us-east-1a",
+          "public": true
+        }
+      ]
+    }
+  ],
+  "identities": [
+    {
+      "principal_arn": "arn:aws:iam::111111111111:user/security-admin",
+      "principal_type": "user",
+      "permissions": ["*:*"],
+      "tags": {"role": "security-admin", "mfa_required": "true"}
+    },
+    {
+      "principal_arn": "arn:aws:iam::333333333333:role/CrossAccountAdminRole",
+      "principal_type": "role",
+      "permissions": ["sts:AssumeRole"],
+      "tags": {"cross_account": "true"}
+    },
+    {
+      "principal_arn": "arn:aws:iam::444444444444:user/developer",
+      "principal_type": "user",
+      "permissions": ["ec2:*", "lambda:*", "s3:*"],
+      "tags": {"role": "developer"}
+    }
+  ],
+  "resources": []
+}

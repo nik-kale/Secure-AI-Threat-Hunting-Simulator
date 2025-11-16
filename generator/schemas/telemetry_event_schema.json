@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TelemetryEvent",
+  "description": "Schema for all synthetic telemetry events",
+  "type": "object",
+  "required": [
+    "event_id",
+    "timestamp",
+    "event_type",
+    "event_source",
+    "account_id",
+    "region"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Unique identifier for this event",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 timestamp",
+      "format": "date-time"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Type of event (e.g., iam.create_role, ec2.run_instance)",
+      "examples": [
+        "iam.create_role",
+        "iam.attach_policy",
+        "ec2.run_instance",
+        "s3.get_object",
+        "lambda.create_function",
+        "api.authenticate",
+        "network.flow"
+      ]
+    },
+    "event_source": {
+      "type": "string",
+      "description": "Source service generating the event",
+      "enum": [
+        "iam",
+        "ec2",
+        "s3",
+        "lambda",
+        "api_gateway",
+        "vpc",
+        "ecs",
+        "cloudtrail",
+        "guardduty"
+      ]
+    },
+    "account_id": {
+      "type": "string",
+      "description": "Cloud account identifier",
+      "pattern": "^[0-9]{12}$"
+    },
+    "region": {
+      "type": "string",
+      "description": "Cloud region",
+      "examples": ["us-east-1", "us-west-2", "eu-west-1"]
+    },
+    "principal": {
+      "type": "string",
+      "description": "Identity performing the action (ARN, user ID, service principal)"
+    },
+    "principal_type": {
+      "type": "string",
+      "enum": ["user", "role", "service", "federated", "anonymous"]
+    },
+    "source_ip": {
+      "type": "string",
+      "description": "Source IP address",
+      "format": "ipv4"
+    },
+    "user_agent": {
+      "type": "string",
+      "description": "Client user agent string"
+    },
+    "resource": {
+      "type": "string",
+      "description": "Target resource ARN or identifier"
+    },
+    "resource_type": {
+      "type": "string",
+      "examples": ["role", "policy", "instance", "bucket", "function"]
+    },
+    "action": {
+      "type": "string",
+      "description": "Specific action performed",
+      "examples": ["CreateRole", "PutObject", "DescribeInstances"]
+    },
+    "status": {
+      "type": "string",
+      "description": "Result status",
+      "enum": ["success", "failure", "error", "denied"]
+    },
+    "error_code": {
+      "type": "string",
+      "description": "Error code if status is failure/error"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional event-specific data",
+      "additionalProperties": true
+    },
+    "request_parameters": {
+      "type": "object",
+      "description": "API request parameters",
+      "additionalProperties": true
+    },
+    "response_elements": {
+      "type": "object",
+      "description": "API response data",
+      "additionalProperties": true
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Session identifier for correlated events"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Categorical tags for filtering"
+    }
+  }
+}
