@@ -96,6 +96,7 @@ def generate_supply_chain_scenario(
         synthesizer.create_codepipeline_event(
             action="ListPipelines",
             principal=compromised_principal,
+            pipeline_name="*",  # Wildcard for list operation
             timestamp=recon_timestamps[2],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -144,6 +145,7 @@ def generate_supply_chain_scenario(
         synthesizer.create_codebuild_event(
             action="ListProjects",
             principal=compromised_principal,
+            project_name="*",  # Wildcard for list operation
             timestamp=recon_timestamps[4],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -183,6 +185,7 @@ def generate_supply_chain_scenario(
         synthesizer.create_lambda_event(
             action="ListFunctions",
             principal=compromised_principal,
+            function_name="*",  # Wildcard for list operation
             timestamp=discovery_timestamps[0],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -238,6 +241,7 @@ def generate_supply_chain_scenario(
         synthesizer.create_lambda_event(
             action="ListLayers",
             principal=compromised_principal,
+            function_name="*",  # Wildcard for list operation
             timestamp=discovery_timestamps[7],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -252,6 +256,7 @@ def generate_supply_chain_scenario(
         synthesizer.create_lambda_event(
             action="ListLayerVersions",
             principal=compromised_principal,
+            function_name="existing-utils-layer",  # Layer name for this operation
             timestamp=discovery_timestamps[8],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -306,6 +311,7 @@ def generate_supply_chain_scenario(
         synthesizer.create_lambda_event(
             action="PublishLayerVersion",
             principal=compromised_principal,
+            function_name=malicious_layer_name,  # Layer name for this operation
             timestamp=weaponization_timestamps[1],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -340,6 +346,7 @@ def generate_supply_chain_scenario(
         synthesizer.create_lambda_event(
             action="AddLayerVersionPermission",
             principal=compromised_principal,
+            function_name=malicious_layer_name,  # Layer name for this operation
             timestamp=weaponization_timestamps[2],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -628,7 +635,7 @@ def generate_supply_chain_scenario(
                 response_elements={
                     "functionArn": f"arn:aws:lambda:{region}:{account_id}:function:{func_name}",
                     "layers": [{"arn": layer_version_arn}],
-                    "lastModified": production_timestamps[i].isoformat()
+                    "lastModified": production_timestamps[i]
                 },
                 metadata={
                     "attack_stage": "impact",

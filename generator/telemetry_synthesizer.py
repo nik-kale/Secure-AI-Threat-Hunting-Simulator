@@ -316,6 +316,233 @@ class TelemetrySynthesizer:
 
         return event
 
+    def create_database_event(
+        self,
+        action: str,
+        principal: str,
+        database_name: str,
+        timestamp: str,
+        database_type: str = "rds",
+        source_ip: Optional[str] = None,
+        status: str = "success",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create a database event (RDS, DynamoDB, etc.)."""
+        event = self.create_base_event(
+            event_type=f"{database_type}.{action.lower().replace(':', '_')}",
+            event_source=database_type,
+            timestamp=timestamp,
+            principal=principal,
+            principal_type=kwargs.get("principal_type", "user"),
+            source_ip=source_ip or generate_ip_address(),
+            user_agent=kwargs.get("user_agent", generate_user_agent()),
+            action=action,
+            status=status,
+        )
+
+        event["resource"] = f"arn:aws:{database_type}:{self.region}:{self.account_id}:db:{database_name}"
+        event["resource_type"] = "database"
+        event["metadata"] = kwargs.get("metadata", {})
+        event["metadata"]["database_name"] = database_name
+        event["metadata"]["database_type"] = database_type
+        event["request_parameters"] = kwargs.get("request_parameters", {})
+        event["response_elements"] = kwargs.get("response_elements", {})
+        event["session_id"] = kwargs.get("session_id", generate_session_id())
+
+        return event
+
+    def create_kms_event(
+        self,
+        action: str,
+        principal: str,
+        key_id: str,
+        timestamp: str,
+        source_ip: Optional[str] = None,
+        status: str = "success",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create a KMS (Key Management Service) event."""
+        event = self.create_base_event(
+            event_type=f"kms.{action.lower().replace(':', '_')}",
+            event_source="kms",
+            timestamp=timestamp,
+            principal=principal,
+            principal_type=kwargs.get("principal_type", "user"),
+            source_ip=source_ip or generate_ip_address(),
+            user_agent=kwargs.get("user_agent", generate_user_agent()),
+            action=action,
+            status=status,
+        )
+
+        event["resource"] = f"arn:aws:kms:{self.region}:{self.account_id}:key/{key_id}"
+        event["resource_type"] = "key"
+        event["metadata"] = kwargs.get("metadata", {})
+        event["request_parameters"] = kwargs.get("request_parameters", {})
+        event["response_elements"] = kwargs.get("response_elements", {})
+        event["session_id"] = kwargs.get("session_id", generate_session_id())
+
+        return event
+
+    def create_cloudtrail_event(
+        self,
+        action: str,
+        principal: str,
+        trail_name: str,
+        timestamp: str,
+        source_ip: Optional[str] = None,
+        status: str = "success",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create a CloudTrail management event."""
+        event = self.create_base_event(
+            event_type=f"cloudtrail.{action.lower().replace(':', '_')}",
+            event_source="cloudtrail",
+            timestamp=timestamp,
+            principal=principal,
+            principal_type=kwargs.get("principal_type", "user"),
+            source_ip=source_ip or generate_ip_address(),
+            user_agent=kwargs.get("user_agent", generate_user_agent()),
+            action=action,
+            status=status,
+        )
+
+        event["resource"] = f"arn:aws:cloudtrail:{self.region}:{self.account_id}:trail/{trail_name}"
+        event["resource_type"] = "trail"
+        event["metadata"] = kwargs.get("metadata", {})
+        event["request_parameters"] = kwargs.get("request_parameters", {})
+        event["response_elements"] = kwargs.get("response_elements", {})
+        event["session_id"] = kwargs.get("session_id", generate_session_id())
+
+        return event
+
+    def create_secrets_manager_event(
+        self,
+        action: str,
+        principal: str,
+        secret_name: str,
+        timestamp: str,
+        source_ip: Optional[str] = None,
+        status: str = "success",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create a Secrets Manager event."""
+        event = self.create_base_event(
+            event_type=f"secretsmanager.{action.lower().replace(':', '_')}",
+            event_source="secretsmanager",
+            timestamp=timestamp,
+            principal=principal,
+            principal_type=kwargs.get("principal_type", "user"),
+            source_ip=source_ip or generate_ip_address(),
+            user_agent=kwargs.get("user_agent", generate_user_agent()),
+            action=action,
+            status=status,
+        )
+
+        event["resource"] = f"arn:aws:secretsmanager:{self.region}:{self.account_id}:secret:{secret_name}"
+        event["resource_type"] = "secret"
+        event["metadata"] = kwargs.get("metadata", {})
+        event["request_parameters"] = kwargs.get("request_parameters", {})
+        event["response_elements"] = kwargs.get("response_elements", {})
+        event["session_id"] = kwargs.get("session_id", generate_session_id())
+
+        return event
+
+    def create_ecr_event(
+        self,
+        action: str,
+        principal: str,
+        repository_name: str,
+        timestamp: str,
+        source_ip: Optional[str] = None,
+        status: str = "success",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create an ECR (Elastic Container Registry) event."""
+        event = self.create_base_event(
+            event_type=f"ecr.{action.lower().replace(':', '_')}",
+            event_source="ecr",
+            timestamp=timestamp,
+            principal=principal,
+            principal_type=kwargs.get("principal_type", "user"),
+            source_ip=source_ip or generate_ip_address(),
+            user_agent=kwargs.get("user_agent", generate_user_agent()),
+            action=action,
+            status=status,
+        )
+
+        event["resource"] = f"arn:aws:ecr:{self.region}:{self.account_id}:repository/{repository_name}"
+        event["resource_type"] = "repository"
+        event["metadata"] = kwargs.get("metadata", {})
+        event["request_parameters"] = kwargs.get("request_parameters", {})
+        event["response_elements"] = kwargs.get("response_elements", {})
+        event["session_id"] = kwargs.get("session_id", generate_session_id())
+
+        return event
+
+    def create_codebuild_event(
+        self,
+        action: str,
+        principal: str,
+        project_name: str,
+        timestamp: str,
+        source_ip: Optional[str] = None,
+        status: str = "success",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create a CodeBuild event."""
+        event = self.create_base_event(
+            event_type=f"codebuild.{action.lower().replace(':', '_')}",
+            event_source="codebuild",
+            timestamp=timestamp,
+            principal=principal,
+            principal_type=kwargs.get("principal_type", "role"),
+            source_ip=source_ip or generate_ip_address(),
+            user_agent=kwargs.get("user_agent", generate_user_agent()),
+            action=action,
+            status=status,
+        )
+
+        event["resource"] = f"arn:aws:codebuild:{self.region}:{self.account_id}:project/{project_name}"
+        event["resource_type"] = "project"
+        event["metadata"] = kwargs.get("metadata", {})
+        event["request_parameters"] = kwargs.get("request_parameters", {})
+        event["response_elements"] = kwargs.get("response_elements", {})
+        event["session_id"] = kwargs.get("session_id", generate_session_id())
+
+        return event
+
+    def create_codepipeline_event(
+        self,
+        action: str,
+        principal: str,
+        pipeline_name: str,
+        timestamp: str,
+        source_ip: Optional[str] = None,
+        status: str = "success",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create a CodePipeline event."""
+        event = self.create_base_event(
+            event_type=f"codepipeline.{action.lower().replace(':', '_')}",
+            event_source="codepipeline",
+            timestamp=timestamp,
+            principal=principal,
+            principal_type=kwargs.get("principal_type", "role"),
+            source_ip=source_ip or generate_ip_address(),
+            user_agent=kwargs.get("user_agent", generate_user_agent()),
+            action=action,
+            status=status,
+        )
+
+        event["resource"] = f"arn:aws:codepipeline:{self.region}:{self.account_id}:pipeline/{pipeline_name}"
+        event["resource_type"] = "pipeline"
+        event["metadata"] = kwargs.get("metadata", {})
+        event["request_parameters"] = kwargs.get("request_parameters", {})
+        event["response_elements"] = kwargs.get("response_elements", {})
+        event["session_id"] = kwargs.get("session_id", generate_session_id())
+
+        return event
+
     def add_benign_noise(
         self,
         events: List[Dict[str, Any]],

@@ -469,6 +469,7 @@ def generate_lateral_movement_scenario(
         synthesizer.create_database_event(
             action="DescribeDBInstances",
             principal=high_priv_prod_role,
+            database_name="production-db",
             timestamp=impact_timestamps[10],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -485,6 +486,7 @@ def generate_lateral_movement_scenario(
         synthesizer.create_database_event(
             action="DescribeDBSnapshots",
             principal=high_priv_prod_role,
+            database_name="production-db",
             timestamp=impact_timestamps[11],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -499,9 +501,10 @@ def generate_lateral_movement_scenario(
 
     # Access Secrets Manager
     events.append(
-        synthesizer.create_secrets_event(
+        synthesizer.create_secrets_manager_event(
             action="ListSecrets",
             principal=high_priv_prod_role,
+            secret_name="*",  # Wildcard for list operation
             timestamp=impact_timestamps[12],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -518,7 +521,7 @@ def generate_lateral_movement_scenario(
         if 13 + i >= len(impact_timestamps):
             break
         events.append(
-            synthesizer.create_secrets_event(
+            synthesizer.create_secrets_manager_event(
                 action="GetSecretValue",
                 principal=high_priv_prod_role,
                 secret_name=secret,

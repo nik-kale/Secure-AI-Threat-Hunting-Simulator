@@ -96,6 +96,8 @@ def generate_data_exfiltration_scenario(
         synthesizer.create_s3_event(
             action="ListBuckets",
             principal=compromised_principal,
+            bucket="",  # Empty for list all operation
+            key="",
             timestamp=enum_timestamps[0],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -128,6 +130,7 @@ def generate_data_exfiltration_scenario(
                 action="GetBucketLocation",
                 principal=compromised_principal,
                 bucket=bucket,
+                key="",  # Empty key for bucket operation
                 timestamp=enum_timestamps[i + 1],
                 source_ip=attacker_ip,
                 user_agent=attacker_user_agent,
@@ -144,6 +147,7 @@ def generate_data_exfiltration_scenario(
                     action="GetBucketPolicy",
                     principal=compromised_principal,
                     bucket=bucket,
+                    key="",  # Empty key for bucket operation
                     timestamp=enum_timestamps[i + 7],
                     source_ip=attacker_ip,
                     user_agent=attacker_user_agent,
@@ -172,6 +176,7 @@ def generate_data_exfiltration_scenario(
                 action="ListObjects",
                 principal=compromised_principal,
                 bucket=bucket,
+                key="",  # Empty key for list operation
                 timestamp=collection_timestamps[i * 3],
                 source_ip=attacker_ip,
                 user_agent=attacker_user_agent,
@@ -239,6 +244,7 @@ def generate_data_exfiltration_scenario(
             action="HeadBucket",
             principal=compromised_principal,
             bucket=attacker_bucket,
+            key="",  # Empty key for bucket operation
             timestamp=exfil_timestamps[0],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
@@ -383,6 +389,7 @@ def generate_data_exfiltration_scenario(
             action="PutBucketLogging",
             principal=compromised_principal,
             bucket="company-customer-data",
+            key="",  # Empty key for bucket operation
             timestamp=cleanup_timestamps[5],
             source_ip=attacker_ip,
             user_agent=attacker_user_agent,
