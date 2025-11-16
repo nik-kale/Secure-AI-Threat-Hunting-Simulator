@@ -9,15 +9,26 @@ click>=8.1.7
 pandas>=2.1.0
 numpy>=1.24.0
 
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.13.0  # For database migrations
+asyncpg>=0.29.0  # PostgreSQL async driver (optional)
+psycopg2-binary>=2.9.9  # PostgreSQL sync driver (optional)
+
 # API and Web
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 httpx>=0.25.0
+aiohttp>=3.9.0  # For async threat intel API calls
 
 # Visualization (for notebooks)
 matplotlib>=3.8.0
 seaborn>=0.13.0
 plotly>=5.18.0
+
+# Graph Analysis
+networkx>=3.0
+python-louvain>=0.16
 
 # Jupyter Notebooks
 jupyter>=1.0.0
@@ -38,3 +49,7 @@ isort>=5.12.0
 # Optional LLM Integration (commented out by default)
 # openai>=1.3.0
 # anthropic>=0.7.0
+
+# Threat Intelligence (optional, requires API keys)
+# abuseipdb-wrapper>=1.0.0  # Optional wrapper
+# vt-py>=0.17.0  # Official VirusTotal Python client

@@ -1,36 +1,132 @@
 """
-FastAPI server for analysis engine.
+FastAPI server for analysis engine with security enhancements.
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pathlib import Path
 from typing import Any, Dict
 import tempfile
 import logging
 import json
+import os
+import time
 
 from analysis_engine.pipeline import ThreatHuntingPipeline
+from analysis_engine.api.auth import verify_api_key, verify_admin_key
+
+# Rate limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# Monitoring
+from analysis_engine.monitoring import (
+    get_metrics,
+    get_content_type,
+    http_requests_total,
+    http_request_duration_seconds,
+    record_file_upload,
+    record_event_processed,
+    record_health_check,
+    collect_system_metrics,
+    api_logger,
+    set_correlation_id,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="AI Threat Hunting Simulator API",
     description="Analysis engine API for threat hunting",
-    version="1.0.0"
+    version="3.0.0"
 )
 
-# Enable CORS for UI
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Enable CORS with proper security
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify allowed origins
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
 # Initialize pipeline
 pipeline = ThreatHuntingPipeline()
+
+# Request tracking middleware
+@app.middleware("http")
+async def track_requests(request: Request, call_next):
+    """Middleware to track all HTTP requests with metrics and logging."""
+    # Generate correlation ID
+    correlation_id = set_correlation_id()
+
+    # Track request start time
+    start_time = time.time()
+
+    # Log request
+    api_logger.info(
+        f"Request started: {request.method} {request.url.path}",
+        method=request.method,
+        path=request.url.path,
+        client=request.client.host if request.client else "unknown",
+        correlation_id=correlation_id
+    )
+
+    # Process request
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+
+        # Track successful request
+        http_requests_total.labels(
+            method=request.method,
+            endpoint=request.url.path,
+            status_code=status_code
+        ).inc()
+
+        return response
+
+    except Exception as e:
+        # Track failed request
+        http_requests_total.labels(
+            method=request.method,
+            endpoint=request.url.path,
+            status_code=500
+        ).inc()
+
+        api_logger.error(
+            f"Request failed: {request.method} {request.url.path}",
+            error=str(e),
+            error_type=type(e).__name__,
+            correlation_id=correlation_id
+        )
+        raise
+
+    finally:
+        # Record duration
+        duration = time.time() - start_time
+        http_request_duration_seconds.labels(
+            method=request.method,
+            endpoint=request.url.path
+        ).observe(duration)
+
+        api_logger.performance(
+            f"Request completed: {request.method} {request.url.path}",
+            duration=duration,
+            operation="http_request",
+            method=request.method,
+            path=request.url.path
+        )
 
 
 @app.get("/")
@@ -38,64 +134,352 @@ async def root():
     """Root endpoint."""
     return {
         "service": "AI Threat Hunting Simulator API",
-        "version": "1.0.0",
-        "status": "operational"
+        "version": "3.0.0",
+        "status": "operational",
+        "documentation": "/docs"
     }
 
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
-    return {"status": "healthy"}
+    """
+    Health check endpoint with component status.
+
+    Returns health status for all major components.
+    """
+    health_status = {
+        "status": "healthy",
+        "version": "3.0.0",
+        "timestamp": time.time(),
+        "components": {}
+    }
+
+    # Check pipeline
+    start_time = time.time()
+    try:
+        # Simple check - ensure pipeline is initialized
+        pipeline_healthy = pipeline is not None
+        health_status["components"]["pipeline"] = {
+            "status": "healthy" if pipeline_healthy else "unhealthy",
+            "check_duration": time.time() - start_time
+        }
+        record_health_check("pipeline", pipeline_healthy, time.time() - start_time)
+    except Exception as e:
+        health_status["components"]["pipeline"] = {
+            "status": "unhealthy",
+            "error": str(e),
+            "check_duration": time.time() - start_time
+        }
+        record_health_check("pipeline", False, time.time() - start_time)
+        health_status["status"] = "degraded"
+
+    # Check system resources
+    start_time = time.time()
+    try:
+        import psutil
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+
+        system_healthy = mem.percent < 90 and disk.percent < 90
+        health_status["components"]["system"] = {
+            "status": "healthy" if system_healthy else "degraded",
+            "memory_percent": mem.percent,
+            "disk_percent": disk.percent,
+            "check_duration": time.time() - start_time
+        }
+        record_health_check("system", system_healthy, time.time() - start_time)
+
+        if not system_healthy:
+            health_status["status"] = "degraded"
+
+    except ImportError:
+        health_status["components"]["system"] = {
+            "status": "unknown",
+            "message": "psutil not available"
+        }
+    except Exception as e:
+        health_status["components"]["system"] = {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+        health_status["status"] = "degraded"
+
+    # Update system metrics
+    collect_system_metrics()
+
+    return health_status
 
 
-@app.post("/analyze/upload")
-async def analyze_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
+@app.get("/metrics")
+async def metrics():
+    """
+    Prometheus metrics endpoint.
+
+    Returns metrics in Prometheus text format for scraping by monitoring systems.
+    """
+    # Collect latest system metrics
+    collect_system_metrics()
+
+    # Return metrics in Prometheus format
+    return Response(
+        content=get_metrics(),
+        media_type=get_content_type()
+    )
+
+
+@app.get("/stats")
+async def stats():
+    """
+    Statistics endpoint.
+
+    Returns current statistics in JSON format for dashboards and monitoring.
+    """
+    from prometheus_client import REGISTRY
+
+    stats_data = {
+        "timestamp": time.time(),
+        "version": "3.0.0",
+        "metrics": {}
+    }
+
+    # Collect current metrics from Prometheus registry
+    for metric in REGISTRY.collect():
+        metric_name = metric.name
+
+        # Skip internal Prometheus metrics
+        if metric_name.startswith("python_") or metric_name.startswith("process_"):
+            continue
+
+        metric_data = {
+            "type": metric.type,
+            "documentation": metric.documentation,
+            "samples": []
+        }
+
+        for sample in metric.samples:
+            metric_data["samples"].append({
+                "name": sample.name,
+                "labels": sample.labels,
+                "value": sample.value
+            })
+
+        stats_data["metrics"][metric_name] = metric_data
+
+    # Add summary statistics
+    stats_data["summary"] = _generate_stats_summary(stats_data["metrics"])
+
+    return stats_data
+
+
+def _generate_stats_summary(metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate summary statistics from metrics.
+
+    Args:
+        metrics: Dictionary of metrics
+
+    Returns:
+        Summary statistics
+    """
+    summary = {}
+
+    try:
+        # Analysis requests
+        if "analysis_requests_total" in metrics:
+            total_requests = 0
+            success_requests = 0
+            failed_requests = 0
+
+            for sample in metrics["analysis_requests_total"]["samples"]:
+                total_requests += sample["value"]
+                if sample["labels"].get("status") == "success":
+                    success_requests += sample["value"]
+                elif sample["labels"].get("status") == "failure":
+                    failed_requests += sample["value"]
+
+            summary["analysis"] = {
+                "total_requests": total_requests,
+                "success_requests": success_requests,
+                "failed_requests": failed_requests,
+                "success_rate": (success_requests / total_requests * 100) if total_requests > 0 else 0
+            }
+
+        # Events processed
+        if "events_processed_total" in metrics:
+            total_events = sum(
+                sample["value"]
+                for sample in metrics["events_processed_total"]["samples"]
+            )
+            summary["events"] = {
+                "total_processed": total_events
+            }
+
+        # Sessions detected
+        if "sessions_detected_total" in metrics:
+            total_sessions = 0
+            malicious_sessions = 0
+
+            for sample in metrics["sessions_detected_total"]["samples"]:
+                total_sessions += sample["value"]
+                if sample["labels"].get("is_malicious") == "true":
+                    malicious_sessions += sample["value"]
+
+            summary["sessions"] = {
+                "total_detected": total_sessions,
+                "malicious_detected": malicious_sessions,
+                "malicious_rate": (malicious_sessions / total_sessions * 100) if total_sessions > 0 else 0
+            }
+
+        # Current jobs
+        if "current_analysis_jobs" in metrics:
+            current_jobs = metrics["current_analysis_jobs"]["samples"][0]["value"] if metrics["current_analysis_jobs"]["samples"] else 0
+            summary["current_jobs"] = current_jobs
+
+        # HTTP requests
+        if "http_requests_total" in metrics:
+            total_http = sum(
+                sample["value"]
+                for sample in metrics["http_requests_total"]["samples"]
+            )
+            summary["http"] = {
+                "total_requests": total_http
+            }
+
+        # Errors
+        if "errors_total" in metrics:
+            total_errors = sum(
+                sample["value"]
+                for sample in metrics["errors_total"]["samples"]
+            )
+            summary["errors"] = {
+                "total_errors": total_errors
+            }
+
+    except Exception as e:
+        logger.error(f"Error generating stats summary: {e}")
+
+    return summary
+
+
+@app.post("/analyze/upload", dependencies=[Depends(verify_api_key)])
+@limiter.limit("10/minute")
+async def analyze_upload(
+    request: Request,
+    file: UploadFile = File(...)
+) -> Dict[str, Any]:
     """
     Analyze uploaded telemetry file.
 
     Args:
+        request: FastAPI request object
         file: Uploaded telemetry file (JSONL or JSON)
 
     Returns:
         Analysis results
+
+    Raises:
+        HTTPException: If file is too large or analysis fails
     """
+    tmp_path = None
+
     try:
+        # Validate file size (max 100MB by default)
+        max_size = int(os.getenv("MAX_UPLOAD_SIZE_MB", "100")) * 1024 * 1024
+        content = await file.read()
+
+        if len(content) > max_size:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size: {max_size / 1024 / 1024}MB"
+            )
+
+        # Validate file extension
+        allowed_extensions = ['.jsonl', '.json']
+        file_ext = Path(file.filename).suffix.lower()
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+            )
+
         # Save uploaded file to temp location
         with tempfile.NamedTemporaryFile(
             mode='wb',
-            suffix=Path(file.filename).suffix,
+            suffix=file_ext,
             delete=False
         ) as tmp_file:
-            content = await file.read()
             tmp_file.write(content)
             tmp_path = Path(tmp_file.name)
+
+        logger.info(f"Analyzing uploaded file: {file.filename} ({len(content)} bytes)")
+
+        # Record file upload metric
+        record_file_upload(len(content))
 
         # Analyze
         results = pipeline.analyze_telemetry_file(tmp_path)
 
-        # Cleanup
-        tmp_path.unlink()
+        # Record events processed
+        if "total_events" in results:
+            record_event_processed("upload", results["total_events"])
 
         return results
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Analysis failed: {e}")
+        logger.error(f"Analysis failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+    finally:
+        # Always cleanup temp file
+        if tmp_path and tmp_path.exists():
+            try:
+                tmp_path.unlink()
+                logger.debug(f"Cleaned up temp file: {tmp_path}")
+            except Exception as e:
+                logger.error(f"Failed to cleanup temp file {tmp_path}: {e}")
 
-@app.post("/analyze/data")
-async def analyze_data(events: list) -> Dict[str, Any]:
+
+@app.post("/analyze/data", dependencies=[Depends(verify_api_key)])
+@limiter.limit("20/minute")
+async def analyze_data(request: Request, events: list) -> Dict[str, Any]:
     """
     Analyze telemetry events provided as JSON.
 
     Args:
+        request: FastAPI request object
         events: List of telemetry events
 
     Returns:
         Analysis results
+
+    Raises:
+        HTTPException: If events are invalid or analysis fails
     """
+    tmp_path = None
+
     try:
+        # Validate input
+        if not events:
+            raise HTTPException(status_code=400, detail="No events provided")
+
+        if not isinstance(events, list):
+            raise HTTPException(status_code=400, detail="Events must be a list")
+
+        # Limit number of events
+        max_events = int(os.getenv("MAX_EVENTS_PER_REQUEST", "10000"))
+        if len(events) > max_events:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Too many events. Maximum: {max_events}"
+            )
+
+        logger.info(f"Analyzing {len(events)} events from API request")
+
+        # Record events being processed
+        record_event_processed("api", len(events))
+
         # Write events to temp file
         with tempfile.NamedTemporaryFile(
             mode='w',
@@ -109,20 +493,31 @@ async def analyze_data(events: list) -> Dict[str, Any]:
         # Analyze
         results = pipeline.analyze_telemetry_file(tmp_path)
 
-        # Cleanup
-        tmp_path.unlink()
-
         return results
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Analysis failed: {e}")
+        logger.error(f"Analysis failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        # Always cleanup temp file
+        if tmp_path and tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except Exception as e:
+                logger.error(f"Failed to cleanup temp file: {e}")
 
 
 @app.get("/scenarios")
-async def list_scenarios() -> Dict[str, Any]:
+@limiter.limit("30/minute")
+async def list_scenarios(request: Request) -> Dict[str, Any]:
     """
     List available pre-generated scenarios.
+
+    Args:
+        request: FastAPI request object
 
     Returns:
         List of scenario metadata
@@ -150,16 +545,24 @@ async def list_scenarios() -> Dict[str, Any]:
 
 
 @app.get("/scenarios/{scenario_name}")
-async def get_scenario(scenario_name: str) -> Dict[str, Any]:
+@limiter.limit("30/minute")
+async def get_scenario(request: Request, scenario_name: str) -> Dict[str, Any]:
     """
     Get analysis results for a specific scenario.
 
     Args:
+        request: FastAPI request object
         scenario_name: Name of the scenario
 
     Returns:
         Scenario analysis results
+
+    Raises:
+        HTTPException: If scenario not found
     """
+    # Sanitize scenario name to prevent path traversal
+    scenario_name = scenario_name.replace("..", "").replace("/", "").replace("\\", "")
+
     scenario_path = Path("output/scenarios") / scenario_name
 
     if not scenario_path.exists():
@@ -183,6 +586,203 @@ async def get_scenario(scenario_name: str) -> Dict[str, Any]:
 
     results = pipeline.analyze_telemetry_file(telemetry_file, scenario_path)
     return results
+
+
+@app.delete("/scenarios/{scenario_name}", dependencies=[Depends(verify_admin_key)])
+async def delete_scenario(scenario_name: str) -> Dict[str, str]:
+    """
+    Delete a scenario (admin only).
+
+    Args:
+        scenario_name: Name of the scenario to delete
+
+    Returns:
+        Success message
+
+    Raises:
+        HTTPException: If scenario not found or deletion fails
+    """
+    import shutil
+
+    # Sanitize scenario name
+    scenario_name = scenario_name.replace("..", "").replace("/", "").replace("\\", "")
+
+    scenario_path = Path("output/scenarios") / scenario_name
+
+    if not scenario_path.exists():
+        raise HTTPException(status_code=404, detail="Scenario not found")
+
+    try:
+        shutil.rmtree(scenario_path)
+        logger.info(f"Deleted scenario: {scenario_name}")
+        return {"status": "success", "message": f"Scenario '{scenario_name}' deleted"}
+    except Exception as e:
+        logger.error(f"Failed to delete scenario {scenario_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete scenario: {str(e)}")
+
+
+# Database endpoints (if database is available)
+try:
+    from analysis_engine.database import (
+        DatabaseConfig,
+        DatabaseManager,
+        AnalysisRepository,
+        SessionRepository,
+        IOCRepository
+    )
+    DATABASE_AVAILABLE = True
+
+    # Initialize database if configured
+    db_url = os.getenv("DB_CONNECTION_STRING")
+    if db_url:
+        db_config = DatabaseConfig.from_url(db_url)
+        db_manager = DatabaseManager(db_config)
+
+        @app.get("/database/analyses")
+        @limiter.limit("30/minute")
+        async def list_analyses(
+            request: Request,
+            limit: int = 50,
+            offset: int = 0
+        ) -> Dict[str, Any]:
+            """
+            List all analysis runs from database.
+
+            Args:
+                request: FastAPI request object
+                limit: Maximum number of results
+                offset: Number of results to skip
+
+            Returns:
+                List of analysis runs
+            """
+            try:
+                with db_manager.session_scope() as session:
+                    repo = AnalysisRepository(session)
+                    runs = repo.list_analysis_runs(limit=limit, offset=offset)
+                    total = repo.count_analysis_runs()
+
+                    return {
+                        "total": total,
+                        "limit": limit,
+                        "offset": offset,
+                        "analyses": [
+                            {
+                                "id": run.id,
+                                "scenario_name": run.scenario_name,
+                                "num_events": run.num_events,
+                                "num_sessions": run.num_sessions,
+                                "num_suspicious_sessions": run.num_suspicious_sessions,
+                                "created_at": run.created_at.isoformat(),
+                                "risk_threshold": run.risk_threshold
+                            }
+                            for run in runs
+                        ]
+                    }
+            except Exception as e:
+                logger.error(f"Database query failed: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @app.get("/database/analyses/{run_id}")
+        @limiter.limit("30/minute")
+        async def get_analysis(request: Request, run_id: int) -> Dict[str, Any]:
+            """
+            Get detailed analysis run information.
+
+            Args:
+                request: FastAPI request object
+                run_id: Analysis run ID
+
+            Returns:
+                Analysis run details
+
+            Raises:
+                HTTPException: If analysis run not found
+            """
+            try:
+                with db_manager.session_scope() as session:
+                    repo = AnalysisRepository(session)
+                    run = repo.get_analysis_run(run_id, include_sessions=True)
+
+                    if not run:
+                        raise HTTPException(status_code=404, detail="Analysis run not found")
+
+                    return {
+                        "id": run.id,
+                        "scenario_name": run.scenario_name,
+                        "num_events": run.num_events,
+                        "num_sessions": run.num_sessions,
+                        "num_suspicious_sessions": run.num_suspicious_sessions,
+                        "created_at": run.created_at.isoformat(),
+                        "time_window_minutes": run.time_window_minutes,
+                        "min_events_for_session": run.min_events_for_session,
+                        "risk_threshold": run.risk_threshold,
+                        "telemetry_file_path": run.telemetry_file_path,
+                        "analysis_duration_seconds": run.analysis_duration_seconds,
+                        "results": run.results,
+                        "sessions": [
+                            {
+                                "id": s.id,
+                                "session_id": s.session_id,
+                                "principal": s.principal,
+                                "risk_score": s.risk_score,
+                                "is_malicious": s.is_malicious,
+                                "event_count": s.event_count
+                            }
+                            for s in run.detected_sessions
+                        ]
+                    }
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Database query failed: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @app.get("/database/sessions/{session_id}/iocs")
+        @limiter.limit("30/minute")
+        async def get_session_iocs(request: Request, session_id: int) -> Dict[str, Any]:
+            """
+            Get IOCs for a specific detected session.
+
+            Args:
+                request: FastAPI request object
+                session_id: Detected session ID
+
+            Returns:
+                List of IOCs
+
+            Raises:
+                HTTPException: If session not found
+            """
+            try:
+                with db_manager.session_scope() as session:
+                    ioc_repo = IOCRepository(session)
+                    iocs = ioc_repo.get_iocs_by_session(session_id)
+
+                    return {
+                        "session_id": session_id,
+                        "ioc_count": len(iocs),
+                        "iocs": [
+                            {
+                                "id": ioc.id,
+                                "type": ioc.ioc_type,
+                                "value": ioc.value,
+                                "severity": ioc.severity,
+                                "description": ioc.description,
+                                "first_seen": ioc.first_seen.isoformat()
+                            }
+                            for ioc in iocs
+                        ]
+                    }
+            except Exception as e:
+                logger.error(f"Database query failed: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        logger.info("Database endpoints enabled")
+
+except ImportError:
+    DATABASE_AVAILABLE = False
+    logger.info("Database not available - database endpoints disabled")
 
 
 if __name__ == "__main__":

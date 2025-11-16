@@ -3,12 +3,12 @@ Core telemetry synthesizer for generating realistic cloud events.
 """
 import json
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from utils.time_utils import generate_timestamp, get_scenario_timeframe
-from utils.id_utils import (
+from generator.utils.time_utils import generate_timestamp, get_scenario_timeframe
+from generator.utils.id_utils import (
     generate_event_id,
     generate_session_id,
     generate_ip_address,
@@ -316,9 +316,13 @@ class TelemetrySynthesizer:
 
         for _ in range(num_noise_events):
             # Random timestamp within range
-            # Simple approach: use a random event's timestamp with small offset
-            base_event = random.choice(events)
-            timestamp = base_event["timestamp"]
+            # Parse start and end times to generate proper random timestamps
+            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            time_diff = (end_dt - start_dt).total_seconds()
+            random_offset = random.uniform(0, time_diff)
+            random_dt = start_dt + timedelta(seconds=random_offset)
+            timestamp = random_dt.isoformat()
 
             event_type = random.choice(["iam", "s3", "api", "network"])
 

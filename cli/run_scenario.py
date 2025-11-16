@@ -21,6 +21,15 @@ from generator.attack_traces.container_escape.generator import (
 from generator.attack_traces.cred_stuffing.generator import (
     generate_credential_stuffing_scenario
 )
+from generator.attack_traces.lateral_movement.generator import (
+    generate_lateral_movement_scenario
+)
+from generator.attack_traces.data_exfiltration.generator import (
+    generate_data_exfiltration_scenario
+)
+from generator.attack_traces.supply_chain.generator import (
+    generate_supply_chain_scenario
+)
 from analysis_engine.pipeline import analyze_scenario
 
 logging.basicConfig(
@@ -45,6 +54,21 @@ SCENARIOS = {
         "name": "Credential Stuffing",
         "generator": generate_credential_stuffing_scenario,
         "duration": 0.33,
+    },
+    "lateral_movement": {
+        "name": "Lateral Movement (Multi-Account)",
+        "generator": generate_lateral_movement_scenario,
+        "duration": 1.5,
+    },
+    "data_exfiltration": {
+        "name": "Data Exfiltration via S3",
+        "generator": generate_data_exfiltration_scenario,
+        "duration": 0.67,
+    },
+    "supply_chain": {
+        "name": "Supply Chain Attack (CI/CD)",
+        "generator": generate_supply_chain_scenario,
+        "duration": 1.83,
     },
 }
 
@@ -187,5 +211,10 @@ def list_scenarios() -> None:
         click.echo()
 
 
-if __name__ == '__main__':
+def main():
+    """Entry point for the CLI tool."""
     run_scenario()
+
+
+if __name__ == '__main__':
+    main()

@@ -1,9 +1,10 @@
 """
 Threat narrative generation agent.
 """
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 import logging
+import asyncio
 
 from analysis_engine.core.correlation import CorrelationSession
 from analysis_engine.core.kill_chain import KillChainMapper
@@ -11,19 +12,40 @@ from analysis_engine.core.mitre_mapper import MitreMapper
 
 logger = logging.getLogger(__name__)
 
+# Optional LLM integration
+try:
+    from analysis_engine.llm import LLMProvider, get_prompt
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+    logger.info("LLM integration not available. Using template-based narrative generation.")
+
 
 class ThreatNarrativeAgent:
     """
     Generates human-readable threat narratives from analysis results.
 
-    This is a template-based implementation that can be replaced with
-    an LLM-based generator in the future.
+    Supports both LLM-based and template-based narrative generation with
+    automatic fallback to templates if LLM is unavailable.
     """
 
-    def __init__(self):
-        """Initialize the narrative agent."""
+    def __init__(self, llm_provider: Optional['LLMProvider'] = None, use_llm: bool = True):
+        """
+        Initialize the narrative agent.
+
+        Args:
+            llm_provider: Optional LLM provider instance for AI-powered narratives
+            use_llm: Whether to use LLM when available (default: True)
+        """
         self.kill_chain_mapper = KillChainMapper()
         self.mitre_mapper = MitreMapper()
+        self.llm_provider = llm_provider if LLM_AVAILABLE else None
+        self.use_llm = use_llm and LLM_AVAILABLE and llm_provider is not None
+
+        if self.use_llm:
+            logger.info("ThreatNarrativeAgent initialized with LLM support")
+        else:
+            logger.info("ThreatNarrativeAgent using template-based generation")
 
     def generate_narrative(
         self,
@@ -35,6 +57,8 @@ class ThreatNarrativeAgent:
         """
         Generate a comprehensive threat narrative.
 
+        Uses LLM if available, otherwise falls back to template-based generation.
+
         Args:
             session: Correlation session
             kill_chain_data: Kill chain mapping results
@@ -44,10 +68,66 @@ class ThreatNarrativeAgent:
         Returns:
             Narrative report
         """
-        # LLM_INTEGRATION_POINT
-        # Replace this template-based logic with LLM call:
-        # narrative = llm.generate_narrative(session, kill_chain_data, mitre_data, ioc_data)
+        if self.use_llm:
+            try:
+                # Try LLM-based generation
+                return asyncio.run(self._generate_narrative_llm(
+                    session, kill_chain_data, mitre_data, ioc_data
+                ))
+            except Exception as e:
+                logger.warning(f"LLM narrative generation failed: {e}. Falling back to template-based.")
+                # Fall through to template-based generation
 
+        # Template-based generation (fallback or default)
+        return self._generate_narrative_template(
+            session, kill_chain_data, mitre_data, ioc_data
+        )
+
+    async def _generate_narrative_llm(
+        self,
+        session: CorrelationSession,
+        kill_chain_data: Dict[str, Any],
+        mitre_data: Dict[str, Any],
+        ioc_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate narrative using LLM."""
+        # Prepare session data for LLM
+        session_data = {
+            "session_id": session.session_id,
+            "duration_seconds": session.duration_seconds(),
+            "num_events": len(session.events),
+            "risk_score": session.risk_score,
+            "start_time": str(session.start_time) if session.start_time else "N/A",
+            "end_time": str(session.end_time) if session.end_time else "N/A",
+        }
+
+        # Get prompt template
+        prompt = get_prompt("narrative", mode="detailed")
+
+        # Call LLM
+        narrative = await self.llm_provider.generate_narrative(
+            session_data=session_data,
+            kill_chain_data=kill_chain_data,
+            mitre_data=mitre_data,
+            ioc_data=ioc_data,
+            prompt_template=prompt
+        )
+
+        # Add metadata
+        narrative["generation_method"] = "llm"
+        narrative["llm_provider"] = self.llm_provider.__class__.__name__
+
+        logger.info("Generated narrative using LLM")
+        return narrative
+
+    def _generate_narrative_template(
+        self,
+        session: CorrelationSession,
+        kill_chain_data: Dict[str, Any],
+        mitre_data: Dict[str, Any],
+        ioc_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate narrative using templates (original implementation)."""
         narrative = {
             "executive_summary": self._generate_executive_summary(
                 session, kill_chain_data, mitre_data
@@ -58,6 +138,7 @@ class ThreatNarrativeAgent:
             ),
             "impact_assessment": self._generate_impact_assessment(session, ioc_data),
             "recommended_actions": self._generate_recommended_actions(session, mitre_data),
+            "generation_method": "template"
         }
 
         return narrative

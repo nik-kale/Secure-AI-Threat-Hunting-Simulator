@@ -17,6 +17,13 @@ RUN npm run build
 # Install serve to run the build
 RUN npm install -g serve
 
+# Create non-root user
+RUN adduser -D -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
 # Expose port
 EXPOSE 3000
 

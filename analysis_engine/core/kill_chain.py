@@ -1,7 +1,7 @@
 """
 Lockheed Martin Cyber Kill Chain mapper.
 """
-from typing import Dict, List, Set, Any
+from typing import Dict, List, Set, Any, Optional
 from enum import Enum
 import logging
 
@@ -95,7 +95,7 @@ class KillChainMapper:
             for event_type in event_types:
                 self.event_type_to_stage[event_type] = stage
 
-    def map_event(self, event: NormalizedEvent) -> KillChainStage | None:
+    def map_event(self, event: NormalizedEvent) -> Optional[KillChainStage]:
         """
         Map a single event to a kill chain stage.
 

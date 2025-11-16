@@ -8,9 +8,9 @@ from typing import List, Dict, Any
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from telemetry_synthesizer import TelemetrySynthesizer
-from utils.time_utils import generate_time_sequence, get_scenario_timeframe
-from utils.id_utils import (
+from generator.telemetry_synthesizer import TelemetrySynthesizer
+from generator.utils.time_utils import generate_time_sequence, get_scenario_timeframe
+from generator.utils.id_utils import (
     generate_ip_address,
     generate_user_agent,
     generate_session_id,

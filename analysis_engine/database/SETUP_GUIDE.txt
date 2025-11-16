@@ -1,0 +1,199 @@
+================================================================================
+AI Threat Hunting Simulator - Database Persistence Layer Setup Guide
+================================================================================
+
+INSTALLATION
+============
+
+1. Install SQLAlchemy and dependencies:
+
+   pip install -r requirements.txt
+
+   Or install database dependencies separately:
+
+   pip install sqlalchemy>=2.0.0 alembic>=1.13.0
+
+   For PostgreSQL support:
+   pip install psycopg2-binary>=2.9.9  # Sync driver
+   pip install asyncpg>=0.29.0         # Async driver
+
+2. Verify installation:
+
+   python3 -c "from analysis_engine.database import DatabaseConfig; print('OK')"
+
+
+QUICK START
+===========
+
+1. Basic usage with SQLite:
+
+   from analysis_engine.database import (
+       DatabaseConfig, init_database, AnalysisRepository
+   )
+
+   # Initialize database
+   config = DatabaseConfig.sqlite_file("threat_hunting.db")
+   db = init_database(config, create_tables=True)
+
+   # Use repositories
+   with db.session_scope() as session:
+       repo = AnalysisRepository(session)
+       run = repo.save_analysis_run(
+           scenario_name="test_scenario",
+           num_events=1000,
+           num_sessions=50,
+           results={"sessions": []},
+       )
+       print(f"Saved analysis run: {run.id}")
+
+
+2. CLI usage:
+
+   # Initialize database
+   python -m analysis_engine.database.cli init --url sqlite:///threat_hunting.db
+
+   # View statistics
+   python -m analysis_engine.database.cli stats --url sqlite:///threat_hunting.db
+
+   # List analysis runs
+   python -m analysis_engine.database.cli list-runs --url sqlite:///threat_hunting.db
+
+   # List sessions
+   python -m analysis_engine.database.cli list-sessions --url sqlite:///threat_hunting.db --min-risk 0.7
+
+
+3. Integration with pipeline:
+
+   from analysis_engine.database.integration_example import DatabasePersistentPipeline
+   from pathlib import Path
+
+   # Create pipeline with database persistence
+   pipeline = DatabasePersistentPipeline(
+       database_url="sqlite:///threat_hunting.db"
+   )
+
+   # Analyze and automatically save to database
+   results = pipeline.analyze_and_save(
+       telemetry_path=Path("telemetry.jsonl"),
+       scenario_name="my_scenario",
+   )
+
+
+DATABASE CONFIGURATIONS
+=======================
+
+SQLite (file-based):
+    config = DatabaseConfig.sqlite_file("path/to/database.db")
+
+SQLite (in-memory):
+    config = DatabaseConfig.sqlite_memory()
+
+PostgreSQL (sync):
+    config = DatabaseConfig.postgresql(
+        host="localhost",
+        database="threat_hunting",
+        user="postgres",
+        password="password",
+        port=5432
+    )
+
+PostgreSQL (async):
+    config = DatabaseConfig.postgresql_async(
+        host="localhost",
+        database="threat_hunting",
+        user="postgres",
+        password="password",
+        port=5432
+    )
+
+
+FILE STRUCTURE
+==============
+
+analysis_engine/database/
+├── __init__.py              - Main exports and package initialization
+├── models.py                - SQLAlchemy ORM models
+├── database.py              - Database engine and session management
+├── repository.py            - Data access layer (repositories)
+├── cli.py                   - Command-line interface
+├── migrations.py            - Database migration utilities (Alembic)
+├── example_usage.py         - Usage examples
+├── integration_example.py   - Pipeline integration examples
+├── test_database.py         - Unit tests
+└── SETUP_GUIDE.txt          - This file
+
+
+DATABASE SCHEMA
+===============
+
+Tables:
+  - analysis_runs          : Analysis run metadata and results
+  - detected_sessions      : Correlated sessions with threat data
+  - iocs                   : Indicators of compromise
+  - threat_intelligence    : External threat intelligence data
+
+Relationships:
+  analysis_runs (1) → (many) detected_sessions
+  detected_sessions (1) → (many) iocs
+  iocs (1) → (many) threat_intelligence
+
+
+RUNNING TESTS
+=============
+
+Run the database tests:
+
+    pytest analysis_engine/database/test_database.py -v
+
+Run with coverage:
+
+    pytest analysis_engine/database/test_database.py -v --cov=analysis_engine.database
+
+
+EXAMPLES
+========
+
+See the following files for detailed examples:
+  - example_usage.py         : Basic CRUD operations
+  - integration_example.py   : Pipeline integration
+  - test_database.py         : Test examples
+
+
+TROUBLESHOOTING
+===============
+
+1. "No module named 'sqlalchemy'":
+   → Install dependencies: pip install -r requirements.txt
+
+2. "table already exists" error:
+   → Use db.reset() or db.drop_all() then db.create_all()
+
+3. SQLite foreign key constraints not working:
+   → Foreign keys are automatically enabled in the DatabaseManager
+
+4. PostgreSQL connection issues:
+   → Verify PostgreSQL is running and credentials are correct
+   → For async: ensure asyncpg is installed
+   → For sync: ensure psycopg2-binary is installed
+
+
+PRODUCTION CONSIDERATIONS
+==========================
+
+1. Use PostgreSQL for production deployments
+2. Enable connection pooling (configured by default)
+3. Use environment variables for database credentials
+4. Implement proper backup strategies
+5. Consider using Alembic for schema migrations
+6. Use async operations for high-throughput scenarios
+7. Monitor database performance and query optimization
+
+
+ADDITIONAL RESOURCES
+====================
+
+SQLAlchemy 2.0 Documentation: https://docs.sqlalchemy.org/en/20/
+Alembic Documentation: https://alembic.sqlalchemy.org/
+PostgreSQL Documentation: https://www.postgresql.org/docs/
+
+================================================================================

@@ -1,0 +1,787 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "ai-threat-hunting",
+    "title": "AI Threat Hunting Simulator - Performance Dashboard",
+    "tags": ["security", "threat-hunting", "ai", "performance"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "type": "stat",
+        "title": "Total Analysis Requests",
+        "targets": [
+          {
+            "expr": "sum(analysis_requests_total)",
+            "refId": "A",
+            "legendFormat": "Total Requests"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                }
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "type": "stat",
+        "title": "Success Rate",
+        "targets": [
+          {
+            "expr": "sum(rate(analysis_requests_total{status=\"success\"}[5m])) / sum(rate(analysis_requests_total[5m])) * 100",
+            "refId": "A",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 95
+                }
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "type": "stat",
+        "title": "Current Analysis Jobs",
+        "targets": [
+          {
+            "expr": "current_analysis_jobs",
+            "refId": "A",
+            "legendFormat": "Active Jobs"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 5
+                },
+                {
+                  "color": "red",
+                  "value": 10
+                }
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "type": "stat",
+        "title": "Total Events Processed",
+        "targets": [
+          {
+            "expr": "sum(events_processed_total)",
+            "refId": "A",
+            "legendFormat": "Events"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "blue",
+                  "value": null
+                }
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Analysis Request Rate",
+        "targets": [
+          {
+            "expr": "rate(analysis_requests_total{status=\"success\"}[5m])",
+            "refId": "A",
+            "legendFormat": "Success - {{scenario}}"
+          },
+          {
+            "expr": "rate(analysis_requests_total{status=\"failure\"}[5m])",
+            "refId": "B",
+            "legendFormat": "Failure - {{scenario}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Requests/sec",
+            "format": "short"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Analysis Duration",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(analysis_duration_seconds_bucket[5m]))",
+            "refId": "A",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(analysis_duration_seconds_bucket[5m]))",
+            "refId": "B",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(analysis_duration_seconds_bucket[5m]))",
+            "refId": "C",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Duration (seconds)",
+            "format": "s"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Event Processing Rate",
+        "targets": [
+          {
+            "expr": "rate(events_processed_total[5m])",
+            "refId": "A",
+            "legendFormat": "{{event_source}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Events/sec",
+            "format": "short"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "gridPos": {
+          "x": 12,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Sessions Detected",
+        "targets": [
+          {
+            "expr": "rate(sessions_detected_total{is_malicious=\"true\"}[5m])",
+            "refId": "A",
+            "legendFormat": "Malicious"
+          },
+          {
+            "expr": "rate(sessions_detected_total{is_malicious=\"false\"}[5m])",
+            "refId": "B",
+            "legendFormat": "Benign"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Sessions/sec",
+            "format": "short"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 8,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Memory Usage",
+        "targets": [
+          {
+            "expr": "memory_usage_bytes{type=\"rss\"} / 1024 / 1024",
+            "refId": "A",
+            "legendFormat": "RSS"
+          },
+          {
+            "expr": "memory_usage_bytes{type=\"vms\"} / 1024 / 1024",
+            "refId": "B",
+            "legendFormat": "VMS"
+          },
+          {
+            "expr": "memory_usage_bytes{type=\"system_used\"} / 1024 / 1024",
+            "refId": "C",
+            "legendFormat": "System Used"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Memory (MB)",
+            "format": "mbytes"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "gridPos": {
+          "x": 8,
+          "y": 20,
+          "w": 8,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "HTTP Request Rate",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "refId": "A",
+            "legendFormat": "{{method}} {{endpoint}} - {{status_code}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Requests/sec",
+            "format": "short"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "gridPos": {
+          "x": 16,
+          "y": 20,
+          "w": 8,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "HTTP Request Duration",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "refId": "A",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "refId": "B",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "refId": "C",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Duration (seconds)",
+            "format": "s"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "gridPos": {
+          "x": 0,
+          "y": 28,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "LLM Request Rate",
+        "targets": [
+          {
+            "expr": "rate(llm_requests_total{status=\"success\"}[5m])",
+            "refId": "A",
+            "legendFormat": "Success - {{agent}}"
+          },
+          {
+            "expr": "rate(llm_requests_total{status=\"failure\"}[5m])",
+            "refId": "B",
+            "legendFormat": "Failure - {{agent}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Requests/sec",
+            "format": "short"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "gridPos": {
+          "x": 12,
+          "y": 28,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "LLM Token Usage",
+        "targets": [
+          {
+            "expr": "rate(llm_tokens_used_total{token_type=\"prompt\"}[5m])",
+            "refId": "A",
+            "legendFormat": "Prompt - {{agent}}"
+          },
+          {
+            "expr": "rate(llm_tokens_used_total{token_type=\"completion\"}[5m])",
+            "refId": "B",
+            "legendFormat": "Completion - {{agent}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Tokens/sec",
+            "format": "short"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "gridPos": {
+          "x": 0,
+          "y": 36,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Database Query Rate",
+        "targets": [
+          {
+            "expr": "rate(database_queries_total{status=\"success\"}[5m])",
+            "refId": "A",
+            "legendFormat": "Success - {{operation}} {{table}}"
+          },
+          {
+            "expr": "rate(database_queries_total{status=\"failure\"}[5m])",
+            "refId": "B",
+            "legendFormat": "Failure - {{operation}} {{table}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Queries/sec",
+            "format": "short"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 15,
+        "gridPos": {
+          "x": 12,
+          "y": 36,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Database Query Duration",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(database_query_duration_seconds_bucket[5m]))",
+            "refId": "A",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(database_query_duration_seconds_bucket[5m]))",
+            "refId": "B",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(database_query_duration_seconds_bucket[5m]))",
+            "refId": "C",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Duration (seconds)",
+            "format": "s"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 16,
+        "gridPos": {
+          "x": 0,
+          "y": 44,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "IOCs Extracted",
+        "targets": [
+          {
+            "expr": "rate(iocs_extracted_total[5m])",
+            "refId": "A",
+            "legendFormat": "{{ioc_type}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "IOCs/sec",
+            "format": "short"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 17,
+        "gridPos": {
+          "x": 12,
+          "y": 44,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Error Rate",
+        "targets": [
+          {
+            "expr": "rate(errors_total[5m])",
+            "refId": "A",
+            "legendFormat": "{{error_type}} - {{component}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Errors/sec",
+            "format": "short"
+          },
+          {
+            "format": "short"
+          }
+        ],
+        "alert": {
+          "name": "High Error Rate",
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [0.1],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "for": "5m",
+          "frequency": "1m",
+          "message": "Error rate has exceeded threshold",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 18,
+        "gridPos": {
+          "x": 0,
+          "y": 52,
+          "w": 8,
+          "h": 4
+        },
+        "type": "stat",
+        "title": "Health Status - Pipeline",
+        "targets": [
+          {
+            "expr": "health_check_status{component=\"pipeline\"}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "text": "Unhealthy"
+                  },
+                  "1": {
+                    "text": "Healthy"
+                  }
+                },
+                "type": "value"
+              }
+            ],
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 19,
+        "gridPos": {
+          "x": 8,
+          "y": 52,
+          "w": 8,
+          "h": 4
+        },
+        "type": "stat",
+        "title": "Health Status - System",
+        "targets": [
+          {
+            "expr": "health_check_status{component=\"system\"}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "text": "Unhealthy"
+                  },
+                  "1": {
+                    "text": "Healthy"
+                  }
+                },
+                "type": "value"
+              }
+            ],
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 20,
+        "gridPos": {
+          "x": 16,
+          "y": 52,
+          "w": 8,
+          "h": 4
+        },
+        "type": "stat",
+        "title": "File Upload Size (avg)",
+        "targets": [
+          {
+            "expr": "avg(file_upload_size_bytes) / 1024 / 1024",
+            "refId": "A",
+            "legendFormat": "Average Size"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 50
+                },
+                {
+                  "color": "red",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "mbytes"
+          }
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "Prometheus",
+          "enable": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "expr": "changes(analysis_requests_total[1m]) > 0",
+          "step": "60s",
+          "titleFormat": "Activity Spike",
+          "textFormat": "",
+          "tagsField": "",
+          "tags": []
+        }
+      ]
+    }
+  },
+  "overwrite": true
+}

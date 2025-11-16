@@ -1,21 +1,46 @@
 """
 Incident response planning agent.
 """
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import logging
+import asyncio
 
 from analysis_engine.core.correlation import CorrelationSession
 
 logger = logging.getLogger(__name__)
+
+# Optional LLM integration
+try:
+    from analysis_engine.llm import LLMProvider, get_prompt
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+    logger.info("LLM integration not available. Using template-based response planning.")
 
 
 class ResponsePlannerAgent:
     """
     Generates incident response plans and playbooks.
 
-    This is a template-based implementation that can be replaced with
-    an LLM-based planner in the future.
+    Supports both LLM-based and template-based planning with
+    automatic fallback to templates if LLM is unavailable.
     """
+
+    def __init__(self, llm_provider: Optional['LLMProvider'] = None, use_llm: bool = True):
+        """
+        Initialize the response planner.
+
+        Args:
+            llm_provider: Optional LLM provider instance for AI-powered planning
+            use_llm: Whether to use LLM when available (default: True)
+        """
+        self.llm_provider = llm_provider if LLM_AVAILABLE else None
+        self.use_llm = use_llm and LLM_AVAILABLE and llm_provider is not None
+
+        if self.use_llm:
+            logger.info("ResponsePlannerAgent initialized with LLM support")
+        else:
+            logger.info("ResponsePlannerAgent using template-based planning")
 
     def generate_response_plan(
         self,
@@ -27,6 +52,8 @@ class ResponsePlannerAgent:
         """
         Generate an incident response plan.
 
+        Uses LLM if available, otherwise falls back to template-based planning.
+
         Args:
             session: Correlation session
             mitre_data: MITRE ATT&CK mapping
@@ -36,9 +63,75 @@ class ResponsePlannerAgent:
         Returns:
             Response plan
         """
-        # LLM_INTEGRATION_POINT
-        # Replace with: plan = llm.generate_response_plan(...)
+        if self.use_llm:
+            try:
+                # Try LLM-based planning
+                return asyncio.run(self._generate_response_plan_llm(
+                    session, mitre_data, ioc_data, narrative_data
+                ))
+            except Exception as e:
+                logger.warning(f"LLM response planning failed: {e}. Falling back to template-based.")
+                # Fall through to template-based planning
 
+        # Template-based planning (fallback or default)
+        return self._generate_response_plan_template(
+            session, mitre_data, ioc_data, narrative_data
+        )
+
+    async def _generate_response_plan_llm(
+        self,
+        session: CorrelationSession,
+        mitre_data: Dict[str, Any],
+        ioc_data: Dict[str, Any],
+        narrative_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate response plan using LLM."""
+        # Prepare session data for LLM
+        session_data = {
+            "session_id": session.session_id,
+            "duration_seconds": session.duration_seconds(),
+            "num_events": len(session.events),
+            "risk_score": session.risk_score,
+            "start_time": str(session.start_time) if session.start_time else "N/A",
+            "end_time": str(session.end_time) if session.end_time else "N/A",
+        }
+
+        # Get prompt template
+        prompt = get_prompt("response_planning", mode="detailed")
+
+        # Call LLM
+        plan = await self.llm_provider.plan_response(
+            session_data=session_data,
+            mitre_data=mitre_data,
+            ioc_data=ioc_data,
+            narrative_data=narrative_data,
+            prompt_template=prompt
+        )
+
+        # Also generate template-based plan for structured data
+        template_plan = self._generate_response_plan_template(
+            session, mitre_data, ioc_data, narrative_data
+        )
+
+        # Merge LLM and template results
+        merged_plan = {
+            **template_plan,
+            "llm_analysis": plan.get("raw_plan", ""),
+            "generation_method": "llm",
+            "llm_provider": self.llm_provider.__class__.__name__,
+        }
+
+        logger.info("Generated response plan using LLM")
+        return merged_plan
+
+    def _generate_response_plan_template(
+        self,
+        session: CorrelationSession,
+        mitre_data: Dict[str, Any],
+        ioc_data: Dict[str, Any],
+        narrative_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate response plan using templates (original implementation)."""
         plan = {
             "immediate_actions": self._generate_immediate_actions(session, ioc_data),
             "containment": self._generate_containment_steps(session, mitre_data),
@@ -46,6 +139,7 @@ class ResponsePlannerAgent:
             "recovery": self._generate_recovery_steps(session),
             "lessons_learned": self._generate_lessons_learned(session, mitre_data),
             "timeline_estimate": self._estimate_response_timeline(session),
+            "generation_method": "template"
         }
 
         return plan
