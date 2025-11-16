@@ -431,6 +431,7 @@ def generate_lateral_movement_scenario(
                 action="ListObjects",
                 principal=high_priv_prod_role,
                 bucket=bucket,
+                key="",  # Empty key for ListObjects operation
                 timestamp=impact_timestamps[i * 2],
                 source_ip=attacker_ip,
                 user_agent=attacker_user_agent,

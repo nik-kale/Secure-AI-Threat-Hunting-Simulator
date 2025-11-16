@@ -281,6 +281,41 @@ class TelemetrySynthesizer:
 
         return event
 
+    def create_sts_event(
+        self,
+        action: str,
+        principal: str,
+        timestamp: str,
+        assumed_role: Optional[str] = None,
+        source_ip: Optional[str] = None,
+        status: str = "success",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create an STS (Security Token Service) event."""
+        event = self.create_base_event(
+            event_type=f"sts.{action.lower().replace(':', '_')}",
+            event_source="sts",
+            timestamp=timestamp,
+            principal=principal,
+            principal_type=kwargs.get("principal_type", "user"),
+            source_ip=source_ip or generate_ip_address(),
+            user_agent=kwargs.get("user_agent", generate_user_agent()),
+            action=action,
+            status=status,
+        )
+
+        if assumed_role:
+            event["assumed_role"] = assumed_role
+            event["resource"] = assumed_role
+            event["resource_type"] = "role"
+
+        event["request_parameters"] = kwargs.get("request_parameters", {})
+        event["response_elements"] = kwargs.get("response_elements", {})
+        event["metadata"] = kwargs.get("metadata", {})
+        event["session_id"] = kwargs.get("session_id", generate_session_id())
+
+        return event
+
     def add_benign_noise(
         self,
         events: List[Dict[str, Any]],
