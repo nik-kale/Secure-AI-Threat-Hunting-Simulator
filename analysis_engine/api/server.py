@@ -14,6 +14,7 @@ import time
 
 from analysis_engine.pipeline import ThreatHuntingPipeline
 from analysis_engine.api.auth import verify_api_key, verify_admin_key
+from config import get_settings
 
 # Rate limiting
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -49,8 +50,11 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Load configuration
+settings = get_settings()
+
 # Enable CORS with proper security
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+ALLOWED_ORIGINS = settings.allowed_origins if isinstance(settings.allowed_origins, list) else settings.allowed_origins.split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,8 +64,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize pipeline
-pipeline = ThreatHuntingPipeline()
+# Initialize pipeline with LLM and threat intelligence
+pipeline = ThreatHuntingPipeline(
+    time_window_minutes=settings.correlation_time_window_minutes,
+    min_events_for_session=settings.min_events_for_alert,
+    risk_threshold=settings.risk_score_threshold,
+    enable_database=True,
+    database_url=settings.db_connection_string,
+    llm_provider_type=settings.llm_provider if settings.llm_provider.lower() not in ["none", ""] else None,
+    llm_api_key=settings.openai_api_key if settings.llm_provider == "openai" else settings.anthropic_api_key,
+    llm_model=settings.llm_model,
+    enable_threat_intel=settings.enable_threat_intel,
+    threat_intel_config=settings if settings.enable_threat_intel else None
+)
 
 # Request tracking middleware
 @app.middleware("http")

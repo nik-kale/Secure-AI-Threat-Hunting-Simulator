@@ -40,6 +40,22 @@ except ImportError:
     DATABASE_AVAILABLE = False
     logger.warning("Database module not available. Analysis results will not be persisted.")
 
+# Optional LLM integration
+try:
+    from .llm import get_llm_provider, LLMProvider
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+    logger.info("LLM integration not available. Using template-based analysis.")
+
+# Optional threat intelligence integration
+try:
+    from .threat_intel import IOCEnricher, create_enricher_from_config
+    THREAT_INTEL_AVAILABLE = True
+except ImportError:
+    THREAT_INTEL_AVAILABLE = False
+    logger.info("Threat intelligence integration not available.")
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -65,7 +81,12 @@ class ThreatHuntingPipeline:
         risk_threshold: float = 0.5,
         enable_graph_analysis: bool = True,
         enable_database: bool = None,
-        database_url: Optional[str] = None
+        database_url: Optional[str] = None,
+        llm_provider_type: Optional[str] = None,
+        llm_api_key: Optional[str] = None,
+        llm_model: Optional[str] = None,
+        enable_threat_intel: bool = None,
+        threat_intel_config: Optional[Any] = None
     ):
         """
         Initialize the analysis pipeline.
@@ -77,6 +98,11 @@ class ThreatHuntingPipeline:
             enable_graph_analysis: Enable graph-based correlation (requires networkx)
             enable_database: Enable database persistence (auto-detects if None)
             database_url: Database connection URL (uses env var DB_CONNECTION_STRING if None)
+            llm_provider_type: LLM provider to use ('openai', 'anthropic', or None)
+            llm_api_key: API key for LLM provider (if None, uses env var)
+            llm_model: Model name to use (if None, uses provider default)
+            enable_threat_intel: Enable threat intelligence enrichment (auto-detects if None)
+            threat_intel_config: Config object with threat intel settings
         """
         self.loader = TelemetryLoader()
         self.parser = EventParser()
@@ -87,14 +113,64 @@ class ThreatHuntingPipeline:
         self.kill_chain_mapper = KillChainMapper()
         self.mitre_mapper = MitreMapper()
 
-        self.ioc_extractor = IocExtractorAgent()
-        self.narrative_generator = ThreatNarrativeAgent()
-        self.response_planner = ResponsePlannerAgent()
-
         # Store configuration for database persistence
         self.time_window_minutes = time_window_minutes
         self.min_events_for_session = min_events_for_session
         self.risk_threshold = risk_threshold
+
+        # Initialize LLM provider if configured
+        self.llm_provider = None
+        if llm_provider_type and llm_provider_type.lower() not in ["none", ""]:
+            if LLM_AVAILABLE:
+                try:
+                    self.llm_provider = get_llm_provider(
+                        provider_type=llm_provider_type,
+                        api_key=llm_api_key,
+                        model=llm_model
+                    )
+                    logger.info(f"LLM provider initialized: {llm_provider_type}")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize LLM provider: {e}. Using template-based analysis.")
+                    self.llm_provider = None
+            else:
+                logger.warning("LLM integration requested but not available. Using template-based analysis.")
+
+        # Initialize threat intelligence enricher if configured
+        self.threat_intel_enricher = None
+        if enable_threat_intel is None:
+            # Auto-detect: enable if config provided and module available
+            enable_threat_intel = (
+                THREAT_INTEL_AVAILABLE and
+                threat_intel_config is not None and
+                getattr(threat_intel_config, 'enable_threat_intel', False)
+            )
+
+        if enable_threat_intel and THREAT_INTEL_AVAILABLE:
+            try:
+                if threat_intel_config:
+                    self.threat_intel_enricher = create_enricher_from_config(threat_intel_config)
+                    logger.info("Threat intelligence enrichment enabled")
+                else:
+                    logger.warning("Threat intelligence requested but no config provided")
+            except Exception as e:
+                logger.warning(f"Failed to initialize threat intelligence: {e}")
+                self.threat_intel_enricher = None
+
+        # Initialize agents with optional LLM and threat intel
+        self.ioc_extractor = IocExtractorAgent(
+            llm_provider=self.llm_provider,
+            use_llm=self.llm_provider is not None,
+            threat_intel_enricher=self.threat_intel_enricher,
+            enable_enrichment=self.threat_intel_enricher is not None
+        )
+        self.narrative_generator = ThreatNarrativeAgent(
+            llm_provider=self.llm_provider,
+            use_llm=self.llm_provider is not None
+        )
+        self.response_planner = ResponsePlannerAgent(
+            llm_provider=self.llm_provider,
+            use_llm=self.llm_provider is not None
+        )
 
         # Initialize graph correlator if available and enabled
         self.enable_graph_analysis = enable_graph_analysis and GRAPH_CORRELATION_AVAILABLE

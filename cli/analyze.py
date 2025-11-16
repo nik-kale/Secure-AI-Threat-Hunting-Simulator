@@ -13,6 +13,7 @@ import logging
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from analysis_engine.pipeline import ThreatHuntingPipeline
+from config import get_settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,6 +74,26 @@ def cli():
     default='both',
     help='Output format (default: both)'
 )
+@click.option(
+    '--llm-provider',
+    type=click.Choice(['openai', 'anthropic', 'none']),
+    default='none',
+    help='LLM provider for AI-powered analysis (default: none, uses templates)'
+)
+@click.option(
+    '--llm-api-key',
+    envvar='OPENAI_API_KEY',
+    help='API key for LLM provider (can also use OPENAI_API_KEY or ANTHROPIC_API_KEY env vars)'
+)
+@click.option(
+    '--llm-model',
+    help='Model name to use (e.g., gpt-4-turbo-preview, claude-3-5-sonnet-20241022)'
+)
+@click.option(
+    '--enable-threat-intel',
+    is_flag=True,
+    help='Enable threat intelligence enrichment (requires API keys in environment)'
+)
 def analyze(
     telemetry_file: Path,
     output: Optional[Path],
@@ -80,7 +101,11 @@ def analyze(
     min_events: int,
     risk_threshold: float,
     verbose: bool,
-    format: str
+    format: str,
+    llm_provider: str,
+    llm_api_key: Optional[str],
+    llm_model: Optional[str],
+    enable_threat_intel: bool
 ) -> None:
     """
     Analyze telemetry file for threats and generate reports.
@@ -125,10 +150,43 @@ def analyze(
     try:
         # Initialize pipeline
         click.echo("Initializing analysis pipeline...")
-        pipeline = ThreatHuntingPipeline()
+
+        # Get config for threat intelligence if enabled
+        settings = None
+        if enable_threat_intel:
+            settings = get_settings()
+
+        # Determine LLM provider type and API key
+        provider_type = llm_provider if llm_provider != 'none' else None
+        api_key = llm_api_key
+
+        # If no explicit API key provided, try environment variables
+        if provider_type and not api_key:
+            import os
+            if llm_provider == 'openai':
+                api_key = os.getenv('OPENAI_API_KEY')
+            elif llm_provider == 'anthropic':
+                api_key = os.getenv('ANTHROPIC_API_KEY')
+
+        pipeline = ThreatHuntingPipeline(
+            time_window_minutes=time_window,
+            min_events_for_session=min_events,
+            risk_threshold=risk_threshold,
+            llm_provider_type=provider_type,
+            llm_api_key=api_key,
+            llm_model=llm_model,
+            enable_threat_intel=enable_threat_intel,
+            threat_intel_config=settings if enable_threat_intel else None
+        )
+
+        # Display configuration
+        if provider_type:
+            click.echo(f"LLM provider:     {llm_provider} (model: {llm_model or 'default'})")
+        if enable_threat_intel:
+            click.echo(f"Threat intel:     Enabled")
 
         # Run analysis
-        click.echo(f"Analyzing telemetry from: {telemetry_file.name}")
+        click.echo(f"\nAnalyzing telemetry from: {telemetry_file.name}")
 
         results = pipeline.analyze_telemetry_file(
             telemetry_file=telemetry_file,
