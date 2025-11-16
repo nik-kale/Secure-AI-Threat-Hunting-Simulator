@@ -20,6 +20,10 @@ fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 httpx>=0.25.0
 aiohttp>=3.9.0  # For async threat intel API calls
+slowapi>=0.1.9  # Rate limiting
+python-multipart>=0.0.6  # File uploads
+python-magic>=0.4.27  # MIME type detection for security
+pydantic-settings>=2.1.0  # Settings management
 
 # Visualization (for notebooks)
 matplotlib>=3.8.0

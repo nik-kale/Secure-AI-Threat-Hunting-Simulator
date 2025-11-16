@@ -14,6 +14,15 @@ import time
 
 from analysis_engine.pipeline import ThreatHuntingPipeline
 from analysis_engine.api.auth import verify_api_key, verify_admin_key
+from analysis_engine.api.models import (
+    HealthResponse, AnalysisResult, GenerateScenarioRequest,
+    GenerateScenarioResponse, ScenarioListResponse, ErrorResponse,
+    AnalyzeDataRequest, ScenarioInfo, ScenarioName
+)
+from analysis_engine.api.security import (
+    RequestIDMiddleware, SecurityHeadersMiddleware,
+    FileValidator, AuditLogger, get_client_ip
+)
 from config import get_settings
 
 # Rate limiting
@@ -63,6 +72,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
+
+# Add security middleware
+app.add_middleware(SecurityHeadersMiddleware, enable_hsts=os.getenv("ENABLE_HSTS", "false").lower() == "true")
+app.add_middleware(RequestIDMiddleware)
 
 # Initialize pipeline with LLM and threat intelligence
 pipeline = ThreatHuntingPipeline(
@@ -376,75 +389,88 @@ def _generate_stats_summary(metrics: Dict[str, Any]) -> Dict[str, Any]:
     return summary
 
 
-@app.post("/analyze/upload", dependencies=[Depends(verify_api_key)])
+@app.post("/analyze/upload", dependencies=[Depends(verify_api_key)], response_model=AnalysisResult)
 @limiter.limit("10/minute")
 async def analyze_upload(
     request: Request,
     file: UploadFile = File(...)
-) -> Dict[str, Any]:
+) -> AnalysisResult:
     """
-    Analyze uploaded telemetry file.
+    Analyze uploaded telemetry file with comprehensive security validation.
 
     Args:
         request: FastAPI request object
         file: Uploaded telemetry file (JSONL or JSON)
 
     Returns:
-        Analysis results
+        Analysis results with validated response model
 
     Raises:
-        HTTPException: If file is too large or analysis fails
+        HTTPException: If file validation fails or analysis fails
     """
     tmp_path = None
 
     try:
-        # Validate file size (max 100MB by default)
-        max_size = int(os.getenv("MAX_UPLOAD_SIZE_MB", "100")) * 1024 * 1024
-        content = await file.read()
+        # Comprehensive file validation with security checks
+        validation_result = await FileValidator.validate_upload(
+            file,
+            max_size=settings.max_upload_size_mb * 1024 * 1024,
+            allowed_extensions={'.jsonl', '.json', '.txt', '.log'}
+        )
 
-        if len(content) > max_size:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File too large. Maximum size: {max_size / 1024 / 1024}MB"
-            )
+        # Audit log the file upload
+        client_ip = get_client_ip(request)
+        request_id = getattr(request.state, 'request_id', 'unknown')
+        AuditLogger.log_file_upload(
+            request_id=request_id,
+            filename=validation_result['filename'],
+            size_bytes=validation_result['size_bytes'],
+            client_ip=client_ip
+        )
 
-        # Validate file extension
-        allowed_extensions = ['.jsonl', '.json']
-        file_ext = Path(file.filename).suffix.lower()
-        if file_ext not in allowed_extensions:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
-            )
+        logger.info(
+            f"Analyzing uploaded file: {file.filename} "
+            f"({validation_result['size_bytes']} bytes, "
+            f"SHA256: {validation_result['sha256'][:16]}...)"
+        )
 
-        # Save uploaded file to temp location
+        # Save uploaded file to secure temp location
         with tempfile.NamedTemporaryFile(
             mode='wb',
-            suffix=file_ext,
-            delete=False
+            suffix=Path(file.filename).suffix.lower(),
+            delete=False,
+            dir=tempfile.gettempdir()
         ) as tmp_file:
+            content = await file.read()
             tmp_file.write(content)
             tmp_path = Path(tmp_file.name)
 
-        logger.info(f"Analyzing uploaded file: {file.filename} ({len(content)} bytes)")
-
         # Record file upload metric
-        record_file_upload(len(content))
+        record_file_upload(validation_result['size_bytes'])
 
-        # Analyze
+        # Analyze with error handling
+        start_time = time.time()
         results = pipeline.analyze_telemetry_file(tmp_path)
+        analysis_duration = time.time() - start_time
+
+        # Add duration to results
+        results['analysis_duration_seconds'] = round(analysis_duration, 2)
 
         # Record events processed
         if "total_events" in results:
             record_event_processed("upload", results["total_events"])
 
-        return results
+        return AnalysisResult(**results)
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Analysis failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis failed: {str(e)}",
+            headers={"X-Request-ID": getattr(request.state, 'request_id', 'unknown')}
+        )
 
     finally:
         # Always cleanup temp file
