@@ -1,0 +1,296 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, claude/** ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test-python:
+    name: Python Tests & Lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio black flake8 mypy pylint
+
+    - name: Run Black (code formatter check)
+      run: black --check --diff .
+      continue-on-error: true
+
+    - name: Run Flake8 (linting)
+      run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      continue-on-error: true
+
+    - name: Run type checking (mypy)
+      run: mypy analysis_engine generator cli --ignore-missing-imports
+      continue-on-error: true
+
+    - name: Run unit tests
+      run: |
+        pytest -v --cov=analysis_engine --cov=generator --cov-report=xml --cov-report=term
+      env:
+        LLM_PROVIDER: none
+        ENABLE_THREAT_INTEL: false
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+      continue-on-error: true
+
+  test-scenarios:
+    name: Test Attack Scenarios
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Test IAM Privilege Escalation scenario
+      run: |
+        python -m generator.attack_traces.iam_priv_escalation.generator
+        [ -f "./output/iam_priv_escalation/telemetry.jsonl" ] || exit 1
+
+    - name: Test Container Escape scenario
+      run: |
+        python -m generator.attack_traces.container_escape.generator
+        [ -f "./output/container_escape/telemetry.jsonl" ] || exit 1
+
+    - name: Test Credential Stuffing scenario
+      run: |
+        python -m generator.attack_traces.cred_stuffing.generator
+        [ -f "./output/cred_stuffing/telemetry.jsonl" ] || exit 1
+
+    - name: Test Lateral Movement scenario
+      run: |
+        python -m generator.attack_traces.lateral_movement.generator
+        [ -f "./output/lateral_movement/telemetry.jsonl" ] || exit 1
+
+    - name: Test Data Exfiltration scenario
+      run: |
+        python -m generator.attack_traces.data_exfiltration.generator
+        [ -f "./output/data_exfiltration/telemetry.jsonl" ] || exit 1
+
+    - name: Test Supply Chain scenario
+      run: |
+        python -m generator.attack_traces.supply_chain.generator
+        [ -f "./output/supply_chain/telemetry.jsonl" ] || exit 1
+
+    - name: Upload telemetry artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: generated-telemetry
+        path: ./output/*/telemetry.jsonl
+        retention-days: 7
+
+  test-analysis:
+    name: Test Analysis Pipeline
+    runs-on: ubuntu-latest
+    needs: test-scenarios
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Download telemetry artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: generated-telemetry
+        path: ./output/
+
+    - name: Test analysis pipeline on IAM escalation
+      run: |
+        python cli/analyze.py ./output/iam_priv_escalation/telemetry.jsonl -o ./output/iam_analysis
+        [ -f "./output/iam_analysis/analysis_report.json" ] || exit 1
+        [ -f "./output/iam_analysis/analysis_report.md" ] || exit 1
+
+    - name: Test analysis pipeline on container escape
+      run: |
+        python cli/analyze.py ./output/container_escape/telemetry.jsonl -o ./output/container_analysis
+        [ -f "./output/container_analysis/analysis_report.json" ] || exit 1
+
+    - name: Upload analysis reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: analysis-reports
+        path: ./output/*_analysis/
+        retention-days: 7
+
+  test-api:
+    name: Test API Server
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install httpx pytest-asyncio
+
+    - name: Start API server
+      run: |
+        python -m uvicorn analysis_engine.api.server:app --host 0.0.0.0 --port 8000 &
+        sleep 5
+      env:
+        LLM_PROVIDER: none
+        ENABLE_THREAT_INTEL: false
+
+    - name: Test API endpoints
+      run: |
+        curl -f http://localhost:8000/ || exit 1
+        curl -f http://localhost:8000/health || exit 1
+        curl -f http://localhost:8000/scenarios || exit 1
+
+    - name: Stop API server
+      run: pkill -f uvicorn
+
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [test-python, test-scenarios, test-api]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Analysis Engine image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./analysis_engine/Dockerfile
+        push: false
+        tags: ai-threat-hunting-simulator/analysis-engine:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build Generator image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./generator/Dockerfile
+        push: false
+        tags: ai-threat-hunting-simulator/generator:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build UI image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./ui/soc_dashboard
+        file: ./ui/soc_dashboard/Dockerfile
+        push: false
+        tags: ai-threat-hunting-simulator/soc-dashboard:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run Bandit (Python security)
+      run: |
+        pip install bandit
+        bandit -r analysis_engine generator cli -f json -o bandit-report.json
+      continue-on-error: true
+
+    - name: Run Safety (dependency check)
+      run: |
+        pip install safety
+        safety check --json || true
+      continue-on-error: true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: bandit-report.json
+        retention-days: 30
+      if: always()
+
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install pylint radon
+
+    - name: Run Pylint
+      run: |
+        pylint analysis_engine generator cli --output-format=json > pylint-report.json || true
+      continue-on-error: true
+
+    - name: Calculate code complexity
+      run: |
+        radon cc analysis_engine generator cli -a -nb > complexity-report.txt
+        radon mi analysis_engine generator cli > maintainability-report.txt
+      continue-on-error: true
+
+    - name: Upload code quality reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-quality-reports
+        path: |
+          pylint-report.json
+          complexity-report.txt
+          maintainability-report.txt
+        retention-days: 30
+      if: always()

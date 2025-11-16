@@ -45,14 +45,16 @@ Traditional SIEM tools struggle with context and narrative generation. AI-assist
 - IAM role and permission change events
 - Configurable cloud topologies (single-account, multi-account hub-spoke)
 
-### 🤖 AI-Assisted Analysis Engine
+### 🤖 AI-Powered Analysis Engine
 
-- **Event Correlation** - Groups related events into attack sessions
+- **Event Correlation** - Groups related events into attack sessions using temporal and behavioral analysis
 - **Kill Chain Mapping** - Maps events to Lockheed Martin Cyber Kill Chain stages
-- **MITRE ATT&CK Integration** - Automatic technique tagging (T1078, T1548, etc.)
-- **IOC Extraction** - Identifies IPs, user agents, API keys, compromised identities
-- **Threat Narrative Generation** - Creates human-readable attack stories
-- **Automated Response Planning** - Suggests containment and remediation steps
+- **MITRE ATT&CK Integration** - Automatic technique tagging (T1078, T1548, T1611, etc.)
+- **IOC Extraction** - Identifies IPs, user agents, API keys, compromised identities with ML-enhanced detection
+- **LLM-Powered Threat Narratives** - AI-generated attack stories using GPT-4 or Claude (optional)
+- **Threat Intelligence Enrichment** - Real-time IOC enrichment from AbuseIPDB, VirusTotal (optional)
+- **Automated Response Planning** - AI-generated containment and remediation playbooks
+- **Dual-Mode Operation** - Works with or without LLM/threat intel (graceful fallback to templates)
 
 ### 📊 SOC Dashboard UI
 
@@ -252,30 +254,122 @@ custom_agent = MyCustomAgent()
 results = custom_agent.analyze(events)
 ```
 
-### Plugging in a Real LLM
+### AI Integration (LLM & Threat Intelligence)
 
-The analysis engine is designed to support real LLM integration. Look for `# LLM_INTEGRATION_POINT` comments in:
+The simulator supports optional AI-powered analysis using Large Language Models and real-time threat intelligence. **It works perfectly without these features** using high-quality template-based analysis, but LLM integration provides more detailed, context-aware narratives.
 
-- `analysis_engine/agents/threat_narrative_agent.py`
-- `analysis_engine/agents/response_planner_agent.py`
+#### LLM Integration (Optional)
 
-To integrate (example with OpenAI):
+Supports OpenAI GPT-4 and Anthropic Claude for AI-powered threat narratives, IOC analysis, and response planning.
 
-```python
-# Replace template-based generation with:
-import openai
+**1. Configure via Environment Variables:**
 
-def generate_narrative(self, context: Dict) -> str:
-    # LLM_INTEGRATION_POINT - Replace with real LLM call
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a threat hunting analyst..."},
-            {"role": "user", "content": f"Analyze this attack: {context}"}
-        ]
-    )
-    return response.choices[0].message.content
+```bash
+# Edit .env file
+LLM_PROVIDER=openai  # or 'anthropic' or 'none'
+OPENAI_API_KEY=sk-...  # Your OpenAI API key
+LLM_MODEL=gpt-4-turbo-preview  # Optional: specific model
 ```
+
+**2. Use with CLI:**
+
+```bash
+# AI-powered analysis with OpenAI
+python cli/analyze.py ./output/telemetry.jsonl \
+  --llm-provider openai \
+  --llm-api-key sk-... \
+  --llm-model gpt-4-turbo-preview
+
+# AI-powered analysis with Anthropic Claude
+python cli/analyze.py ./output/telemetry.jsonl \
+  --llm-provider anthropic \
+  --llm-api-key sk-ant-... \
+  --llm-model claude-3-5-sonnet-20241022
+
+# Template-based (no API key needed)
+python cli/analyze.py ./output/telemetry.jsonl
+```
+
+**3. API Server automatically picks up LLM config from environment**
+
+```bash
+# Set in .env, then start API
+docker-compose up
+```
+
+#### Threat Intelligence Integration (Optional)
+
+Enriches IOCs with real-time reputation data from AbuseIPDB and VirusTotal.
+
+**1. Get API Keys:**
+- AbuseIPDB: https://www.abuseipdb.com/api (free: 1000 requests/day)
+- VirusTotal: https://www.virustotal.com/gui/join-us (free: 4 requests/min)
+
+**2. Configure:**
+
+```bash
+# Edit .env file
+ENABLE_THREAT_INTEL=true
+ABUSEIPDB_API_KEY=your-key-here
+VIRUSTOTAL_API_KEY=your-key-here
+```
+
+**3. Use with CLI:**
+
+```bash
+python cli/analyze.py ./output/telemetry.jsonl --enable-threat-intel
+```
+
+**What gets enriched:**
+- IP addresses: Abuse reports, geolocation, reputation scores
+- Domains: Malware associations, phishing status
+- File hashes: Malware detection results (if present in logs)
+
+**Example enriched output:**
+
+```json
+{
+  "iocs": {
+    "ip_addresses": ["203.0.113.42", "198.51.100.89"]
+  },
+  "threat_intelligence": {
+    "ip": [
+      {
+        "ioc_value": "203.0.113.42",
+        "threat_assessment": {
+          "overall_threat_level": "high",
+          "is_malicious": true,
+          "confidence": 0.85
+        },
+        "enrichments": [
+          {
+            "provider": "AbuseIPDB",
+            "abuse_confidence_score": 87,
+            "total_reports": 143,
+            "country_code": "CN"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### What Works Without API Keys
+
+The simulator provides **full functionality** without any external API keys:
+
+✅ All 6 attack scenarios generate realistic telemetry
+✅ Event correlation and session detection
+✅ MITRE ATT&CK technique mapping
+✅ Kill chain stage classification
+✅ IOC extraction (IPs, principals, resources)
+✅ Template-based threat narratives (high quality)
+✅ Template-based response plans
+✅ SOC Dashboard visualization
+✅ JSON and Markdown report generation
+
+**LLM and threat intel are premium enhancements, not requirements.**
 
 ## Project Structure
 
