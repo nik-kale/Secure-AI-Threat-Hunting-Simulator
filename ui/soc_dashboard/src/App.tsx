@@ -1,108 +1,96 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { ScenarioSelection } from './components/ScenarioSelection';
+import { AnalysisView } from './components/AnalysisView';
+import { AnalysisResult } from './api/client';
 import './App.css';
 
 /**
  * SOC Dashboard Application
  *
- * This is the main entry point for the SOC Dashboard UI.
- * The UI provides visualization and exploration of threat hunting analysis results.
- *
- * Key Features:
- * - Timeline visualization of attack progression
- * - Attack graph showing entity relationships
- * - MITRE ATT&CK technique coverage
- * - IOC tables with contextual information
- * - Threat narrative display
- * - Response plan recommendations
+ * Main entry point for the AI Threat Hunting Simulator dashboard.
+ * Provides interactive visualization and analysis of cloud attack scenarios.
  */
 
 function App() {
+  const [currentView, setCurrentView] = useState<'home' | 'analysis'>('home');
+  const [analysisResults, setAnalysisResults] = useState<AnalysisResult | null>(null);
+  const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
+
+  const handleScenarioSelect = (scenarioName: string) => {
+    setSelectedScenario(scenarioName);
+  };
+
+  const handleAnalysisComplete = (results: AnalysisResult) => {
+    setAnalysisResults(results);
+    setCurrentView('analysis');
+  };
+
+  const handleBackToHome = () => {
+    setCurrentView('home');
+    setAnalysisResults(null);
+    setSelectedScenario(null);
+  };
+
   return (
     <div className="App">
       <header className="App-header">
-        <h1>AI Threat Hunting Simulator</h1>
-        <h2>SOC Dashboard</h2>
+        <div className="header-content">
+          <div className="header-title">
+            <h1>🛡️ AI Threat Hunting Simulator</h1>
+            <p className="subtitle">SOC Dashboard for Cloud Attack Analysis</p>
+          </div>
+          {currentView === 'analysis' && selectedScenario && (
+            <div className="header-breadcrumb">
+              <span className="breadcrumb-item" onClick={handleBackToHome}>
+                Scenarios
+              </span>
+              <span className="breadcrumb-separator">/</span>
+              <span className="breadcrumb-item active">{selectedScenario}</span>
+            </div>
+          )}
+        </div>
       </header>
 
       <main className="App-main">
-        <div className="dashboard-container">
-          <section className="welcome-section">
-            <h3>Welcome to the SOC Dashboard</h3>
-            <p>
-              This dashboard provides interactive visualization and analysis of
-              synthetic cloud attack scenarios.
-            </p>
+        {currentView === 'home' && (
+          <ScenarioSelection
+            onScenarioSelect={handleScenarioSelect}
+            onAnalysisComplete={handleAnalysisComplete}
+          />
+        )}
 
-            <div className="feature-grid">
-              <div className="feature-card">
-                <h4>📊 Timeline View</h4>
-                <p>Visualize attack progression across the cyber kill chain</p>
-              </div>
-
-              <div className="feature-card">
-                <h4>🔗 Attack Graph</h4>
-                <p>Explore relationships between entities and resources</p>
-              </div>
-
-              <div className="feature-card">
-                <h4>🎯 MITRE ATT&CK</h4>
-                <p>View detected techniques mapped to the ATT&CK framework</p>
-              </div>
-
-              <div className="feature-card">
-                <h4>🔍 IOC Analysis</h4>
-                <p>Browse indicators of compromise with context</p>
-              </div>
-
-              <div className="feature-card">
-                <h4>📝 Threat Narrative</h4>
-                <p>Read AI-generated attack narratives and analysis</p>
-              </div>
-
-              <div className="feature-card">
-                <h4>🚨 Response Plan</h4>
-                <p>Review recommended incident response actions</p>
-              </div>
-            </div>
-
-            <div className="quickstart">
-              <h4>Quick Start</h4>
-              <ol>
-                <li>
-                  Start the analysis engine API:
-                  <code>python -m uvicorn analysis_engine.api.server:app</code>
-                </li>
-                <li>
-                  Run a scenario:
-                  <code>python cli/run_scenario.py --scenario iam_priv_escalation --output ./output/demo</code>
-                </li>
-                <li>
-                  Access analysis results via the API or load pre-generated reports
-                </li>
-              </ol>
-
-              <p className="note">
-                <strong>Note:</strong> This is a skeleton UI structure. Implement the
-                following components to complete the dashboard:
-              </p>
-
-              <ul className="implementation-list">
-                <li><code>components/TimelineView.tsx</code> - Event timeline visualization</li>
-                <li><code>components/AttackGraphView.tsx</code> - Entity relationship graph</li>
-                <li><code>components/NarrativePanel.tsx</code> - Threat narrative display</li>
-                <li><code>components/IocTable.tsx</code> - IOC listing and filtering</li>
-                <li><code>components/ResponsePlanPanel.tsx</code> - IR plan display</li>
-                <li><code>pages/ScenarioSelection.tsx</code> - Scenario browser</li>
-                <li><code>pages/AnalysisView.tsx</code> - Main analysis dashboard</li>
-                <li><code>api/client.ts</code> - API client for backend communication</li>
-              </ul>
-            </div>
-          </section>
-        </div>
+        {currentView === 'analysis' && analysisResults && (
+          <AnalysisView analysis={analysisResults} onBack={handleBackToHome} />
+        )}
       </main>
 
       <footer className="App-footer">
-        <p>AI Threat Hunting Simulator v1.0 | Open Source | Educational Use</p>
+        <div className="footer-content">
+          <p>
+            AI Threat Hunting Simulator v3.0 | Open Source | Educational Use Only
+          </p>
+          <div className="footer-links">
+            <a
+              href="https://attack.mitre.org"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              MITRE ATT&CK
+            </a>
+            <span>•</span>
+            <a
+              href="https://github.com/anthropics/claude-code"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              GitHub
+            </a>
+            <span>•</span>
+            <a href="/docs" target="_blank" rel="noopener noreferrer">
+              Documentation
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   );
