@@ -1,6 +1,7 @@
 """Collaboration workspace for team exercises."""
 from typing import Dict, List, Set
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 class UserRole(str, Enum):
