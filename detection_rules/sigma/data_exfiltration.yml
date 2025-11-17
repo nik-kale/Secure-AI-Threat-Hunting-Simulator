@@ -1,0 +1,51 @@
+title: Cloud Storage Data Exfiltration
+id: e5f6a7b8-5678-9012-34ef-567890123456
+status: experimental
+description: Detects data exfiltration from cloud storage through suspicious download patterns and external transfers
+author: AI Threat Hunting Simulator
+date: 2025/11/17
+modified: 2025/11/17
+references:
+    - https://attack.mitre.org/techniques/T1530/
+    - https://attack.mitre.org/techniques/T1537/
+    - https://rhinosecuritylabs.com/aws/s3-ransomware-part-1-attack-vector/
+tags:
+    - attack.exfiltration
+    - attack.t1530
+    - attack.t1537
+    - attack.collection
+logsource:
+    product: aws
+    service: cloudtrail
+detection:
+    selection_s3_get:
+        event_type: 's3.get_object'
+        status: 'success'
+    selection_bulk_download:
+        event_type|contains:
+            - 's3.get_object'
+            - 's3.list_objects'
+        # High volume indicator (rule engine should count)
+    selection_snapshot:
+        event_type|contains:
+            - 'ebs.create_snapshot'
+            - 'rds.create_db_snapshot'
+        status: 'success'
+    selection_external_transfer:
+        event_type|contains:
+            - 's3.put_bucket_policy'
+            - 's3.put_bucket_acl'
+        policy|contains:
+            - 'public-read'
+            - 'AllUsers'
+            - '*'
+    selection_replication:
+        event_type: 's3.put_bucket_replication'
+        destination_account: 'external'
+    condition: selection_bulk_download or selection_snapshot or selection_external_transfer or selection_replication
+falsepositives:
+    - Legitimate data exports
+    - Backup operations
+    - Data analytics jobs
+    - Cross-region replication for DR
+level: critical

@@ -1,0 +1,58 @@
+title: CI/CD Supply Chain Compromise
+id: f6a7b8c9-6789-0123-45fa-678901234567
+status: experimental
+description: Detects supply chain attacks through CI/CD pipeline compromise and malicious artifact injection
+author: AI Threat Hunting Simulator
+date: 2025/11/17
+modified: 2025/11/17
+references:
+    - https://attack.mitre.org/techniques/T1195/
+    - https://attack.mitre.org/techniques/T1525/
+    - https://www.microsoft.com/en-us/security/blog/2021/01/20/deep-dive-into-the-solorigate-second-stage-activation-from-sunburst-to-teardrop-and-raindrop/
+tags:
+    - attack.initial_access
+    - attack.t1195
+    - attack.persistence
+    - attack.t1525
+    - attack.defense_evasion
+logsource:
+    product: github
+    service: audit
+detection:
+    selection_repo_compromise:
+        event_type|contains:
+            - 'repo.update'
+            - 'repo.push'
+        branch: 'main'
+        user_suspicious: 'true'
+    selection_secret_access:
+        event_type|contains:
+            - 'secret.read'
+            - 'secret.list'
+            - 'secret.update'
+        actor_type: 'workflow'
+    selection_artifact_upload:
+        event_type|contains:
+            - 'artifact.upload'
+            - 'package.publish'
+        verification: 'failed'
+    selection_pipeline_modification:
+        event_type|contains:
+            - 'workflow.update'
+            - 'workflow.create'
+        file_path|contains:
+            - '.github/workflows'
+            - '.gitlab-ci.yml'
+            - 'Jenkinsfile'
+            - 'azure-pipelines.yml'
+    selection_malicious_dependency:
+        event_type: 'dependency.add'
+        package_name|contains:
+            - 'known_malicious'
+        # Should integrate with threat intel feeds
+    condition: selection_repo_compromise or selection_secret_access or selection_artifact_upload or selection_pipeline_modification
+falsepositives:
+    - Legitimate CI/CD workflow updates
+    - Authorized secret rotations
+    - Development team activities
+level: critical

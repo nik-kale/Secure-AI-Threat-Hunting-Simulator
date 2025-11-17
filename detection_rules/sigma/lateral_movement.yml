@@ -1,0 +1,48 @@
+title: Cloud Lateral Movement via Credential Access
+id: d4e5f6a7-4567-8901-23de-f4567890123a
+status: experimental
+description: Detects lateral movement through cloud environments using stolen credentials and role assumption
+author: AI Threat Hunting Simulator
+date: 2025/11/17
+modified: 2025/11/17
+references:
+    - https://attack.mitre.org/techniques/T1078/
+    - https://attack.mitre.org/techniques/T1552/
+    - https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-lateral-movement
+tags:
+    - attack.lateral_movement
+    - attack.t1078
+    - attack.credential_access
+    - attack.t1552
+logsource:
+    product: aws
+    service: cloudtrail
+detection:
+    selection_sts_assume:
+        event_type: 'iam.assume_role'
+        status: 'success'
+    selection_secrets_access:
+        event_type|contains:
+            - 'secrets.get_secret'
+            - 'ssm.get_parameter'
+            - 's3.get_object'
+        resource|contains:
+            - 'credential'
+            - 'password'
+            - 'secret'
+            - 'token'
+    selection_cross_account:
+        event_type: 'iam.assume_role'
+        cross_account: 'true'
+    selection_multiple_resources:
+        event_type|contains:
+            - 'lambda.invoke'
+            - 'ec2.run_instances'
+            - 'ecs.run_task'
+            - 'rds.connect'
+    condition: (selection_sts_assume and selection_secrets_access) or (selection_cross_account and selection_multiple_resources)
+falsepositives:
+    - Legitimate cross-account access
+    - Automated deployment pipelines
+    - Service-to-service communication
+level: high

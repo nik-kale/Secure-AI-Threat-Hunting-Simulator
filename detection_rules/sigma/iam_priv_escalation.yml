@@ -1,0 +1,32 @@
+title: AWS IAM PassRole Privilege Escalation
+id: a1b2c3d4-1234-5678-90ab-cdef12345678
+status: experimental
+description: Detects potential IAM privilege escalation via PassRole to Lambda function
+author: AI Threat Hunting Simulator
+date: 2025/11/16
+modified: 2025/11/16
+references:
+    - https://attack.mitre.org/techniques/T1548/005/
+    - https://cloud.hacktricks.xyz/pentesting-cloud/aws-security/aws-privilege-escalation/aws-iam-privesc
+tags:
+    - attack.privilege_escalation
+    - attack.t1548.005
+    - attack.persistence
+    - attack.t1136.003
+logsource:
+    product: aws
+    service: cloudtrail
+detection:
+    selection_passrole:
+        event_type: 'iam.pass_role'
+        action: 'PassRole'
+    selection_lambda:
+        event_type|contains:
+            - 'lambda.create_function'
+            - 'lambda.update_function_code'
+        status: 'success'
+    condition: selection_passrole and selection_lambda
+falsepositives:
+    - Legitimate Lambda function deployments
+    - Automated CI/CD pipelines
+level: high

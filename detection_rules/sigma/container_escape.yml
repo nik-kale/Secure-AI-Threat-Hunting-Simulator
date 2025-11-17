@@ -1,0 +1,45 @@
+title: Container Escape via Privileged Mount
+id: b2c3d4e5-2345-6789-01bc-def234567890
+status: experimental
+description: Detects container escape attempts through privileged mounts and host namespace access
+author: AI Threat Hunting Simulator
+date: 2025/11/17
+modified: 2025/11/17
+references:
+    - https://attack.mitre.org/techniques/T1611/
+    - https://attack.mitre.org/techniques/T1068/
+    - https://bishopfox.com/blog/kubernetes-pod-privilege-escalation
+tags:
+    - attack.privilege_escalation
+    - attack.t1611
+    - attack.defense_evasion
+    - attack.t1068
+logsource:
+    product: linux
+    service: syslog
+detection:
+    selection_privileged:
+        event_type|contains:
+            - 'container.create'
+            - 'container.start'
+        privileged: 'true'
+    selection_mount:
+        event_type|contains:
+            - 'filesystem.mount'
+        mount_source|contains:
+            - '/host'
+            - '/proc'
+            - '/sys'
+            - '/dev'
+    selection_namespace:
+        event_type|contains:
+            - 'process.create'
+        command_line|contains:
+            - 'nsenter'
+            - 'unshare'
+            - 'chroot /host'
+    condition: selection_privileged or selection_mount or selection_namespace
+falsepositives:
+    - Legitimate privileged containers for monitoring/security tools
+    - System administration tasks
+level: critical

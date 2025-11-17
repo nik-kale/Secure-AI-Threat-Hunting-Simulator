@@ -1,0 +1,40 @@
+title: Credential Stuffing Attack Pattern
+id: c3d4e5f6-3456-7890-12cd-ef3456789012
+status: experimental
+description: Detects automated credential stuffing attacks through high-volume failed authentication attempts
+author: AI Threat Hunting Simulator
+date: 2025/11/17
+modified: 2025/11/17
+references:
+    - https://attack.mitre.org/techniques/T1110/004/
+    - https://attack.mitre.org/techniques/T1078/004/
+    - https://owasp.org/www-community/attacks/Credential_stuffing
+tags:
+    - attack.credential_access
+    - attack.t1110.004
+    - attack.initial_access
+    - attack.t1078.004
+logsource:
+    product: aws
+    service: cloudtrail
+detection:
+    selection_failed_auth:
+        event_type|contains:
+            - 'auth.login'
+            - 'iam.authenticate'
+        status: 'failed'
+    selection_high_volume:
+        # Multiple failed attempts from same source
+        event_type: 'auth.login'
+        status: 'failed'
+    selection_success_after_fails:
+        event_type|contains:
+            - 'auth.login'
+            - 'iam.authenticate'
+        status: 'success'
+    condition: selection_failed_auth or (selection_high_volume and selection_success_after_fails)
+falsepositives:
+    - Users with forgotten passwords
+    - Automated testing scripts
+    - Password manager integrations
+level: high

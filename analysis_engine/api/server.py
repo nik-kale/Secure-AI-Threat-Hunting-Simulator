@@ -23,6 +23,7 @@ from analysis_engine.api.security import (
     RequestIDMiddleware, SecurityHeadersMiddleware,
     FileValidator, AuditLogger, get_client_ip
 )
+from analysis_engine.detection import DetectionRuleTester, RuleTestResult, RuleFormat
 from config import get_settings
 
 # Rate limiting
@@ -90,6 +91,9 @@ pipeline = ThreatHuntingPipeline(
     enable_threat_intel=settings.enable_threat_intel,
     threat_intel_config=settings if settings.enable_threat_intel else None
 )
+
+# Initialize detection rule tester
+rule_tester = DetectionRuleTester()
 
 # Request tracking middleware
 @app.middleware("http")
@@ -660,6 +664,393 @@ async def delete_scenario(scenario_name: str) -> Dict[str, str]:
     except Exception as e:
         logger.error(f"Failed to delete scenario {scenario_name}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete scenario: {str(e)}")
+
+
+# Detection Rule Testing Endpoints
+
+@app.post("/detection/test-rule", dependencies=[Depends(verify_api_key)])
+@limiter.limit("10/minute")
+async def test_detection_rule(
+    request: Request,
+    rule_content: str,
+    events: list,
+    ground_truth: list = None
+) -> Dict[str, Any]:
+    """
+    Test a Sigma detection rule against telemetry events.
+
+    Args:
+        request: FastAPI request object
+        rule_content: Sigma rule YAML content as string
+        events: List of telemetry events to test against
+        ground_truth: Optional list of event IDs that should match (for accuracy metrics)
+
+    Returns:
+        Rule test results with precision, recall, F1 score
+
+    Raises:
+        HTTPException: If rule is invalid or testing fails
+    """
+    try:
+        # Validate inputs
+        if not rule_content or not isinstance(rule_content, str):
+            raise HTTPException(status_code=400, detail="Rule content is required")
+
+        if not events or not isinstance(events, list):
+            raise HTTPException(status_code=400, detail="Events list is required")
+
+        # Limit number of events
+        max_events = 10000
+        if len(events) > max_events:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Too many events. Maximum: {max_events}"
+            )
+
+        # Convert ground_truth to set if provided
+        ground_truth_set = set(ground_truth) if ground_truth else None
+
+        # Test the rule
+        start_time = time.time()
+        result = rule_tester.test_sigma_rule(
+            rule_content=rule_content,
+            events=events,
+            ground_truth=ground_truth_set
+        )
+        test_duration = time.time() - start_time
+
+        # Log the test
+        client_ip = get_client_ip(request)
+        request_id = getattr(request.state, 'request_id', 'unknown')
+        logger.info(
+            f"Detection rule tested: {result.total_events} events, "
+            f"{result.matched_events} matches, precision={result.precision:.3f}, "
+            f"recall={result.recall:.3f}",
+            extra={
+                "request_id": request_id,
+                "client_ip": client_ip,
+                "test_duration": test_duration
+            }
+        )
+
+        # Return results
+        return {
+            "status": "success",
+            "rule_format": result.rule_format.value,
+            "total_events": result.total_events,
+            "matched_events": result.matched_events,
+            "true_positives": result.true_positives,
+            "false_positives": result.false_positives,
+            "false_negatives": result.false_negatives,
+            "true_negatives": result.true_negatives,
+            "precision": round(result.precision, 4),
+            "recall": round(result.recall, 4),
+            "f1_score": round(result.f1_score, 4),
+            "accuracy": round(result.accuracy, 4),
+            "test_duration_seconds": round(test_duration, 3),
+            "coverage_report": result.coverage_report
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Rule testing failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Rule testing failed: {str(e)}"
+        )
+
+
+@app.post("/detection/test-rules-batch", dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+async def test_rules_batch(
+    request: Request,
+    rules: list,
+    events: list
+) -> Dict[str, Any]:
+    """
+    Test multiple Sigma rules in batch against telemetry events.
+
+    Args:
+        request: FastAPI request object
+        rules: List of dicts with 'name' and 'content' keys
+        events: List of telemetry events to test against
+
+    Returns:
+        Batch test results for all rules
+
+    Raises:
+        HTTPException: If inputs are invalid or testing fails
+    """
+    try:
+        # Validate inputs
+        if not rules or not isinstance(rules, list):
+            raise HTTPException(status_code=400, detail="Rules list is required")
+
+        if not events or not isinstance(events, list):
+            raise HTTPException(status_code=400, detail="Events list is required")
+
+        # Limit batch size
+        max_rules = 50
+        if len(rules) > max_rules:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Too many rules. Maximum: {max_rules}"
+            )
+
+        max_events = 10000
+        if len(events) > max_events:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Too many events. Maximum: {max_events}"
+            )
+
+        # Test all rules
+        start_time = time.time()
+        results = []
+
+        for rule_def in rules:
+            if not isinstance(rule_def, dict) or 'content' not in rule_def:
+                results.append({
+                    "name": rule_def.get('name', 'unknown'),
+                    "status": "error",
+                    "error": "Invalid rule format - 'content' field required"
+                })
+                continue
+
+            try:
+                result = rule_tester.test_sigma_rule(
+                    rule_content=rule_def['content'],
+                    events=events
+                )
+
+                results.append({
+                    "name": rule_def.get('name', 'unknown'),
+                    "status": "success",
+                    "matched_events": result.matched_events,
+                    "precision": round(result.precision, 4),
+                    "recall": round(result.recall, 4),
+                    "f1_score": round(result.f1_score, 4),
+                    "accuracy": round(result.accuracy, 4)
+                })
+
+            except Exception as e:
+                results.append({
+                    "name": rule_def.get('name', 'unknown'),
+                    "status": "error",
+                    "error": str(e)
+                })
+
+        test_duration = time.time() - start_time
+
+        # Log batch test
+        client_ip = get_client_ip(request)
+        request_id = getattr(request.state, 'request_id', 'unknown')
+        logger.info(
+            f"Batch rule test: {len(rules)} rules against {len(events)} events",
+            extra={
+                "request_id": request_id,
+                "client_ip": client_ip,
+                "test_duration": test_duration
+            }
+        )
+
+        return {
+            "status": "success",
+            "total_rules": len(rules),
+            "total_events": len(events),
+            "test_duration_seconds": round(test_duration, 3),
+            "results": results
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Batch rule testing failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Batch rule testing failed: {str(e)}"
+        )
+
+
+@app.get("/detection/rules")
+@limiter.limit("30/minute")
+async def list_detection_rules(request: Request) -> Dict[str, Any]:
+    """
+    List all available Sigma detection rules.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        List of available detection rules with metadata
+    """
+    rules_dir = Path("detection_rules/sigma")
+
+    if not rules_dir.exists():
+        return {"rules": []}
+
+    rules = []
+
+    for rule_file in rules_dir.glob("*.yml"):
+        try:
+            with open(rule_file, 'r') as f:
+                content = f.read()
+
+                # Parse basic metadata from YAML
+                import yaml
+                rule_data = yaml.safe_load(content)
+
+                rules.append({
+                    "name": rule_file.stem,
+                    "file": rule_file.name,
+                    "title": rule_data.get('title', 'Unknown'),
+                    "description": rule_data.get('description', ''),
+                    "level": rule_data.get('level', 'medium'),
+                    "tags": rule_data.get('tags', []),
+                    "author": rule_data.get('author', ''),
+                    "status": rule_data.get('status', 'experimental')
+                })
+
+        except Exception as e:
+            logger.warning(f"Failed to parse rule {rule_file}: {e}")
+            continue
+
+    return {
+        "total_rules": len(rules),
+        "rules": sorted(rules, key=lambda x: x['name'])
+    }
+
+
+@app.get("/detection/rules/{rule_name}")
+@limiter.limit("30/minute")
+async def get_detection_rule(request: Request, rule_name: str) -> Dict[str, Any]:
+    """
+    Get a specific Sigma detection rule.
+
+    Args:
+        request: FastAPI request object
+        rule_name: Name of the rule (without .yml extension)
+
+    Returns:
+        Rule content and metadata
+
+    Raises:
+        HTTPException: If rule not found
+    """
+    # Sanitize rule name
+    rule_name = rule_name.replace("..", "").replace("/", "").replace("\\", "")
+
+    rule_file = Path("detection_rules/sigma") / f"{rule_name}.yml"
+
+    if not rule_file.exists():
+        raise HTTPException(status_code=404, detail="Detection rule not found")
+
+    try:
+        with open(rule_file, 'r') as f:
+            content = f.read()
+
+            # Parse metadata
+            import yaml
+            rule_data = yaml.safe_load(content)
+
+            return {
+                "name": rule_name,
+                "file": rule_file.name,
+                "content": content,
+                "metadata": {
+                    "title": rule_data.get('title', 'Unknown'),
+                    "description": rule_data.get('description', ''),
+                    "level": rule_data.get('level', 'medium'),
+                    "tags": rule_data.get('tags', []),
+                    "author": rule_data.get('author', ''),
+                    "status": rule_data.get('status', 'experimental'),
+                    "references": rule_data.get('references', [])
+                }
+            }
+
+    except Exception as e:
+        logger.error(f"Failed to read rule {rule_name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to read rule: {str(e)}"
+        )
+
+
+@app.post("/detection/generate-rule", dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+async def generate_detection_rule(
+    request: Request,
+    scenario_name: str,
+    events: list = None
+) -> Dict[str, Any]:
+    """
+    Auto-generate a Sigma detection rule from a scenario or events.
+
+    Args:
+        request: FastAPI request object
+        scenario_name: Name of the scenario to generate rule from
+        events: Optional list of telemetry events to analyze
+
+    Returns:
+        Generated Sigma rule content
+
+    Raises:
+        HTTPException: If generation fails
+    """
+    try:
+        # If events not provided, load from scenario
+        if not events:
+            scenario_path = Path("output/scenarios") / scenario_name / "telemetry.jsonl"
+
+            if not scenario_path.exists():
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Scenario '{scenario_name}' not found"
+                )
+
+            events = []
+            with open(scenario_path, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        events.append(json.loads(line))
+
+        if not events:
+            raise HTTPException(status_code=400, detail="No events to analyze")
+
+        # Generate rule from events
+        generated_rule = rule_tester.generate_sigma_rule_from_events(
+            scenario_name=scenario_name,
+            events=events
+        )
+
+        # Log generation
+        client_ip = get_client_ip(request)
+        request_id = getattr(request.state, 'request_id', 'unknown')
+        logger.info(
+            f"Generated detection rule for scenario: {scenario_name}",
+            extra={
+                "request_id": request_id,
+                "client_ip": client_ip,
+                "event_count": len(events)
+            }
+        )
+
+        return {
+            "status": "success",
+            "scenario_name": scenario_name,
+            "event_count": len(events),
+            "rule_content": generated_rule
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Rule generation failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Rule generation failed: {str(e)}"
+        )
 
 
 # Database endpoints (if database is available)
