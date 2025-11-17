@@ -4,10 +4,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/yourusername/ai-threat-hunting-simulator/releases)
-[![API](https://img.shields.io/badge/API-v3.0.0-blue.svg)](http://localhost:8000/docs)
+[![Version](https://img.shields.io/badge/version-6.0.0-green.svg)](https://github.com/yourusername/ai-threat-hunting-simulator/releases)
+[![API](https://img.shields.io/badge/API-v6.0.0-blue.svg)](http://localhost:8000/docs)
 
-> **v2.0.0 Release** - Detection Rule Testing, Real-Time Streaming, Redis Caching, and 15+ New API Endpoints
+> **v6.0.0 Release** - Complete Enterprise Platform: ML/Analytics, Multi-Cloud, Purple Team, Enterprise SSO, Compliance, SIEM Integration
 
 ## Overview
 
@@ -111,6 +111,208 @@ Traditional SIEM tools struggle with context and narrative generation. AI-assist
   - Lateral movement through cloud resources
   - Data exfiltration from cloud storage
   - CI/CD supply chain compromise detection
+
+### 🧠 v3.0 Features - Machine Learning & Advanced Analytics
+
+- **ML-Based Anomaly Detection** - Production-ready isolation forest models
+  - Unsupervised anomaly detection with sklearn Isolation Forest
+  - 11-feature extraction from events (temporal, behavioral, metadata)
+  - Statistical fallback when ML unavailable
+  - Automatic threshold tuning and confidence scoring
+  - Batch training on baseline data
+
+- **Behavioral Baseline Learning** - Entity behavior profiling
+  - Learn normal patterns per user/service/resource
+  - Track typical hours, days, actions, resources, IPs
+  - Deviation detection with confidence scores
+  - Incremental learning support
+  - Profile export/import for persistence
+
+- **User Behavior Analytics (UBA)** - Advanced user monitoring
+  - Per-user risk scoring based on anomalies
+  - High-risk user identification
+  - Behavioral anomaly aggregation
+  - Combine ML and baseline detection
+
+- **Event Classification** - Automatic categorization
+  - 5 categories: authentication, authorization, data access, configuration, network
+  - Confidence-based classification
+  - Risk level assignment per category
+
+- **Advanced Graph Analysis** - Attack path discovery
+  - Build entity relationship graphs from events
+  - Find attack paths between compromised entities
+  - Calculate blast radius of breaches
+  - Identify affected systems and resources
+  - DFS/BFS algorithms for path finding
+
+- **Automated Threat Hunting** - Pre-built hunt queries
+  - Query engine supporting Sigma/KQL/SPL formats
+  - 7+ default hunt queries for common techniques
+  - MITRE ATT&CK technique mapping
+  - Customizable query library
+  - Scheduled hunting campaigns
+
+### ☁️ v4.0 Features - Multi-Cloud Support
+
+- **SIEM Integrations** - Export to major SIEM platforms
+  - **Splunk** - HEC format with SPL query generation
+  - **Elastic/ELK** - ECS format with KQL queries
+  - **Google Chronicle** - UDM format with YARA-L rules
+  - **Azure Sentinel** - Custom log format with KQL
+  - **IBM QRadar** - LEEF format with AQL queries
+  - Batch event export with configurable buffers
+  - Connection health monitoring
+
+- **Detection Rule Conversion** - Universal rule format
+  - Convert rules between SIEM query languages
+  - Support for SPL, KQL, YARA-L, AQL
+  - 7 pre-built detection rules for common attacks
+  - MITRE technique tagging
+
+- **Azure Attack Scenarios** - Microsoft cloud attacks
+  - IAM privilege escalation with AD role assignment
+  - Blob Storage data exfiltration (847 files, 125GB)
+  - VM persistence with custom script extensions
+  - Managed identity privilege escalation
+  - Azure Key Vault secret access
+  - Lateral movement via Azure Bastion
+  - C2 via Azure Functions
+
+- **GCP Attack Scenarios** - Google Cloud attacks
+  - IAM policy modification for privilege escalation
+  - Cloud Storage exfiltration (2100 objects, 340GB)
+  - GKE container escape with metadata exploitation
+  - Kubernetes cluster takeover
+  - DaemonSet cryptominer deployment
+  - Service account key theft
+  - Cross-project lateral movement
+
+- **Multi-Cloud Event Schema** - Unified telemetry format
+  - Cloud-agnostic event structure
+  - Support for AWS, Azure, GCP events
+  - Automatic provider detection
+
+### 🎮 v5.0 Features - Purple Team Collaboration
+
+- **CTF Mode** - Security training challenges
+  - 5 difficulty levels: beginner to expert
+  - 6 challenge categories: anomaly detection, threat hunting, IR, forensics, MITRE mapping, log analysis
+  - Flag submission and validation system
+  - Real-time leaderboard with ranking
+  - Hint system with point penalties
+  - Progress tracking per user
+  - Pre-built challenges with realistic scenarios
+
+- **Exercise Management** - Team training orchestration
+  - Complete exercise lifecycle (scheduled → in-progress → completed)
+  - 4 exercise templates:
+    - Ransomware incident response
+    - APT detection and hunting
+    - Cloud breach response
+    - Insider threat investigation
+  - Multi-objective tracking with MITRE ATT&CK mapping
+  - Role assignment: red/blue/purple team, observers
+  - Event recording during exercises
+  - Comprehensive metrics and reports
+  - Exercise scheduling calendar
+
+- **Real-Time Collaboration** - Live team coordination
+  - WebSocket-based live messaging
+  - Chat with threaded conversations
+  - System alerts and notifications
+  - Event annotations and tagging
+  - Detection broadcasting to team
+  - User presence tracking (online/away/busy/offline)
+  - Typing indicators
+  - @mentions support
+  - Message search and filtering
+  - Priority levels (low/normal/high/urgent)
+  - Read receipts
+
+- **Purple Team Exercises** - Red/Blue collaboration
+  - Exercise scoring based on detection rates
+  - Red team action recording
+  - Blue team detection tracking
+  - Automated grading (A/B/C based on detection rate >90%/70%/50%)
+  - Performance metrics and improvement tracking
+
+### 🏢 v6.0 Features - Enterprise Production Deployments
+
+- **Audit Logging** - Tamper-evident compliance logs
+  - Comprehensive event tracking (14 event types)
+  - SHA-256 hash chain for tamper detection
+  - Integrity verification with cryptographic proof
+  - Activity summaries per actor/tenant
+  - Anomaly detection:
+    - Excessive failed authentication (≥5 failures)
+    - Unusual time access (outside business hours)
+    - Bulk data export detection
+    - Privilege escalation attempts
+  - Query API with filters (event type, actor, resource, time range)
+  - Compliance export for auditors
+
+- **Compliance Reporting** - Multi-standard support
+  - **SOC 2** Trust Services Criteria
+  - **ISO 27001** Information Security
+  - **NIST Cybersecurity Framework**
+  - **HIPAA** Healthcare Privacy
+  - **PCI DSS** Payment Card Industry
+  - **GDPR** EU Data Protection
+  - **CCPA** California Privacy
+  - **FedRAMP** Federal Cloud Security
+  - 25+ pre-configured compliance controls
+  - Automated assessment with scoring
+  - Control status tracking (implemented/partial/not implemented)
+  - Evidence collection and documentation
+  - Findings and recommendations generation
+  - Compliance dashboard across all standards
+
+- **Advanced RBAC** - Fine-grained access control
+  - 28 granular permissions across all features
+  - 9 pre-defined roles:
+    - Super Administrator (full access)
+    - Tenant Administrator (tenant-scoped full access)
+    - Security Analyst (threat analysis)
+    - SOC Operator (event monitoring)
+    - Red/Blue/Purple Team (exercise participation)
+    - Compliance Auditor (audit/compliance access)
+    - Read-Only User (view-only)
+  - Custom role creation with permission sets
+  - Tenant-scoped role assignments
+  - Time-limited assignments with expiration
+  - Permission checking API
+  - Comprehensive access audits
+
+- **Enterprise SSO/SAML** - Identity federation
+  - SAML 2.0 authentication
+  - OpenID Connect (OIDC) support
+  - Integration with:
+    - Okta
+    - Azure AD
+    - Google Workspace
+    - OneLogin
+    - Auth0
+  - Automatic user provisioning
+  - Session management
+
+- **Multi-Tenancy** - Isolated customer deployments
+  - Complete tenant isolation
+  - Per-tenant quotas (events/day, users)
+  - Feature flags per tenant
+  - Tenant-scoped data access
+  - Cross-tenant admin capabilities for MSPs
+
+- **License Management** - Commercial deployment support
+  - 3-tier licensing:
+    - **Starter**: Basic detection, event analysis
+    - **Professional**: ML detection, threat hunting, CTF mode
+    - **Enterprise**: All features, SSO, compliance, multi-tenancy
+  - User and event quota enforcement
+  - Feature flag enforcement per tier
+  - License key validation
+  - Usage tracking and reporting
+  - Expiration warnings (30-day notice)
 
 ## Architecture
 
