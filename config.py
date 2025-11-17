@@ -91,6 +91,15 @@ class Settings(BaseSettings):
     streaming_chunk_size: int = Field(1000, env="STREAMING_CHUNK_SIZE")
     max_concurrent_analyses: int = Field(5, env="MAX_CONCURRENT_ANALYSES")
 
+    # ===== Redis Caching =====
+    redis_enabled: bool = Field(False, env="REDIS_ENABLED")
+    redis_host: str = Field("localhost", env="REDIS_HOST")
+    redis_port: int = Field(6379, env="REDIS_PORT")
+    redis_db: int = Field(0, env="REDIS_DB")
+    redis_password: Optional[str] = Field(None, env="REDIS_PASSWORD")
+    redis_cache_ttl: int = Field(3600, env="REDIS_CACHE_TTL")
+    redis_max_connections: int = Field(50, env="REDIS_MAX_CONNECTIONS")
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

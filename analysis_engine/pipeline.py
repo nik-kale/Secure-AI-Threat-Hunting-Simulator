@@ -48,6 +48,14 @@ except ImportError:
     LLM_AVAILABLE = False
     logger.info("LLM integration not available. Using template-based analysis.")
 
+# Optional cache integration
+try:
+    from .cache import get_cache, CacheNamespace
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+    logger.info("Cache module not available. Running without caching.")
+
 # Optional threat intelligence integration
 try:
     from .threat_intel import IOCEnricher, create_enricher_from_config

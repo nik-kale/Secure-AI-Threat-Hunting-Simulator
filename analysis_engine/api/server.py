@@ -102,6 +102,29 @@ pipeline = ThreatHuntingPipeline(
 # Initialize detection rule tester
 rule_tester = DetectionRuleTester()
 
+# Initialize cache if enabled
+try:
+    from analysis_engine.cache import init_cache, CacheConfig, get_cache
+    if settings.redis_enabled:
+        cache_config = CacheConfig(
+            enabled=True,
+            redis_host=settings.redis_host,
+            redis_port=settings.redis_port,
+            redis_db=settings.redis_db,
+            redis_password=settings.redis_password,
+            default_ttl=settings.redis_cache_ttl,
+            max_connections=settings.redis_max_connections
+        )
+        cache = init_cache(cache_config)
+        logger.info("Redis cache initialized successfully")
+    else:
+        cache_config = CacheConfig(enabled=False)
+        cache = init_cache(cache_config)
+        logger.info("Redis caching disabled")
+except Exception as e:
+    logger.warning(f"Cache initialization failed: {e}. Running without cache.")
+    cache = None
+
 # Request tracking middleware
 @app.middleware("http")
 async def track_requests(request: Request, call_next):
@@ -308,6 +331,29 @@ async def stats():
     stats_data["summary"] = _generate_stats_summary(stats_data["metrics"])
 
     return stats_data
+
+
+@app.get("/cache/stats")
+@limiter.limit("30/minute")
+async def cache_stats(request: Request) -> Dict[str, Any]:
+    """
+    Get cache statistics.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        Cache statistics including hit rate and connection status
+    """
+    cache = get_cache()
+    if cache:
+        return cache.get_stats()
+    else:
+        return {
+            "enabled": False,
+            "connected": False,
+            "message": "Cache not initialized"
+        }
 
 
 def _generate_stats_summary(metrics: Dict[str, Any]) -> Dict[str, Any]:
