@@ -65,6 +65,49 @@ Traditional SIEM tools struggle with context and narrative generation. AI-assist
 - Narrative panel with AI-generated explanations
 - Response plan recommendations
 
+### 🚀 v2.0 Features (New!)
+
+- **Detection Rule Testing Framework** - Validate SIEM rules against synthetic telemetry
+  - Sigma rule support with full parsing and matching
+  - Precision, recall, F1 score, and accuracy metrics
+  - True/false positive/negative analysis
+  - Auto-generation of Sigma rules from scenarios
+  - Batch rule testing with coverage reports
+
+- **Real-Time Streaming** - WebSocket support for live telemetry and analysis
+  - Live scenario generation streaming
+  - Real-time analysis progress updates
+  - Event batch broadcasting
+  - Topic-based pub/sub messaging
+  - Connection health monitoring with heartbeats
+
+- **Redis Caching Layer** - Performance optimization through intelligent caching
+  - Analysis result caching with configurable TTL
+  - Scenario metadata and detection rule caching
+  - IOC enrichment caching
+  - Batch operations for high throughput
+  - Cache statistics and hit rate tracking
+  - Automatic serialization (JSON/pickle)
+
+- **Enhanced API Endpoints** - 15+ new endpoints for advanced workflows
+  - POST `/detection/test-rule` - Test single Sigma rule
+  - POST `/detection/test-rules-batch` - Batch rule testing
+  - GET `/detection/rules` - List all Sigma rules
+  - POST `/detection/generate-rule` - Auto-generate rules
+  - WS `/ws/scenario/{name}` - Stream scenario generation
+  - WS `/ws/analysis` - Stream analysis progress
+  - WS `/ws/live` - Live telemetry feed
+  - GET `/cache/stats` - Cache performance metrics
+  - GET `/ws/stats` - WebSocket connection stats
+
+- **Complete Sigma Rule Library** - Production-ready detection rules
+  - AWS IAM privilege escalation detection
+  - Container escape attempt detection
+  - Credential stuffing pattern detection
+  - Lateral movement through cloud resources
+  - Data exfiltration from cloud storage
+  - CI/CD supply chain compromise detection
+
 ## Architecture
 
 ```
@@ -157,6 +200,64 @@ ls -la ./output/iam_escalation_demo/
 1. Open browser to `http://localhost:3000`
 2. Click "Load Scenario" and select "IAM Privilege Escalation"
 3. Explore the timeline, attack graph, and AI-generated narrative
+
+### v2.0 Quick Start
+
+#### Testing Detection Rules
+
+```bash
+# Test a Sigma rule against scenario telemetry
+curl -X POST http://localhost:8000/detection/test-rule \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rule_content": "$(cat detection_rules/sigma/iam_priv_escalation.yml)",
+    "events": []  # Load from telemetry file
+  }'
+
+# List all available Sigma rules
+curl http://localhost:8000/detection/rules
+
+# Auto-generate a Sigma rule from a scenario
+curl -X POST http://localhost:8000/detection/generate-rule \
+  -H "Content-Type: application/json" \
+  -d '{"scenario_name": "iam_priv_escalation"}'
+```
+
+#### Real-Time Streaming with WebSockets
+
+```javascript
+// Connect to live scenario generation stream
+const ws = new WebSocket('ws://localhost:8000/ws/scenario/iam_priv_escalation');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === 'event_batch') {
+    console.log(`Received ${data.events.length} events`);
+  }
+};
+
+// Connect to live analysis stream
+const analysisWs = new WebSocket('ws://localhost:8000/ws/analysis');
+analysisWs.send(JSON.stringify({
+  telemetry_path: './output/iam_escalation_demo/telemetry.jsonl'
+}));
+```
+
+#### Enabling Redis Caching
+
+```bash
+# 1. Start Redis
+docker run -d -p 6379:6379 redis:latest
+
+# 2. Enable in .env
+echo "REDIS_ENABLED=true" >> .env
+
+# 3. Restart API server
+docker-compose restart analysis-engine
+
+# 4. Check cache stats
+curl http://localhost:8000/cache/stats
+```
 
 ## Example Walkthrough: IAM Privilege Escalation
 
