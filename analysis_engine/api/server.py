@@ -1,7 +1,7 @@
 """
 FastAPI server for analysis engine with security enhancements.
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pathlib import Path
@@ -11,6 +11,7 @@ import logging
 import json
 import os
 import time
+import asyncio
 
 from analysis_engine.pipeline import ThreatHuntingPipeline
 from analysis_engine.api.auth import verify_api_key, verify_admin_key
@@ -24,6 +25,12 @@ from analysis_engine.api.security import (
     FileValidator, AuditLogger, get_client_ip
 )
 from analysis_engine.detection import DetectionRuleTester, RuleTestResult, RuleFormat
+from analysis_engine.api.websocket import (
+    manager as ws_manager,
+    StreamingScenarioGenerator,
+    StreamingAnalyzer,
+    heartbeat_task
+)
 from config import get_settings
 
 # Rate limiting
@@ -664,6 +671,179 @@ async def delete_scenario(scenario_name: str) -> Dict[str, str]:
     except Exception as e:
         logger.error(f"Failed to delete scenario {scenario_name}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete scenario: {str(e)}")
+
+
+# WebSocket Endpoints
+
+@app.websocket("/ws/scenario/{scenario_name}")
+async def websocket_scenario_stream(websocket: WebSocket, scenario_name: str):
+    """
+    WebSocket endpoint for real-time scenario generation streaming.
+
+    Args:
+        websocket: WebSocket connection
+        scenario_name: Name of scenario to generate
+
+    Streams:
+        - Scenario start event
+        - Event batches as they're generated
+        - Completion summary
+    """
+    await ws_manager.connect(websocket, client_id=f"scenario_{scenario_name}")
+
+    try:
+        # Subscribe to scenario topic
+        await ws_manager.subscribe(websocket, f"scenario_{scenario_name}")
+
+        # Create streaming generator
+        generator = StreamingScenarioGenerator(websocket, scenario_name)
+
+        # Stream scenario generation
+        await generator.stream_scenario()
+
+        # Keep connection open for potential client messages
+        while True:
+            try:
+                data = await websocket.receive_text()
+                # Handle client commands if needed
+                if data == "ping":
+                    await websocket.send_json({"type": "pong"})
+            except WebSocketDisconnect:
+                break
+
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected: scenario_{scenario_name}")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+        await websocket.send_json({
+            "type": "error",
+            "error": str(e)
+        })
+    finally:
+        ws_manager.disconnect(websocket)
+
+
+@app.websocket("/ws/analysis")
+async def websocket_analysis_stream(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time analysis streaming.
+
+    Accepts telemetry path and streams analysis progress.
+
+    Streams:
+        - Analysis start event
+        - Progress updates
+        - Detected sessions
+        - Final results
+    """
+    await ws_manager.connect(websocket, client_id="analysis_client")
+
+    try:
+        # Wait for client to send telemetry path
+        data = await websocket.receive_json()
+
+        if "telemetry_path" not in data:
+            await websocket.send_json({
+                "type": "error",
+                "error": "telemetry_path required"
+            })
+            return
+
+        telemetry_path = data["telemetry_path"]
+
+        # Create streaming analyzer
+        analyzer = StreamingAnalyzer(websocket, pipeline)
+
+        # Stream analysis
+        await analyzer.stream_analysis(telemetry_path)
+
+        # Keep connection open
+        while True:
+            try:
+                msg = await websocket.receive_text()
+                if msg == "ping":
+                    await websocket.send_json({"type": "pong"})
+            except WebSocketDisconnect:
+                break
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected: analysis")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+        await websocket.send_json({
+            "type": "error",
+            "error": str(e)
+        })
+    finally:
+        ws_manager.disconnect(websocket)
+
+
+@app.websocket("/ws/live")
+async def websocket_live_feed(websocket: WebSocket):
+    """
+    WebSocket endpoint for live telemetry feed.
+
+    Broadcasts all events and analysis updates to connected clients.
+    """
+    await ws_manager.connect(websocket, client_id="live_feed")
+
+    try:
+        # Subscribe to all topics
+        await ws_manager.subscribe(websocket, "live_feed")
+
+        # Send connection confirmation
+        await websocket.send_json({
+            "type": "connected",
+            "message": "Connected to live feed"
+        })
+
+        # Keep connection alive
+        while True:
+            try:
+                data = await websocket.receive_text()
+
+                # Handle client commands
+                if data == "ping":
+                    await websocket.send_json({"type": "pong"})
+                elif data == "stats":
+                    stats = ws_manager.get_stats()
+                    await websocket.send_json({
+                        "type": "stats",
+                        "data": stats
+                    })
+
+            except WebSocketDisconnect:
+                break
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected: live_feed")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+    finally:
+        ws_manager.disconnect(websocket)
+
+
+@app.get("/ws/stats")
+@limiter.limit("30/minute")
+async def websocket_stats(request: Request) -> Dict[str, Any]:
+    """
+    Get WebSocket connection statistics.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        WebSocket statistics
+    """
+    return ws_manager.get_stats()
+
+
+# Start background heartbeat task
+@app.on_event("startup")
+async def start_heartbeat():
+    """Start WebSocket heartbeat task on app startup."""
+    asyncio.create_task(heartbeat_task())
+    logger.info("WebSocket heartbeat task started")
 
 
 # Detection Rule Testing Endpoints

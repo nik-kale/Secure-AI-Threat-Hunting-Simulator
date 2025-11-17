@@ -24,6 +24,11 @@ slowapi>=0.1.9  # Rate limiting
 python-multipart>=0.0.6  # File uploads
 python-magic>=0.4.27  # MIME type detection for security
 pydantic-settings>=2.1.0  # Settings management
+websockets>=12.0  # WebSocket support (included in uvicorn[standard])
+
+# Performance & Caching
+redis>=5.0.0  # Redis for caching and pub/sub
+hiredis>=2.3.0  # C parser for Redis (performance boost)
 
 # Visualization (for notebooks)
 matplotlib>=3.8.0
