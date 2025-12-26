@@ -86,6 +86,14 @@ class Settings(BaseSettings):
     metrics_port: int = Field(9090, env="METRICS_PORT")
     sentry_dsn: Optional[str] = Field(None, env="SENTRY_DSN")
     enable_profiling: bool = Field(False, env="ENABLE_PROFILING")
+    
+    # ===== OpenTelemetry Tracing =====
+    otel_enabled: bool = Field(False, env="OTEL_ENABLED")
+    otel_service_name: str = Field("threat-hunting-simulator", env="OTEL_SERVICE_NAME")
+    otel_service_version: str = Field("3.0.0", env="OTEL_SERVICE_VERSION")
+    otel_exporter_type: str = Field("console", env="OTEL_EXPORTER_TYPE")
+    otel_exporter_endpoint: Optional[str] = Field(None, env="OTEL_EXPORTER_ENDPOINT")
+    otel_console_exporter: bool = Field(False, env="OTEL_CONSOLE_EXPORTER")
 
     # ===== Streaming & Performance =====
     streaming_chunk_size: int = Field(1000, env="STREAMING_CHUNK_SIZE")
