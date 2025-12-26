@@ -65,6 +65,13 @@ from .logger import (
     system_logger,
 )
 
+from .tracing import (
+    TracingManager,
+    init_tracing,
+    get_tracing_manager,
+    get_tracer,
+)
+
 __all__ = [
     # Metrics
     "track_analysis",
@@ -113,4 +120,10 @@ __all__ = [
     "database_logger",
     "llm_logger",
     "system_logger",
+    
+    # Tracing
+    "TracingManager",
+    "init_tracing",
+    "get_tracing_manager",
+    "get_tracer",
 ]
