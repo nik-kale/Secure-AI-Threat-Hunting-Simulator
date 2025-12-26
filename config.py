@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     admin_api_key: Optional[str] = Field(None, env="ADMIN_API_KEY")
     max_upload_size_mb: int = Field(100, env="MAX_UPLOAD_SIZE_MB")
     max_events_per_request: int = Field(10000, env="MAX_EVENTS_PER_REQUEST")
+    
+    # Brute Force Protection
+    enable_brute_force_protection: bool = Field(True, env="ENABLE_BRUTE_FORCE_PROTECTION")
+    api_key_lockout_threshold: int = Field(10, env="API_KEY_LOCKOUT_THRESHOLD")
+    api_key_lockout_duration: int = Field(900, env="API_KEY_LOCKOUT_DURATION")
+    api_key_attempt_window: int = Field(300, env="API_KEY_ATTEMPT_WINDOW")
 
     @field_validator("allowed_origins")
     @classmethod
