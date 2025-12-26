@@ -412,6 +412,10 @@ class TelemetrySynthesizer:
         event["request_parameters"] = kwargs.get("request_parameters", {})
         event["response_elements"] = kwargs.get("response_elements", {})
         event["session_id"] = kwargs.get("session_id", generate_session_id())
+        
+        # Add error code if status is failure
+        if "error_code" in kwargs:
+            event["error_code"] = kwargs["error_code"]
 
         return event
 
