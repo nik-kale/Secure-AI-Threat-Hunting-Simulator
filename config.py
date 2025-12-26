@@ -90,6 +90,12 @@ class Settings(BaseSettings):
     # ===== Streaming & Performance =====
     streaming_chunk_size: int = Field(1000, env="STREAMING_CHUNK_SIZE")
     max_concurrent_analyses: int = Field(5, env="MAX_CONCURRENT_ANALYSES")
+    
+    # ===== Resilience & Fault Tolerance =====
+    api_timeout_seconds: int = Field(300, env="API_TIMEOUT_SECONDS")
+    circuit_breaker_enabled: bool = Field(True, env="CIRCUIT_BREAKER_ENABLED")
+    circuit_breaker_failure_threshold: int = Field(5, env="CIRCUIT_BREAKER_FAILURE_THRESHOLD")
+    circuit_breaker_recovery_timeout: int = Field(60, env="CIRCUIT_BREAKER_RECOVERY_TIMEOUT")
 
     # ===== Redis Caching =====
     redis_enabled: bool = Field(False, env="REDIS_ENABLED")
