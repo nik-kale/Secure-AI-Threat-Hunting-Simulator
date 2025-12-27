@@ -1,0 +1,19 @@
+name: "custom_attack_chain"
+description: "Combined IAM escalation and data exfiltration"
+duration_hours: 4
+noise_ratio: 0.4
+
+stages:
+  - type: iam_priv_escalation
+    start_offset_minutes: 0
+    config:
+      principal: "arn:aws:iam::123456789012:user/attacker"
+      target_role: "AdminRole"
+  
+  - type: data_exfiltration
+    start_offset_minutes: 60
+    depends_on: iam_priv_escalation
+    config:
+      source_bucket: "sensitive-data"
+      exfil_method: "s3_copy"
+

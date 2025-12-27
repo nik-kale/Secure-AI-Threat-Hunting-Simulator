@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     admin_api_key: Optional[str] = Field(None, env="ADMIN_API_KEY")
     max_upload_size_mb: int = Field(100, env="MAX_UPLOAD_SIZE_MB")
     max_events_per_request: int = Field(10000, env="MAX_EVENTS_PER_REQUEST")
+    
+    # Brute Force Protection
+    enable_brute_force_protection: bool = Field(True, env="ENABLE_BRUTE_FORCE_PROTECTION")
+    api_key_lockout_threshold: int = Field(10, env="API_KEY_LOCKOUT_THRESHOLD")
+    api_key_lockout_duration: int = Field(900, env="API_KEY_LOCKOUT_DURATION")
+    api_key_attempt_window: int = Field(300, env="API_KEY_ATTEMPT_WINDOW")
 
     @field_validator("allowed_origins")
     @classmethod
@@ -86,10 +92,24 @@ class Settings(BaseSettings):
     metrics_port: int = Field(9090, env="METRICS_PORT")
     sentry_dsn: Optional[str] = Field(None, env="SENTRY_DSN")
     enable_profiling: bool = Field(False, env="ENABLE_PROFILING")
+    
+    # ===== OpenTelemetry Tracing =====
+    otel_enabled: bool = Field(False, env="OTEL_ENABLED")
+    otel_service_name: str = Field("threat-hunting-simulator", env="OTEL_SERVICE_NAME")
+    otel_service_version: str = Field("3.0.0", env="OTEL_SERVICE_VERSION")
+    otel_exporter_type: str = Field("console", env="OTEL_EXPORTER_TYPE")
+    otel_exporter_endpoint: Optional[str] = Field(None, env="OTEL_EXPORTER_ENDPOINT")
+    otel_console_exporter: bool = Field(False, env="OTEL_CONSOLE_EXPORTER")
 
     # ===== Streaming & Performance =====
     streaming_chunk_size: int = Field(1000, env="STREAMING_CHUNK_SIZE")
     max_concurrent_analyses: int = Field(5, env="MAX_CONCURRENT_ANALYSES")
+    
+    # ===== Resilience & Fault Tolerance =====
+    api_timeout_seconds: int = Field(300, env="API_TIMEOUT_SECONDS")
+    circuit_breaker_enabled: bool = Field(True, env="CIRCUIT_BREAKER_ENABLED")
+    circuit_breaker_failure_threshold: int = Field(5, env="CIRCUIT_BREAKER_FAILURE_THRESHOLD")
+    circuit_breaker_recovery_timeout: int = Field(60, env="CIRCUIT_BREAKER_RECOVERY_TIMEOUT")
 
     # ===== Redis Caching =====
     redis_enabled: bool = Field(False, env="REDIS_ENABLED")
