@@ -1,6 +1,7 @@
 """
 Tests for the command-line entry points, run the way CI runs them.
 """
+
 import os
 import subprocess
 import sys
@@ -10,7 +11,9 @@ import pytest
 from click.testing import CliRunner
 
 from cli.analyze import cli
-from generator.attack_traces.lateral_movement.generator import generate_lateral_movement_scenario
+from generator.attack_traces.lateral_movement.generator import (
+    generate_lateral_movement_scenario,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -29,7 +32,10 @@ class TestAnalyzeCommand:
         assert (out / "analysis_report.md").exists()
         assert (out / "iocs.json").exists()
         # Session details come from each session's session_info, not "N/A".
-        assert "Session ID: sess-" in result.output or "Session ID: principal-" in result.output
+        assert (
+            "Session ID: sess-" in result.output
+            or "Session ID: principal-" in result.output
+        )
         assert "Session ID: N/A" not in result.output
 
 

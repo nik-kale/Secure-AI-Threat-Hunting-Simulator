@@ -7,12 +7,13 @@ Provides:
 - Coverage analysis
 - Sigma rule generation from scenarios
 """
+
 from analysis_engine.detection.rule_tester import (
     DetectionRuleTester,
     RuleTestResult,
     RuleFormat,
     DetectionResult,
-    SigmaRuleParser
+    SigmaRuleParser,
 )
 
 __all__ = [
@@ -20,5 +21,5 @@ __all__ = [
     "RuleTestResult",
     "RuleFormat",
     "DetectionResult",
-    "SigmaRuleParser"
+    "SigmaRuleParser",
 ]

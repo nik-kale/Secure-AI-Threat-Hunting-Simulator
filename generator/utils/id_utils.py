@@ -1,6 +1,7 @@
 """
 ID and identifier utilities for telemetry generation.
 """
+
 import uuid
 import random
 import string
@@ -34,11 +35,11 @@ def generate_ip_address(private: bool = False, subnet: Optional[str] = None) -> 
         IP address string
     """
     if subnet:
-        parts = subnet.split('.')
+        parts = subnet.split(".")
         remaining = 4 - len(parts)
         for _ in range(remaining):
             parts.append(str(random.randint(0, 255)))
-        return '.'.join(parts[:4])
+        return ".".join(parts[:4])
 
     if private:
         # Generate RFC 1918 private IP
@@ -86,7 +87,7 @@ def generate_user_agent(malicious: bool = False) -> str:
 
 def generate_account_id() -> str:
     """Generate a synthetic 12-digit AWS-style account ID."""
-    return ''.join([str(random.randint(0, 9)) for _ in range(12)])
+    return "".join([str(random.randint(0, 9)) for _ in range(12)])
 
 
 def generate_arn(
@@ -94,7 +95,7 @@ def generate_arn(
     resource_type: str,
     resource_id: str,
     account_id: str = "123456789012",
-    region: str = "us-east-1"
+    region: str = "us-east-1",
 ) -> str:
     """
     Generate an AWS ARN.
@@ -131,9 +132,11 @@ def generate_vpc_id() -> str:
 
 def generate_api_key() -> str:
     """Generate a synthetic API key."""
-    return f"AKIA{''.join(random.choices(string.ascii_uppercase + string.digits, k=16))}"
+    return (
+        f"AKIA{''.join(random.choices(string.ascii_uppercase + string.digits, k=16))}"
+    )
 
 
 def generate_access_token() -> str:
     """Generate a synthetic access token."""
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=40))
+    return "".join(random.choices(string.ascii_letters + string.digits, k=40))

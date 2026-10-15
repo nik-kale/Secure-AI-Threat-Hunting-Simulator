@@ -2,6 +2,7 @@
 Supply Chain Attack scenario generator.
 CI/CD compromise, malicious Lambda layer injection, production deployment.
 """
+
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -24,7 +25,7 @@ def generate_supply_chain_scenario(
     account_id: str = "123456789012",
     region: str = "us-east-1",
     duration_hours: float = 1.83,  # 110 minutes
-    add_noise: bool = True
+    add_noise: bool = True,
 ) -> Dict[str, Any]:
     """
     Generate supply chain attack scenario via CI/CD compromise.
@@ -55,7 +56,9 @@ def generate_supply_chain_scenario(
     build_session = generate_session_id()
 
     # Time setup
-    start_time, end_time = get_scenario_timeframe(duration_hours=duration_hours, days_ago=1)
+    start_time, end_time = get_scenario_timeframe(
+        duration_hours=duration_hours, days_ago=1
+    )
 
     events: List[Dict[str, Any]] = []
 
@@ -104,7 +107,7 @@ def generate_supply_chain_scenario(
             session_id=session_id,
             metadata={
                 "attack_stage": "reconnaissance",
-                "suspicious": "cicd_enumeration"
+                "suspicious": "cicd_enumeration",
             },
         )
     )
@@ -119,9 +122,7 @@ def generate_supply_chain_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=session_id,
-            request_parameters={
-                "name": pipeline_name
-            },
+            request_parameters={"name": pipeline_name},
             response_elements={
                 "pipeline": {
                     "name": pipeline_name,
@@ -129,13 +130,13 @@ def generate_supply_chain_scenario(
                     "stages": [
                         {"name": "Source"},
                         {"name": "Build"},
-                        {"name": "Deploy"}
-                    ]
+                        {"name": "Deploy"},
+                    ],
                 }
             },
             metadata={
                 "attack_stage": "reconnaissance",
-                "discovery": "production_pipeline_found"
+                "discovery": "production_pipeline_found",
             },
         )
     )
@@ -165,12 +166,10 @@ def generate_supply_chain_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=session_id,
-            request_parameters={
-                "names": [build_project_name]
-            },
+            request_parameters={"names": [build_project_name]},
             metadata={
                 "attack_stage": "reconnaissance",
-                "discovery": "build_configuration_accessed"
+                "discovery": "build_configuration_accessed",
             },
         )
     )
@@ -191,10 +190,7 @@ def generate_supply_chain_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=session_id,
-            metadata={
-                "attack_stage": "discovery",
-                "suspicious": "lambda_enumeration"
-            },
+            metadata={"attack_stage": "discovery", "suspicious": "lambda_enumeration"},
         )
     )
 
@@ -204,7 +200,7 @@ def generate_supply_chain_scenario(
         "api-data-processor",
         "api-notification-service",
         "api-payment-handler",
-        "api-user-service"
+        "api-user-service",
     ]
 
     for i, func_name in enumerate(prod_functions):
@@ -226,13 +222,10 @@ def generate_supply_chain_scenario(
                         "functionName": func_name,
                         "runtime": "python3.11",
                         "role": f"arn:aws:iam::{account_id}:role/LambdaExecutionRole",
-                        "layers": []
+                        "layers": [],
                     }
                 },
-                metadata={
-                    "attack_stage": "discovery",
-                    "environment": "production"
-                },
+                metadata={"attack_stage": "discovery", "environment": "production"},
             )
         )
 
@@ -262,9 +255,7 @@ def generate_supply_chain_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=session_id,
-            request_parameters={
-                "layerName": "existing-utils-layer"
-            },
+            request_parameters={"layerName": "existing-utils-layer"},
             metadata={"attack_stage": "discovery"},
         )
     )
@@ -293,12 +284,12 @@ def generate_supply_chain_scenario(
             request_parameters={
                 "bucketName": layer_code_bucket,
                 "key": layer_code_key,
-                "contentLength": 1024 * 256  # 256 KB
+                "contentLength": 1024 * 256,  # 256 KB
             },
             metadata={
                 "attack_stage": "weaponization",
                 "malicious_artifact": True,
-                "layer_code": True
+                "layer_code": True,
             },
         )
     )
@@ -320,23 +311,20 @@ def generate_supply_chain_scenario(
             request_parameters={
                 "layerName": malicious_layer_name,
                 "description": "Security utilities and monitoring helpers v2.1.5",
-                "content": {
-                    "s3Bucket": layer_code_bucket,
-                    "s3Key": layer_code_key
-                },
+                "content": {"s3Bucket": layer_code_bucket, "s3Key": layer_code_key},
                 "compatibleRuntimes": ["python3.11", "python3.10"],
-                "licenseInfo": "MIT"
+                "licenseInfo": "MIT",
             },
             response_elements={
                 "layerArn": layer_arn,
                 "layerVersionArn": layer_version_arn,
-                "version": 7
+                "version": 7,
             },
             metadata={
                 "attack_stage": "weaponization",
                 "malicious_layer": True,
                 "critical": True,
-                "suspicious": "layer_published_outside_cicd"
+                "suspicious": "layer_published_outside_cicd",
             },
         )
     )
@@ -357,11 +345,9 @@ def generate_supply_chain_scenario(
                 "versionNumber": 7,
                 "statementId": "allow-account-access",
                 "action": "lambda:GetLayerVersion",
-                "principal": account_id
+                "principal": account_id,
             },
-            metadata={
-                "attack_stage": "weaponization"
-            },
+            metadata={"attack_stage": "weaponization"},
         )
     )
 
@@ -383,10 +369,7 @@ def generate_supply_chain_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=session_id,
-            metadata={
-                "attack_stage": "execution",
-                "suspicious": "buildspec_access"
-            },
+            metadata={"attack_stage": "execution", "suspicious": "buildspec_access"},
         )
     )
 
@@ -404,13 +387,13 @@ def generate_supply_chain_scenario(
             session_id=session_id,
             request_parameters={
                 "bucketName": buildspec_bucket,
-                "key": f"{build_project_name}/buildspec.yml"
+                "key": f"{build_project_name}/buildspec.yml",
             },
             metadata={
                 "attack_stage": "execution",
                 "buildspec_modified": True,
                 "critical": True,
-                "suspicious": "cicd_config_change"
+                "suspicious": "cicd_config_change",
             },
         )
     )
@@ -448,22 +431,17 @@ def generate_supply_chain_scenario(
                 session_id=session_id,
                 request_parameters={
                     "functionName": func_name,
-                    "layers": [layer_version_arn]
+                    "layers": [layer_version_arn],
                 },
                 response_elements={
                     "functionArn": f"arn:aws:lambda:{region}:{account_id}:function:{func_name}",
-                    "layers": [
-                        {
-                            "arn": layer_version_arn,
-                            "codeSize": 262144
-                        }
-                    ]
+                    "layers": [{"arn": layer_version_arn, "codeSize": 262144}],
                 },
                 metadata={
                     "attack_stage": "execution",
                     "malicious_layer_attached": True,
                     "critical": True,
-                    "environment": "production"
+                    "environment": "production",
                 },
             )
         )
@@ -488,13 +466,13 @@ def generate_supply_chain_scenario(
                 "name": build_project_name,
                 "source": {
                     "type": "S3",
-                    "location": f"{buildspec_bucket}/{build_project_name}/buildspec.yml"
-                }
+                    "location": f"{buildspec_bucket}/{build_project_name}/buildspec.yml",
+                },
             },
             metadata={
                 "attack_stage": "persistence",
                 "build_config_modified": True,
-                "suspicious": True
+                "suspicious": True,
             },
         )
     )
@@ -511,20 +489,18 @@ def generate_supply_chain_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=session_id,
-            request_parameters={
-                "projectName": build_project_name
-            },
+            request_parameters={"projectName": build_project_name},
             response_elements={
                 "build": {
                     "id": build_id,
                     "buildStatus": "IN_PROGRESS",
-                    "projectName": build_project_name
+                    "projectName": build_project_name,
                 }
             },
             metadata={
                 "attack_stage": "persistence",
                 "malicious_build_triggered": True,
-                "critical": True
+                "critical": True,
             },
         )
     )
@@ -532,7 +508,16 @@ def generate_supply_chain_scenario(
     # Build phase events (from CodeBuild service role)
     build_phase_timestamps = deployment_timestamps[2:8]
 
-    for i, phase in enumerate(["SUBMITTED", "PROVISIONING", "DOWNLOAD_SOURCE", "BUILD", "POST_BUILD", "UPLOAD_ARTIFACTS"]):
+    for i, phase in enumerate(
+        [
+            "SUBMITTED",
+            "PROVISIONING",
+            "DOWNLOAD_SOURCE",
+            "BUILD",
+            "POST_BUILD",
+            "UPLOAD_ARTIFACTS",
+        ]
+    ):
         if i >= len(build_phase_timestamps):
             break
 
@@ -546,14 +531,8 @@ def generate_supply_chain_scenario(
                 user_agent="AWS Internal",
                 status="success",
                 session_id=build_session,
-                request_parameters={
-                    "buildId": build_id,
-                    "phase": phase
-                },
-                metadata={
-                    "attack_stage": "persistence",
-                    "build_phase": phase
-                },
+                request_parameters={"buildId": build_id, "phase": phase},
+                metadata={"attack_stage": "persistence", "build_phase": phase},
             )
         )
 
@@ -569,13 +548,11 @@ def generate_supply_chain_scenario(
             user_agent="AWS Internal",
             status="success",
             session_id=build_session,
-            request_parameters={
-                "contentLength": 1024 * 512  # 512 KB
-            },
+            request_parameters={"contentLength": 1024 * 512},  # 512 KB
             metadata={
                 "attack_stage": "persistence",
                 "malicious_artifact": True,
-                "build_output": True
+                "build_output": True,
             },
         )
     )
@@ -592,16 +569,12 @@ def generate_supply_chain_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=session_id,
-            request_parameters={
-                "name": pipeline_name
-            },
-            response_elements={
-                "pipelineExecutionId": execution_id
-            },
+            request_parameters={"name": pipeline_name},
+            response_elements={"pipelineExecutionId": execution_id},
             metadata={
                 "attack_stage": "persistence",
                 "malicious_deployment_triggered": True,
-                "critical": True
+                "critical": True,
             },
         )
     )
@@ -630,18 +603,18 @@ def generate_supply_chain_scenario(
                 request_parameters={
                     "functionName": func_name,
                     "s3Bucket": layer_code_bucket,
-                    "s3Key": f"builds/{build_project_name}/artifacts-{generate_session_id()[:8]}.zip"
+                    "s3Key": f"builds/{build_project_name}/artifacts-{generate_session_id()[:8]}.zip",
                 },
                 response_elements={
                     "functionArn": f"arn:aws:lambda:{region}:{account_id}:function:{func_name}",
                     "layers": [{"arn": layer_version_arn}],
-                    "lastModified": production_timestamps[i]
+                    "lastModified": production_timestamps[i],
                 },
                 metadata={
                     "attack_stage": "impact",
                     "production_deployment": True,
                     "malicious_code_deployed": True,
-                    "critical": True
+                    "critical": True,
                 },
             )
         )
@@ -659,12 +632,12 @@ def generate_supply_chain_scenario(
             session_id=build_session,
             request_parameters={
                 "pipelineExecutionId": execution_id,
-                "state": "SUCCEEDED"
+                "state": "SUCCEEDED",
             },
             metadata={
                 "attack_stage": "impact",
                 "deployment_complete": True,
-                "production_compromised": True
+                "production_compromised": True,
             },
         )
     )
@@ -687,7 +660,7 @@ def generate_supply_chain_scenario(
                 metadata={
                     "attack_stage": "impact",
                     "backdoor_execution": True,
-                    "malicious_layer_active": True
+                    "malicious_layer_active": True,
                 },
             )
         )
@@ -713,7 +686,7 @@ def generate_supply_chain_scenario(
         "malicious_layer": {
             "name": malicious_layer_name,
             "version": malicious_layer_version,
-            "arn": layer_version_arn
+            "arn": layer_version_arn,
         },
         "compromised_pipeline": pipeline_name,
         "compromised_build_project": build_project_name,
@@ -724,15 +697,15 @@ def generate_supply_chain_scenario(
             "weaponization",
             "execution",
             "persistence",
-            "impact"
+            "impact",
         ],
         "mitre_techniques": [
-            "T1195.001",   # Supply Chain Compromise: Software Dependencies
-            "T1195.002",   # Supply Chain Compromise: Software Supply Chain
-            "T1525",       # Implant Internal Image
-            "T1580",       # Cloud Infrastructure Discovery
-            "T1078.004",   # Valid Accounts: Cloud Accounts
-            "T1020",       # Automated Exfiltration
+            "T1195.001",  # Supply Chain Compromise: Software Dependencies
+            "T1195.002",  # Supply Chain Compromise: Software Supply Chain
+            "T1525",  # Implant Internal Image
+            "T1580",  # Cloud Infrastructure Discovery
+            "T1078.004",  # Valid Accounts: Cloud Accounts
+            "T1020",  # Automated Exfiltration
         ],
     }
 
@@ -745,9 +718,7 @@ if __name__ == "__main__":
     output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = generate_supply_chain_scenario(
-        output_dir=output_dir,
-        duration_hours=1.83,
-        add_noise=True
+        output_dir=output_dir, duration_hours=1.83, add_noise=True
     )
 
     print(f"Generated {metadata['num_events']} events")

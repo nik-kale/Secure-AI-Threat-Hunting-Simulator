@@ -1,6 +1,7 @@
 """
 Tests for telemetry parsing and normalisation.
 """
+
 from datetime import datetime
 
 from analysis_engine.core.correlation import EventCorrelator
@@ -36,12 +37,16 @@ class TestParseTimestamp:
 class TestMixedTimestampCorrelation:
     def test_correlating_mixed_timestamp_formats_does_not_crash(self):
         """Telemetry mixing `Z` and `+00:00` timestamps used to raise TypeError."""
-        events = EventParser.parse_events([
-            _raw("e1", "2025-01-01T00:00:00Z"),
-            _raw("e2", "2025-01-01T00:01:00.250000+00:00"),
-            _raw("e3", "2025-01-01T00:02:00Z"),
-        ])
+        events = EventParser.parse_events(
+            [
+                _raw("e1", "2025-01-01T00:00:00Z"),
+                _raw("e2", "2025-01-01T00:01:00.250000+00:00"),
+                _raw("e3", "2025-01-01T00:02:00Z"),
+            ]
+        )
 
-        sessions = EventCorrelator(min_events_for_session=3).correlate_multi_criteria(events)
+        sessions = EventCorrelator(min_events_for_session=3).correlate_multi_criteria(
+            events
+        )
 
         assert sum(len(s.events) for s in sessions) == 3

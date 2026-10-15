@@ -1,6 +1,7 @@
 """
 Tests for Sigma rule evaluation in the detection rule tester.
 """
+
 from pathlib import Path
 
 import pytest
@@ -13,23 +14,31 @@ RULES_DIR = Path(__file__).resolve().parent.parent / "detection_rules" / "sigma"
 
 
 class TestConditionEvaluation:
-    @pytest.mark.parametrize("condition, expected", [
-        ("selection", True),
-        ("filter", False),
-        ("selection and filter", False),
-        ("selection or filter", True),
-        ("selection and not filter", True),
-        ("not (selection or filter)", False),
-        ("(selection and filter) or other", True),
-        ("1 of selection*", True),
-        ("all of selection*", False),
-        ("any of them", True),
-        ("all of them", False),
-        ("missing_name", False),
-        ("all of nomatch_*", False),
-    ])
+    @pytest.mark.parametrize(
+        "condition, expected",
+        [
+            ("selection", True),
+            ("filter", False),
+            ("selection and filter", False),
+            ("selection or filter", True),
+            ("selection and not filter", True),
+            ("not (selection or filter)", False),
+            ("(selection and filter) or other", True),
+            ("1 of selection*", True),
+            ("all of selection*", False),
+            ("any of them", True),
+            ("all of them", False),
+            ("missing_name", False),
+            ("all of nomatch_*", False),
+        ],
+    )
     def test_boolean_logic(self, condition, expected):
-        selections = {"selection": True, "selection_b": False, "filter": False, "other": True}
+        selections = {
+            "selection": True,
+            "selection_b": False,
+            "filter": False,
+            "other": True,
+        }
 
         assert evaluate(condition, selections) is expected
 
@@ -52,14 +61,16 @@ class TestConditionEvaluation:
         assert result is False
         assert not (tmp_path / "pwned").exists()
 
-    def test_rule_content_cannot_run_code_through_the_tester(self, tmp_path, monkeypatch):
+    def test_rule_content_cannot_run_code_through_the_tester(
+        self, tmp_path, monkeypatch
+    ):
         monkeypatch.chdir(tmp_path)
         rule = (
             "title: t\n"
             "detection:\n"
             "  selection:\n"
             "    action: GetUser\n"
-            f"  condition: \"{self.PAYLOAD}\"\n"
+            f'  condition: "{self.PAYLOAD}"\n'
         )
 
         DetectionRuleTester().test_sigma_rule(rule, [{"action": "GetUser"}])
@@ -77,7 +88,9 @@ class TestWildcardMatching:
         assert SigmaRuleParser._match_string("a.b-suffix", "a.b*")
 
 
-@pytest.mark.parametrize("rule_file", sorted(RULES_DIR.glob("*.yml")), ids=lambda p: p.stem)
+@pytest.mark.parametrize(
+    "rule_file", sorted(RULES_DIR.glob("*.yml")), ids=lambda p: p.stem
+)
 def test_bundled_rule_conditions_parse(rule_file):
     rule = SigmaRuleParser.parse_sigma_rule(rule_file.read_text())
     condition = rule["detection"]["condition"]

@@ -1,24 +1,30 @@
 """Advanced attack path analysis and blast radius calculation."""
+
 from typing import List, Dict, Any, Set
 from dataclasses import dataclass
+
 
 @dataclass
 class AttackPath:
     """Attack path between entities."""
+
     start: str
     end: str
     path: List[str]
     risk_score: float
     hops: int
 
+
 @dataclass
 class BlastRadius:
     """Blast radius from compromised entity."""
+
     origin: str
     affected_entities: Set[str]
     affected_resources: Set[str]
     radius_score: float
     impact: str
+
 
 class AttackPathAnalyzer:
     """Analyzes attack paths through entity graph."""
@@ -29,8 +35,8 @@ class AttackPathAnalyzer:
     def build_from_events(self, events: List[Dict[str, Any]]):
         """Build graph from events."""
         for event in events:
-            src = event.get('principal', '')
-            dst = event.get('resource', '')
+            src = event.get("principal", "")
+            dst = event.get("resource", "")
             if src and dst:
                 if src not in self.graph:
                     self.graph[src] = set()
@@ -45,15 +51,20 @@ class AttackPathAnalyzer:
             if hops > max_hops or current in visited:
                 return
             if current == target:
-                paths.append(AttackPath(
-                    start=start, end=end, path=path[:],
-                    risk_score=0.5, hops=len(path)-1
-                ))
+                paths.append(
+                    AttackPath(
+                        start=start,
+                        end=end,
+                        path=path[:],
+                        risk_score=0.5,
+                        hops=len(path) - 1,
+                    )
+                )
                 return
             visited.add(current)
             for neighbor in self.graph.get(current, []):
                 path.append(neighbor)
-                dfs(neighbor, target, path, hops+1)
+                dfs(neighbor, target, path, hops + 1)
                 path.pop()
             visited.remove(current)
 
@@ -66,6 +77,7 @@ class AttackPathAnalyzer:
         resources = set()
 
         from collections import deque
+
         queue = deque([(entity, 0)])
         visited = set()
 
@@ -77,12 +89,12 @@ class AttackPathAnalyzer:
             for neighbor in self.graph.get(current, []):
                 affected.add(neighbor)
                 resources.add(neighbor)
-                queue.append((neighbor, dist+1))
+                queue.append((neighbor, dist + 1))
 
         return BlastRadius(
             origin=entity,
             affected_entities=affected,
             affected_resources=resources,
-            radius_score=len(affected)/100.0,
-            impact='high' if len(affected) > 20 else 'medium'
+            radius_score=len(affected) / 100.0,
+            impact="high" if len(affected) > 20 else "medium",
         )

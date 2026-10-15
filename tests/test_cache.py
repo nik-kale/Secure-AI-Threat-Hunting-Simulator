@@ -1,6 +1,7 @@
 """
 Tests for the Redis cache serialisation layer (no Redis server needed).
 """
+
 import json
 import pickle
 

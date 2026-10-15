@@ -1,6 +1,7 @@
 """
 Tests for ML anomaly detection module.
 """
+
 import os
 import subprocess
 import sys
@@ -14,9 +15,16 @@ from analysis_engine.ml.anomaly_detector import AnomalyDetector, AnomalyResult
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def _event(minute, action="GetUser", status="success", principal="arn:aws:iam::123456789012:user/alice"):
+def _event(
+    minute,
+    action="GetUser",
+    status="success",
+    principal="arn:aws:iam::123456789012:user/alice",
+):
     return {
-        "timestamp": (datetime(2025, 1, 6, 10, 0) + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "timestamp": (datetime(2025, 1, 6, 10, 0) + timedelta(minutes=minute)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        ),
         "event_type": f"iam.{action.lower()}",
         "action": action,
         "status": status,
@@ -71,7 +79,9 @@ class TestFailureStatus:
     def test_schema_failure_status_is_encoded_as_failure(self):
         detector = AnomalyDetector()
 
-        features = detector.extract_features([_event(1, status="failure"), _event(2, status="denied")])
+        features = detector.extract_features(
+            [_event(1, status="failure"), _event(2, status="denied")]
+        )
 
         status_column = detector.feature_names.index("status_code")
         assert list(features[:, status_column]) == [-1.0, -1.0]
@@ -100,7 +110,9 @@ class TestStableFeatures:
                 capture_output=True,
                 text=True,
                 check=True,
-            ).stdout.strip().splitlines()[-1]
+            )
+            .stdout.strip()
+            .splitlines()[-1]
             for seed in ("1", "2")
         }
 

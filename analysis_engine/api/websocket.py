@@ -7,6 +7,7 @@ Provides:
 - Event stream broadcasting
 - Connection management
 """
+
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import List, Dict, Any, Set
 import asyncio
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class MessageType(str, Enum):
     """WebSocket message types."""
+
     SCENARIO_START = "scenario_start"
     EVENT_GENERATED = "event_generated"
     EVENT_BATCH = "event_batch"
@@ -64,7 +66,7 @@ class ConnectionManager:
         self.connection_metadata[websocket] = {
             "client_id": client_id or f"client_{len(self.active_connections)}",
             "connected_at": datetime.now().isoformat(),
-            "subscriptions": set()
+            "subscriptions": set(),
         }
 
         logger.info(
@@ -91,7 +93,9 @@ class ConnectionManager:
                     del self.subscriptions[topic]
 
         # Remove metadata
-        client_id = self.connection_metadata.get(websocket, {}).get("client_id", "unknown")
+        client_id = self.connection_metadata.get(websocket, {}).get(
+            "client_id", "unknown"
+        )
         if websocket in self.connection_metadata:
             del self.connection_metadata[websocket]
 
@@ -137,7 +141,9 @@ class ConnectionManager:
 
         logger.debug(f"Client unsubscribed from topic: {topic}")
 
-    async def send_personal_message(self, message: Dict[str, Any], websocket: WebSocket):
+    async def send_personal_message(
+        self, message: Dict[str, Any], websocket: WebSocket
+    ):
         """
         Send message to a specific connection.
 
@@ -161,9 +167,7 @@ class ConnectionManager:
         """
         # Determine recipients
         recipients = (
-            self.subscriptions.get(topic, set())
-            if topic
-            else self.active_connections
+            self.subscriptions.get(topic, set()) if topic else self.active_connections
         )
 
         # Send to all recipients
@@ -184,7 +188,7 @@ class ConnectionManager:
         message = {
             "type": MessageType.HEARTBEAT,
             "timestamp": datetime.now().isoformat(),
-            "active_connections": len(self.active_connections)
+            "active_connections": len(self.active_connections),
         }
         await self.broadcast(message)
 
@@ -201,7 +205,7 @@ class ConnectionManager:
             "topics": {
                 topic: len(subscribers)
                 for topic, subscribers in self.subscriptions.items()
-            }
+            },
         }
 
 
@@ -238,11 +242,14 @@ class StreamingScenarioGenerator:
         """
         try:
             # Send start message
-            await manager.send_personal_message({
-                "type": MessageType.SCENARIO_START,
-                "scenario_name": self.scenario_name,
-                "timestamp": datetime.now().isoformat()
-            }, self.websocket)
+            await manager.send_personal_message(
+                {
+                    "type": MessageType.SCENARIO_START,
+                    "scenario_name": self.scenario_name,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                self.websocket,
+            )
 
             # Import and run scenario generator
             # This is a simplified example - in production, integrate with actual generators
@@ -250,9 +257,7 @@ class StreamingScenarioGenerator:
             import importlib.util
 
             scenario_module_path = (
-                Path("generator/attack_traces") /
-                self.scenario_name /
-                "generator.py"
+                Path("generator/attack_traces") / self.scenario_name / "generator.py"
             )
 
             if not scenario_module_path.exists():
@@ -260,8 +265,7 @@ class StreamingScenarioGenerator:
 
             # Load scenario module dynamically
             spec = importlib.util.spec_from_file_location(
-                f"{self.scenario_name}_generator",
-                scenario_module_path
+                f"{self.scenario_name}_generator", scenario_module_path
             )
             scenario_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(scenario_module)
@@ -287,11 +291,14 @@ class StreamingScenarioGenerator:
 
                 # Send batch when full
                 if len(events_batch) >= self.batch_size:
-                    await manager.send_personal_message({
-                        "type": MessageType.EVENT_BATCH,
-                        "events": events_batch,
-                        "total_count": self.event_count
-                    }, self.websocket)
+                    await manager.send_personal_message(
+                        {
+                            "type": MessageType.EVENT_BATCH,
+                            "events": events_batch,
+                            "total_count": self.event_count,
+                        },
+                        self.websocket,
+                    )
                     events_batch = []
 
                     # Small delay for rate limiting
@@ -299,18 +306,21 @@ class StreamingScenarioGenerator:
 
             # Send remaining events
             if events_batch:
-                await manager.send_personal_message({
-                    "type": MessageType.EVENT_BATCH,
-                    "events": events_batch,
-                    "total_count": self.event_count
-                }, self.websocket)
+                await manager.send_personal_message(
+                    {
+                        "type": MessageType.EVENT_BATCH,
+                        "events": events_batch,
+                        "total_count": self.event_count,
+                    },
+                    self.websocket,
+                )
 
             # Send completion message
             summary = {
                 "type": MessageType.SCENARIO_START,
                 "scenario_name": self.scenario_name,
                 "total_events": self.event_count,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             await manager.send_personal_message(summary, self.websocket)
@@ -321,11 +331,14 @@ class StreamingScenarioGenerator:
             logger.error(f"Scenario streaming failed: {e}", exc_info=True)
 
             # Send error message
-            await manager.send_personal_message({
-                "type": MessageType.ERROR,
-                "error": str(e),
-                "scenario_name": self.scenario_name
-            }, self.websocket)
+            await manager.send_personal_message(
+                {
+                    "type": MessageType.ERROR,
+                    "error": str(e),
+                    "scenario_name": self.scenario_name,
+                },
+                self.websocket,
+            )
 
             raise
 
@@ -360,11 +373,14 @@ class StreamingAnalyzer:
         """
         try:
             # Send start message
-            await manager.send_personal_message({
-                "type": MessageType.ANALYSIS_START,
-                "telemetry_path": telemetry_path,
-                "timestamp": datetime.now().isoformat()
-            }, self.websocket)
+            await manager.send_personal_message(
+                {
+                    "type": MessageType.ANALYSIS_START,
+                    "telemetry_path": telemetry_path,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                self.websocket,
+            )
 
             # Run analysis (this is blocking - in production, make it async)
             # For now, we'll run it and send periodic updates
@@ -374,11 +390,14 @@ class StreamingAnalyzer:
             async def send_progress_updates():
                 """Send periodic progress updates."""
                 for progress in range(0, 101, 20):
-                    await manager.send_personal_message({
-                        "type": MessageType.ANALYSIS_PROGRESS,
-                        "progress_percent": progress,
-                        "elapsed_seconds": round(time.time() - start_time, 2)
-                    }, self.websocket)
+                    await manager.send_personal_message(
+                        {
+                            "type": MessageType.ANALYSIS_PROGRESS,
+                            "progress_percent": progress,
+                            "elapsed_seconds": round(time.time() - start_time, 2),
+                        },
+                        self.websocket,
+                    )
                     await asyncio.sleep(1)
 
             # Run progress updates in background
@@ -387,9 +406,7 @@ class StreamingAnalyzer:
             # Run actual analysis in executor to avoid blocking
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(
-                None,
-                self.pipeline.analyze_telemetry_file,
-                telemetry_path
+                None, self.pipeline.analyze_telemetry_file, telemetry_path
             )
 
             # Cancel progress updates
@@ -397,17 +414,20 @@ class StreamingAnalyzer:
 
             # Stream detected sessions
             for session in results.get("sessions", []):
-                await manager.send_personal_message({
-                    "type": MessageType.SESSION_DETECTED,
-                    "session": session
-                }, self.websocket)
+                await manager.send_personal_message(
+                    {"type": MessageType.SESSION_DETECTED, "session": session},
+                    self.websocket,
+                )
 
             # Send completion message
-            await manager.send_personal_message({
-                "type": MessageType.ANALYSIS_COMPLETE,
-                "results": results,
-                "duration_seconds": round(time.time() - start_time, 2)
-            }, self.websocket)
+            await manager.send_personal_message(
+                {
+                    "type": MessageType.ANALYSIS_COMPLETE,
+                    "results": results,
+                    "duration_seconds": round(time.time() - start_time, 2),
+                },
+                self.websocket,
+            )
 
             return results
 
@@ -415,10 +435,9 @@ class StreamingAnalyzer:
             logger.error(f"Analysis streaming failed: {e}", exc_info=True)
 
             # Send error message
-            await manager.send_personal_message({
-                "type": MessageType.ERROR,
-                "error": str(e)
-            }, self.websocket)
+            await manager.send_personal_message(
+                {"type": MessageType.ERROR, "error": str(e)}, self.websocket
+            )
 
             raise
 

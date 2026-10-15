@@ -1,6 +1,7 @@
 """
 Tests for ML behavioral baseline module.
 """
+
 from datetime import datetime, timedelta
 
 from analysis_engine.ml.behavioral_baseline import BaselineProfile, BehavioralBaseline
@@ -8,8 +9,14 @@ from analysis_engine.ml.behavioral_baseline import BaselineProfile, BehavioralBa
 EMPLOYEE = "arn:aws:iam::123456789012:user/employee"
 
 
-def _event(when, action="GetUser", status="success", source_ip="203.0.113.10",
-           resource="arn:aws:s3:::reports", principal=EMPLOYEE):
+def _event(
+    when,
+    action="GetUser",
+    status="success",
+    source_ip="203.0.113.10",
+    resource="arn:aws:s3:::reports",
+    principal=EMPLOYEE,
+):
     return {
         "timestamp": when.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "event_type": f"iam.{action.lower()}",
@@ -27,7 +34,9 @@ def _office_hours(days=14, hours=(9, 12, 15), start=datetime(2025, 1, 6)):
     for day in range(days):
         for hour in hours:
             for action in ("GetUser", "ListRoles", "GetObject"):
-                events.append(_event(start + timedelta(days=day, hours=hour), action=action))
+                events.append(
+                    _event(start + timedelta(days=day, hours=hour), action=action)
+                )
     return events
 
 
@@ -94,14 +103,21 @@ class TestDetectDeviations:
 
     def test_unknown_entity_has_no_baseline(self):
         deviations = self._trained().detect_deviations(
-            [_event(datetime(2025, 2, 1, 9), principal="arn:aws:iam::123456789012:user/new")]
+            [
+                _event(
+                    datetime(2025, 2, 1, 9),
+                    principal="arn:aws:iam::123456789012:user/new",
+                )
+            ]
         )
 
         [entry] = deviations["arn:aws:iam::123456789012:user/new"]
         assert entry["deviation_type"] == "no_baseline"
 
     def test_normal_event_has_no_deviation(self):
-        deviations = self._trained().detect_deviations([_event(datetime(2025, 1, 13, 9))])
+        deviations = self._trained().detect_deviations(
+            [_event(datetime(2025, 1, 13, 9))]
+        )
 
         assert deviations == {}
 

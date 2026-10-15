@@ -1,6 +1,7 @@
 """
 Event correlation engine.
 """
+
 from collections import defaultdict
 from datetime import timedelta
 from typing import Any, Dict, List, Set
@@ -84,11 +85,7 @@ class CorrelationSession:
 class EventCorrelator:
     """Correlates events into sessions based on various criteria."""
 
-    def __init__(
-        self,
-        time_window_minutes: int = 60,
-        min_events_for_session: int = 3
-    ):
+    def __init__(self, time_window_minutes: int = 60, min_events_for_session: int = 3):
         """
         Initialize correlator.
 
@@ -100,8 +97,7 @@ class EventCorrelator:
         self.min_events = min_events_for_session
 
     def correlate_by_session_id(
-        self,
-        events: List[NormalizedEvent]
+        self, events: List[NormalizedEvent]
     ) -> List[CorrelationSession]:
         """
         Correlate events by explicit session ID.
@@ -127,16 +123,14 @@ class EventCorrelator:
 
         # Filter by minimum events
         sessions = [
-            s for s in sessions_dict.values()
-            if len(s.events) >= self.min_events
+            s for s in sessions_dict.values() if len(s.events) >= self.min_events
         ]
 
         logger.info(f"Correlated {len(sessions)} sessions by session ID")
         return sessions
 
     def correlate_by_principal(
-        self,
-        events: List[NormalizedEvent]
+        self, events: List[NormalizedEvent]
     ) -> List[CorrelationSession]:
         """
         Correlate events by principal (user/role) within time window.
@@ -161,7 +155,10 @@ class EventCorrelator:
 
             for session in principal_sessions[event.principal]:
                 # Check if event fits within time window of existing session
-                if session.end_time and (event.timestamp - session.end_time) <= self.time_window:
+                if (
+                    session.end_time
+                    and (event.timestamp - session.end_time) <= self.time_window
+                ):
                     session.add_event(event)
                     placed = True
                     break
@@ -176,7 +173,8 @@ class EventCorrelator:
 
         # Flatten and filter
         all_sessions = [
-            s for sessions in principal_sessions.values()
+            s
+            for sessions in principal_sessions.values()
             for s in sessions
             if len(s.events) >= self.min_events
         ]
@@ -185,8 +183,7 @@ class EventCorrelator:
         return all_sessions
 
     def correlate_by_source_ip(
-        self,
-        events: List[NormalizedEvent]
+        self, events: List[NormalizedEvent]
     ) -> List[CorrelationSession]:
         """
         Correlate events by source IP within time window.
@@ -208,7 +205,10 @@ class EventCorrelator:
             placed = False
 
             for session in ip_sessions[event.source_ip]:
-                if session.end_time and (event.timestamp - session.end_time) <= self.time_window:
+                if (
+                    session.end_time
+                    and (event.timestamp - session.end_time) <= self.time_window
+                ):
                     session.add_event(event)
                     placed = True
                     break
@@ -221,7 +221,8 @@ class EventCorrelator:
                 ip_sessions[event.source_ip].append(new_session)
 
         all_sessions = [
-            s for sessions in ip_sessions.values()
+            s
+            for sessions in ip_sessions.values()
             for s in sessions
             if len(s.events) >= self.min_events
         ]
@@ -230,8 +231,7 @@ class EventCorrelator:
         return all_sessions
 
     def correlate_multi_criteria(
-        self,
-        events: List[NormalizedEvent]
+        self, events: List[NormalizedEvent]
     ) -> List[CorrelationSession]:
         """
         Correlate using multiple criteria (session ID, principal, IP).
@@ -251,10 +251,7 @@ class EventCorrelator:
             for event in session.events:
                 events_in_sessions.add(event.event_id)
 
-        remaining_events = [
-            e for e in events
-            if e.event_id not in events_in_sessions
-        ]
+        remaining_events = [e for e in events if e.event_id not in events_in_sessions]
 
         # Correlate remaining by principal
         principal_sessions = self.correlate_by_principal(remaining_events)
@@ -266,9 +263,7 @@ class EventCorrelator:
         return all_sessions
 
     def identify_suspicious_sessions(
-        self,
-        sessions: List[CorrelationSession],
-        threshold: float = 0.5
+        self, sessions: List[CorrelationSession], threshold: float = 0.5
     ) -> List[CorrelationSession]:
         """
         Identify potentially suspicious sessions based on heuristics.
@@ -306,12 +301,18 @@ class EventCorrelator:
             score += 0.2
 
         # Multiple failure events
-        failure_count = sum(1 for e in session.events if e.status in ["failure", "denied", "error"])
+        failure_count = sum(
+            1 for e in session.events if e.status in ["failure", "denied", "error"]
+        )
         if failure_count > 5:
             score += 0.2
 
         # Check for suspicious event types
-        suspicious_types = ["iam.create_role", "iam.attach_policy", "lambda.create_function"]
+        suspicious_types = [
+            "iam.create_role",
+            "iam.attach_policy",
+            "lambda.create_function",
+        ]
         if any(et in session.event_types for et in suspicious_types):
             score += 0.3
 

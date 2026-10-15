@@ -4,6 +4,7 @@ Example: Using Graph-Based Correlation for Advanced Threat Detection
 This example demonstrates how to use the GraphCorrelator for detecting
 attack campaigns, pivot points, lateral movement, and attack paths.
 """
+
 from pathlib import Path
 import sys
 
@@ -43,7 +44,7 @@ def basic_graph_example():
             "principal": "attacker@evil.com",
             "source_ip": "203.0.113.10",
             "resource": "arn:aws:iam::123456789012:role/AdminRole",
-            "status": "success"
+            "status": "success",
         },
         {
             "event_id": "evt-002",
@@ -55,7 +56,7 @@ def basic_graph_example():
             "principal": "attacker@evil.com",
             "source_ip": "203.0.113.10",
             "resource": "arn:aws:s3:::sensitive-bucket/data.csv",
-            "status": "success"
+            "status": "success",
         },
         {
             "event_id": "evt-003",
@@ -67,7 +68,7 @@ def basic_graph_example():
             "principal": "attacker@evil.com",
             "source_ip": "203.0.113.10",
             "resource": "arn:aws:lambda:us-east-1:123456789012:function:exfiltrate",
-            "status": "success"
+            "status": "success",
         },
     ]
 
@@ -83,7 +84,9 @@ def basic_graph_example():
     # Build attack graph
     print("Building attack graph...")
     graph = correlator.build_attack_graph(normalized_events)
-    print(f"Created graph with {graph.number_of_nodes()} nodes and {graph.number_of_edges()} edges")
+    print(
+        f"Created graph with {graph.number_of_nodes()} nodes and {graph.number_of_edges()} edges"
+    )
     print()
 
     # Generate graph summary
@@ -125,7 +128,9 @@ def basic_graph_example():
         print(f"  {movement.movement_id}:")
         print(f"    - Hops: {movement.num_hops}")
         print(f"    - Events: {len(movement.events)}")
-        print(f"    - Path: {' -> '.join([h[0].split(':')[1][:20] for h in movement.hops[:3]])}")
+        print(
+            f"    - Path: {' -> '.join([h[0].split(':')[1][:20] for h in movement.hops[:3]])}"
+        )
     print()
 
 
@@ -146,7 +151,7 @@ def pipeline_integration_example():
         time_window_minutes=60,
         min_events_for_session=3,
         risk_threshold=0.5,
-        enable_graph_analysis=True  # Enable graph analysis
+        enable_graph_analysis=True,  # Enable graph analysis
     )
 
     print(f"Graph analysis enabled: {pipeline.enable_graph_analysis}")
@@ -190,7 +195,7 @@ def advanced_path_tracing_example():
             "principal": f"user{i % 3}@example.com",
             "source_ip": f"10.0.{i % 5}.{i}",
             "resource": f"arn:aws:ec2:::instance/i-{i:08x}",
-            "status": "success"
+            "status": "success",
         }
         for i in range(20)
     ]
@@ -247,7 +252,7 @@ def visualization_export_example():
             "principal": f"user{i % 3}@example.com",
             "source_ip": f"192.168.1.{i}",
             "resource": f"resource-{i % 5}",
-            "status": "success"
+            "status": "success",
         }
         for i in range(10)
     ]

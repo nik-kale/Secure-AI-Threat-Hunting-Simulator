@@ -1,19 +1,24 @@
 """CTF (Capture The Flag) mode for security training."""
+
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 import random
 
+
 class CTFDifficulty(str, Enum):
     """CTF challenge difficulty levels."""
+
     BEGINNER = "beginner"
     INTERMEDIATE = "intermediate"
     ADVANCED = "advanced"
     EXPERT = "expert"
 
+
 class CTFCategory(str, Enum):
     """CTF challenge categories."""
+
     ANOMALY_DETECTION = "anomaly_detection"
     THREAT_HUNTING = "threat_hunting"
     INCIDENT_RESPONSE = "incident_response"
@@ -21,17 +26,21 @@ class CTFCategory(str, Enum):
     MITRE_MAPPING = "mitre_mapping"
     LOG_ANALYSIS = "log_analysis"
 
+
 @dataclass
 class CTFFlag:
     """CTF flag/answer."""
+
     flag_id: str
     value: str
     points: int
     hint: Optional[str] = None
 
+
 @dataclass
 class CTFChallenge:
     """CTF challenge definition."""
+
     challenge_id: str
     title: str
     description: str
@@ -44,9 +53,11 @@ class CTFChallenge:
     time_limit_minutes: Optional[int] = None
     prerequisites: List[str] = field(default_factory=list)  # Other challenge IDs
 
+
 @dataclass
 class CTFSubmission:
     """User's flag submission."""
+
     submission_id: str
     user_id: str
     challenge_id: str
@@ -56,15 +67,18 @@ class CTFSubmission:
     timestamp: datetime
     points_awarded: int
 
+
 @dataclass
 class CTFScore:
     """User's CTF score."""
+
     user_id: str
     total_points: int
     challenges_completed: int
     rank: int
     submissions: List[CTFSubmission]
     time_to_complete: Optional[timedelta] = None
+
 
 class CTFMode:
     """CTF mode for security training exercises."""
@@ -97,7 +111,7 @@ class CTFMode:
                         flag_id="flag-001",
                         value="FLAG{admin-user-12345}",
                         points=100,
-                        hint="Look for unusual login times or locations"
+                        hint="Look for unusual login times or locations",
                     )
                 ],
                 event_dataset=[
@@ -107,17 +121,16 @@ class CTFMode:
                         "principal": "admin-user-12345",
                         "source_ip": "203.0.113.45",  # Suspicious foreign IP
                         "status": "success",
-                        "metadata": {"login_location": "Russia", "unusual_time": True}
+                        "metadata": {"login_location": "Russia", "unusual_time": True},
                     }
                 ],
                 hints=[
                     "Check for logins from unusual IP addresses",
                     "Look for login events at odd hours",
-                    "Consider geographic anomalies"
+                    "Consider geographic anomalies",
                 ],
-                time_limit_minutes=30
+                time_limit_minutes=30,
             ),
-
             # Intermediate: Reconstruct the attack path
             CTFChallenge(
                 challenge_id="ctf-002-attack-path",
@@ -131,7 +144,7 @@ class CTFMode:
                         flag_id="flag-002",
                         value="FLAG{AssumeRole->PassRole->GetSecretValue}",
                         points=250,
-                        hint="Look at the temporal sequence of IAM actions"
+                        hint="Look at the temporal sequence of IAM actions",
                     )
                 ],
                 event_dataset=[
@@ -140,31 +153,30 @@ class CTFMode:
                         "event_type": "iam.assume_role",
                         "action": "AssumeRole",
                         "principal": "attacker",
-                        "resource": "arn:aws:iam::123456789012:role/AdminRole"
+                        "resource": "arn:aws:iam::123456789012:role/AdminRole",
                     },
                     {
                         "timestamp": "2024-01-15T10:05:00Z",
                         "event_type": "iam.pass_role",
                         "action": "PassRole",
                         "principal": "attacker",
-                        "resource": "arn:aws:iam::123456789012:role/LambdaExecutionRole"
+                        "resource": "arn:aws:iam::123456789012:role/LambdaExecutionRole",
                     },
                     {
                         "timestamp": "2024-01-15T10:10:00Z",
                         "event_type": "secretsmanager.get_secret_value",
                         "action": "GetSecretValue",
                         "principal": "attacker",
-                        "resource": "production-database-credentials"
-                    }
+                        "resource": "production-database-credentials",
+                    },
                 ],
                 hints=[
                     "Trace the actions chronologically",
                     "Each action enables the next one",
-                    "Focus on privilege escalation techniques"
+                    "Focus on privilege escalation techniques",
                 ],
-                time_limit_minutes=45
+                time_limit_minutes=45,
             ),
-
             # Advanced: Identify the MITRE technique
             CTFChallenge(
                 challenge_id="ctf-003-mitre-technique",
@@ -178,7 +190,7 @@ class CTFMode:
                         flag_id="flag-003",
                         value="FLAG{T1530}",  # Data from Cloud Storage Object
                         points=400,
-                        hint="This technique involves accessing cloud storage"
+                        hint="This technique involves accessing cloud storage",
                     )
                 ],
                 event_dataset=[
@@ -186,7 +198,7 @@ class CTFMode:
                         "timestamp": "2024-01-15T14:00:00Z",
                         "event_type": "s3.list_buckets",
                         "action": "ListBuckets",
-                        "principal": "attacker"
+                        "principal": "attacker",
                     },
                     {
                         "timestamp": "2024-01-15T14:05:00Z",
@@ -194,17 +206,16 @@ class CTFMode:
                         "action": "GetObject",
                         "principal": "attacker",
                         "resource": "s3://sensitive-data/customer-records.csv",
-                        "metadata": {"download_count": 150}
-                    }
+                        "metadata": {"download_count": 150},
+                    },
                 ],
                 hints=[
                     "Check the MITRE ATT&CK framework for cloud tactics",
                     "The attack involves data exfiltration",
-                    "Look under the Collection tactic"
+                    "Look under the Collection tactic",
                 ],
-                time_limit_minutes=60
+                time_limit_minutes=60,
             ),
-
             # Expert: Full incident reconstruction
             CTFChallenge(
                 challenge_id="ctf-004-full-incident",
@@ -218,7 +229,7 @@ class CTFMode:
                         flag_id="flag-004",
                         value="FLAG{phishing:3:450:203.0.113.89}",
                         points=1000,
-                        hint="Correlate events across multiple users and services"
+                        hint="Correlate events across multiple users and services",
                     )
                 ],
                 event_dataset=self._generate_complex_apt_scenario(),
@@ -226,11 +237,10 @@ class CTFMode:
                     "Start with authentication anomalies",
                     "Track lateral movement between users",
                     "Calculate data transfer volumes from S3 events",
-                    "Identify repeated connections to external IPs"
+                    "Identify repeated connections to external IPs",
                 ],
-                time_limit_minutes=120
+                time_limit_minutes=120,
             ),
-
             # Forensics: Timeline reconstruction
             CTFChallenge(
                 challenge_id="ctf-005-timeline",
@@ -244,7 +254,7 @@ class CTFMode:
                         flag_id="flag-005",
                         value="FLAG{03:45}",
                         points=300,
-                        hint="Compare timestamps of first suspicious event and data transfer"
+                        hint="Compare timestamps of first suspicious event and data transfer",
                     )
                 ],
                 event_dataset=[
@@ -252,22 +262,22 @@ class CTFMode:
                         "timestamp": "2024-01-15T10:00:00Z",
                         "event_type": "iam.login",
                         "principal": "compromised-user",
-                        "metadata": {"first_malicious_event": True}
+                        "metadata": {"first_malicious_event": True},
                     },
                     {
                         "timestamp": "2024-01-15T13:45:00Z",
                         "event_type": "s3.get_object",
                         "principal": "compromised-user",
-                        "metadata": {"data_exfiltration": True}
-                    }
+                        "metadata": {"data_exfiltration": True},
+                    },
                 ],
                 hints=[
                     "Find the first and last relevant events",
                     "Calculate time difference in hours and minutes",
-                    "Ignore unrelated events in between"
+                    "Ignore unrelated events in between",
                 ],
-                time_limit_minutes=30
-            )
+                time_limit_minutes=30,
+            ),
         ]
 
     def _generate_complex_apt_scenario(self) -> List[Dict[str, Any]]:
@@ -277,36 +287,44 @@ class CTFMode:
         compromised_users = ["user-alpha", "user-beta", "user-gamma"]
 
         # Phishing initial access
-        events.append({
-            "timestamp": "2024-01-15T08:00:00Z",
-            "event_type": "email.phishing_link_clicked",
-            "principal": compromised_users[0],
-            "source_ip": c2_ip,
-            "metadata": {"initial_access": "phishing"}
-        })
+        events.append(
+            {
+                "timestamp": "2024-01-15T08:00:00Z",
+                "event_type": "email.phishing_link_clicked",
+                "principal": compromised_users[0],
+                "source_ip": c2_ip,
+                "metadata": {"initial_access": "phishing"},
+            }
+        )
 
         # Lateral movement to other users
         for i, user in enumerate(compromised_users):
-            events.append({
-                "timestamp": f"2024-01-15T{8+i}:30:00Z",
-                "event_type": "iam.assume_role",
-                "principal": user,
-                "source_ip": c2_ip
-            })
+            events.append(
+                {
+                    "timestamp": f"2024-01-15T{8+i}:30:00Z",
+                    "event_type": "iam.assume_role",
+                    "principal": user,
+                    "source_ip": c2_ip,
+                }
+            )
 
         # Data exfiltration (450 GB total)
         for i in range(30):
-            events.append({
-                "timestamp": f"2024-01-15T{10+i//2}:{i%2*30:02d}:00Z",
-                "event_type": "s3.get_object",
-                "principal": random.choice(compromised_users),
-                "source_ip": c2_ip,
-                "metadata": {"data_size_gb": 15}
-            })
+            events.append(
+                {
+                    "timestamp": f"2024-01-15T{10+i//2}:{i%2*30:02d}:00Z",
+                    "event_type": "s3.get_object",
+                    "principal": random.choice(compromised_users),
+                    "source_ip": c2_ip,
+                    "metadata": {"data_size_gb": 15},
+                }
+            )
 
         return events
 
-    def submit_flag(self, user_id: str, challenge_id: str, flag_value: str) -> CTFSubmission:
+    def submit_flag(
+        self, user_id: str, challenge_id: str, flag_value: str
+    ) -> CTFSubmission:
         """Submit a flag answer.
 
         Args:
@@ -339,7 +357,7 @@ class CTFMode:
             submitted_value=flag_value,
             is_correct=is_correct,
             timestamp=datetime.now(),
-            points_awarded=points_awarded
+            points_awarded=points_awarded,
         )
 
         self.submissions.append(submission)
@@ -360,7 +378,7 @@ class CTFMode:
                 total_points=0,
                 challenges_completed=0,
                 rank=0,
-                submissions=[]
+                submissions=[],
             )
 
         score = self.scores[user_id]
@@ -372,7 +390,8 @@ class CTFMode:
             # Check if challenge is fully completed
             challenge = self.challenges[submission.challenge_id]
             user_correct_flags = {
-                sub.flag_id for sub in score.submissions
+                sub.flag_id
+                for sub in score.submissions
                 if sub.challenge_id == submission.challenge_id and sub.is_correct
             }
             challenge_flag_ids = {flag.flag_id for flag in challenge.flags}
@@ -388,7 +407,7 @@ class CTFMode:
         sorted_users = sorted(
             self.scores.values(),
             key=lambda s: (s.total_points, -len(s.submissions)),
-            reverse=True
+            reverse=True,
         )
 
         for rank, score in enumerate(sorted_users, start=1):
@@ -406,7 +425,7 @@ class CTFMode:
         sorted_scores = sorted(
             self.scores.values(),
             key=lambda s: (s.total_points, -len(s.submissions)),
-            reverse=True
+            reverse=True,
         )
         return sorted_scores[:limit]
 
@@ -436,11 +455,15 @@ class CTFMode:
                 "total_points": 0,
                 "challenges_completed": 0,
                 "rank": 0,
-                "completion_rate": 0.0
+                "completion_rate": 0.0,
             }
 
         total_challenges = len(self.challenges)
-        completion_rate = score.challenges_completed / total_challenges if total_challenges > 0 else 0.0
+        completion_rate = (
+            score.challenges_completed / total_challenges
+            if total_challenges > 0
+            else 0.0
+        )
 
         return {
             "total_points": score.total_points,
@@ -448,10 +471,12 @@ class CTFMode:
             "total_challenges": total_challenges,
             "completion_rate": completion_rate,
             "rank": score.rank,
-            "recent_submissions": score.submissions[-5:]
+            "recent_submissions": score.submissions[-5:],
         }
 
-    def get_hint(self, challenge_id: str, hint_index: int, user_id: str) -> Optional[str]:
+    def get_hint(
+        self, challenge_id: str, hint_index: int, user_id: str
+    ) -> Optional[str]:
         """Get a hint for a challenge (costs points).
 
         Args:
@@ -469,6 +494,8 @@ class CTFMode:
         # Deduct points for hint (20% of challenge value)
         penalty = int(challenge.points * 0.2)
         if user_id in self.scores:
-            self.scores[user_id].total_points = max(0, self.scores[user_id].total_points - penalty)
+            self.scores[user_id].total_points = max(
+                0, self.scores[user_id].total_points - penalty
+            )
 
         return challenge.hints[hint_index]

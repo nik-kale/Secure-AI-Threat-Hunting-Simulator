@@ -1,4 +1,5 @@
 """JSON report writers for analysis results."""
+
 import json
 from pathlib import Path
 from typing import Any, Dict, List

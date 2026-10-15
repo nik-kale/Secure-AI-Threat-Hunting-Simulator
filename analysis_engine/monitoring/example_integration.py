@@ -4,6 +4,7 @@ Example integration of monitoring into the analysis pipeline.
 This file demonstrates how to integrate metrics, profiling, and structured
 logging into your analysis components.
 """
+
 from pathlib import Path
 from typing import List, Dict, Any
 import time
@@ -17,12 +18,10 @@ from analysis_engine.monitoring import (
     track_database_query,
     record_event_processed,
     record_ioc_extracted,
-
     # Profiler
     Profiler,
     profile,
     timed,
-
     # Logger
     analysis_logger,
     llm_logger,
@@ -32,10 +31,10 @@ from analysis_engine.monitoring import (
     with_correlation_id,
 )
 
-
 # ============================================================================
 # Example 1: Tracked Analysis Pipeline
 # ============================================================================
+
 
 class MonitoredThreatHuntingPipeline:
     """
@@ -65,7 +64,7 @@ class MonitoredThreatHuntingPipeline:
             analysis_logger.info(
                 "Events loaded",
                 event_count=len(events),
-                file_size_mb=file_path.stat().st_size / 1024 / 1024
+                file_size_mb=file_path.stat().st_size / 1024 / 1024,
             )
 
             # Parse events
@@ -78,10 +77,7 @@ class MonitoredThreatHuntingPipeline:
             with profiler.time("correlate_events"):
                 sessions = self._correlate_events(parsed_events)
 
-            analysis_logger.info(
-                "Sessions correlated",
-                session_count=len(sessions)
-            )
+            analysis_logger.info("Sessions correlated", session_count=len(sessions))
 
             # Analyze sessions
             results = []
@@ -98,7 +94,7 @@ class MonitoredThreatHuntingPipeline:
             return {
                 "total_events": len(events),
                 "total_sessions": len(sessions),
-                "results": results
+                "results": results,
             }
 
     @timed
@@ -128,16 +124,13 @@ class MonitoredThreatHuntingPipeline:
         - Session analysis duration
         - Malicious vs benign sessions
         """
-        analysis_logger.info(
-            "Analyzing session",
-            session_id=session.get("session_id")
-        )
+        analysis_logger.info("Analyzing session", session_id=session.get("session_id"))
 
         # Your analysis logic
         result = {
             "session_info": session,
             "risk_score": 0.75,  # Example
-            "iocs": self._extract_iocs(session)
+            "iocs": self._extract_iocs(session),
         }
 
         return result
@@ -147,7 +140,7 @@ class MonitoredThreatHuntingPipeline:
         iocs = {
             "ips": ["192.168.1.100", "10.0.0.50"],
             "domains": ["malicious.example.com"],
-            "hashes": ["abc123def456"]
+            "hashes": ["abc123def456"],
         }
 
         # Record IOC extraction metrics
@@ -161,6 +154,7 @@ class MonitoredThreatHuntingPipeline:
 # Example 2: Monitored LLM Agent
 # ============================================================================
 
+
 class MonitoredNarrativeAgent:
     """
     Example LLM agent with monitoring.
@@ -168,11 +162,7 @@ class MonitoredNarrativeAgent:
 
     @track_llm_request(agent="narrative_generator", model="gpt-4")
     @log_performance()
-    def generate_narrative(
-        self,
-        session: Dict,
-        context: Dict
-    ) -> Dict[str, Any]:
+    def generate_narrative(self, session: Dict, context: Dict) -> Dict[str, Any]:
         """
         Generate threat narrative with LLM monitoring.
 
@@ -184,7 +174,7 @@ class MonitoredNarrativeAgent:
         llm_logger.info(
             "Generating threat narrative",
             session_id=session.get("session_id"),
-            event_count=len(session.get("events", []))
+            event_count=len(session.get("events", [])),
         )
 
         # Simulate LLM call
@@ -196,14 +186,14 @@ class MonitoredNarrativeAgent:
             "usage": {
                 "prompt_tokens": 500,
                 "completion_tokens": 200,
-                "total_tokens": 700
-            }
+                "total_tokens": 700,
+            },
         }
 
         llm_logger.info(
             "Narrative generated",
             tokens_used=result["usage"]["total_tokens"],
-            narrative_length=len(result["narrative"])
+            narrative_length=len(result["narrative"]),
         )
 
         return result
@@ -212,6 +202,7 @@ class MonitoredNarrativeAgent:
 # ============================================================================
 # Example 3: Monitored Database Operations
 # ============================================================================
+
 
 class MonitoredSessionStore:
     """
@@ -228,28 +219,19 @@ class MonitoredSessionStore:
         - Query duration
         - Success/failure rate
         """
-        database_logger.info(
-            "Saving session",
-            session_id=session.get("session_id")
-        )
+        database_logger.info("Saving session", session_id=session.get("session_id"))
 
         # Your database insert logic here
         session_id = "session_123"
 
-        database_logger.info(
-            "Session saved",
-            session_id=session_id
-        )
+        database_logger.info("Session saved", session_id=session_id)
 
         return session_id
 
     @track_database_query(operation="select", table="sessions")
     def get_session(self, session_id: str) -> Dict:
         """Retrieve session from database."""
-        database_logger.info(
-            "Retrieving session",
-            session_id=session_id
-        )
+        database_logger.info("Retrieving session", session_id=session_id)
 
         # Your database select logic here
         session = {}
@@ -262,7 +244,7 @@ class MonitoredSessionStore:
         database_logger.info(
             "Updating session",
             session_id=session_id,
-            update_fields=list(updates.keys())
+            update_fields=list(updates.keys()),
         )
 
         # Your database update logic here
@@ -273,17 +255,14 @@ class MonitoredSessionStore:
 # Example 4: Request Handler with Correlation
 # ============================================================================
 
+
 class MonitoredAPIHandler:
     """
     Example API handler with correlation tracking.
     """
 
     @with_correlation_id
-    def handle_analysis_request(
-        self,
-        file_path: Path,
-        options: Dict
-    ) -> Dict[str, Any]:
+    def handle_analysis_request(self, file_path: Path, options: Dict) -> Dict[str, Any]:
         """
         Handle analysis request with correlation tracking.
 
@@ -298,7 +277,7 @@ class MonitoredAPIHandler:
             "Analysis request received",
             file_path=str(file_path),
             options=options,
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
         )
 
         # Process request (all logs will include correlation_id)
@@ -308,7 +287,7 @@ class MonitoredAPIHandler:
         api_logger.info(
             "Analysis request completed",
             results_count=len(results.get("results", [])),
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
         )
 
         return results
@@ -317,6 +296,7 @@ class MonitoredAPIHandler:
 # ============================================================================
 # Example 5: Comprehensive Request with Context Manager
 # ============================================================================
+
 
 def process_batch_analysis(files: List[Path]) -> Dict[str, Any]:
     """
@@ -327,18 +307,14 @@ def process_batch_analysis(files: List[Path]) -> Dict[str, Any]:
     - Start/end logging
     - Performance tracking
     """
-    with RequestContext(
-        "batch_analysis",
-        file_count=len(files)
-    ) as ctx:
+    with RequestContext("batch_analysis", file_count=len(files)) as ctx:
 
         pipeline = MonitoredThreatHuntingPipeline()
         results = []
 
         for i, file_path in enumerate(files, 1):
             analysis_logger.info(
-                f"Processing file {i}/{len(files)}",
-                file_path=str(file_path)
+                f"Processing file {i}/{len(files)}", file_path=str(file_path)
             )
 
             result = pipeline.analyze_telemetry_file(file_path)
@@ -352,20 +328,21 @@ def process_batch_analysis(files: List[Path]) -> Dict[str, Any]:
             "Batch analysis complete",
             files_processed=len(files),
             total_events=total_events,
-            total_sessions=total_sessions
+            total_sessions=total_sessions,
         )
 
         return {
             "files_processed": len(files),
             "total_events": total_events,
             "total_sessions": total_sessions,
-            "results": results
+            "results": results,
         }
 
 
 # ============================================================================
 # Example 6: Profiled Heavy Computation
 # ============================================================================
+
 
 @profile(name="event_correlation", save_report=True, track_memory=True)
 def correlate_large_dataset(events: List[Dict]) -> List[Dict]:
@@ -378,18 +355,12 @@ def correlate_large_dataset(events: List[Dict]) -> List[Dict]:
     - Save detailed report to profiling_reports/
     - Print summary to console
     """
-    analysis_logger.info(
-        "Starting correlation",
-        event_count=len(events)
-    )
+    analysis_logger.info("Starting correlation", event_count=len(events))
 
     # Your correlation logic here
     sessions = []
 
-    analysis_logger.info(
-        "Correlation complete",
-        session_count=len(sessions)
-    )
+    analysis_logger.info("Correlation complete", session_count=len(sessions))
 
     return sessions
 
@@ -397,6 +368,7 @@ def correlate_large_dataset(events: List[Dict]) -> List[Dict]:
 # ============================================================================
 # Example 7: Manual Profiling for Complex Workflows
 # ============================================================================
+
 
 def complex_analysis_workflow(data: Dict) -> Dict[str, Any]:
     """
@@ -473,8 +445,7 @@ if __name__ == "__main__":
     # Example 3: LLM agent
     agent = MonitoredNarrativeAgent()
     narrative = agent.generate_narrative(
-        session={"session_id": "123", "events": []},
-        context={}
+        session={"session_id": "123", "events": []}, context={}
     )
 
     # Example 4: Database operations

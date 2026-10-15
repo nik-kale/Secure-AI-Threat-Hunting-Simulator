@@ -1,4 +1,5 @@
 """Markdown report writer for analysis results."""
+
 from pathlib import Path
 from typing import Any, Dict, List
 

@@ -4,6 +4,7 @@ SQLAlchemy models for AI Threat Hunting Simulator database.
 This module defines the database schema for persisting threat hunting
 analysis results, detected sessions, IOCs, and threat intelligence data.
 """
+
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import (
@@ -22,6 +23,7 @@ from sqlalchemy.dialects.postgresql import JSON, JSONB
 
 class Base(DeclarativeBase):
     """Base class for all database models."""
+
     pass
 
 
@@ -31,6 +33,7 @@ class AnalysisRun(Base):
 
     Each analysis run processes a scenario and generates threat hunting results.
     """
+
     __tablename__ = "analysis_runs"
 
     # Primary key
@@ -39,10 +42,7 @@ class AnalysisRun(Base):
     # Analysis metadata
     scenario_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        index=True
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
 
     # Analysis scope
@@ -64,9 +64,7 @@ class AnalysisRun(Base):
 
     # Relationships
     detected_sessions: Mapped[List["DetectedSession"]] = relationship(
-        "DetectedSession",
-        back_populates="analysis_run",
-        cascade="all, delete-orphan"
+        "DetectedSession", back_populates="analysis_run", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
@@ -83,6 +81,7 @@ class DetectedSession(Base):
     Each session contains multiple correlated events that may indicate
     malicious activity.
     """
+
     __tablename__ = "detected_sessions"
 
     # Primary key
@@ -93,7 +92,7 @@ class DetectedSession(Base):
         Integer,
         ForeignKey("analysis_runs.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
 
     # Session identification
@@ -129,13 +128,10 @@ class DetectedSession(Base):
 
     # Relationships
     analysis_run: Mapped["AnalysisRun"] = relationship(
-        "AnalysisRun",
-        back_populates="detected_sessions"
+        "AnalysisRun", back_populates="detected_sessions"
     )
     ioc_records: Mapped[List["IOC"]] = relationship(
-        "IOC",
-        back_populates="session",
-        cascade="all, delete-orphan"
+        "IOC", back_populates="session", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
@@ -152,6 +148,7 @@ class IOC(Base):
     IOCs include IP addresses, domains, file hashes, and other artifacts
     that may indicate malicious activity.
     """
+
     __tablename__ = "iocs"
 
     # Primary key
@@ -162,34 +159,29 @@ class IOC(Base):
         Integer,
         ForeignKey("detected_sessions.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
 
     # IOC classification
     ioc_type: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-        index=True
+        String(50), nullable=False, index=True
     )  # ip, domain, url, hash, email, etc.
 
     # IOC data
     value: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
     severity: Mapped[str] = mapped_column(
-        String(20),
-        default="medium"
+        String(20), default="medium"
     )  # low, medium, high, critical
 
     # Temporal metadata
     first_seen: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     last_seen: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
-        onupdate=func.now()
+        onupdate=func.now(),
     )
 
     # Context and metadata
@@ -201,13 +193,10 @@ class IOC(Base):
 
     # Relationships
     session: Mapped["DetectedSession"] = relationship(
-        "DetectedSession",
-        back_populates="ioc_records"
+        "DetectedSession", back_populates="ioc_records"
     )
     threat_intel: Mapped[List["ThreatIntelligence"]] = relationship(
-        "ThreatIntelligence",
-        back_populates="ioc",
-        cascade="all, delete-orphan"
+        "ThreatIntelligence", back_populates="ioc", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
@@ -224,6 +213,7 @@ class ThreatIntelligence(Base):
     Contains external threat intelligence lookups for IOCs from various
     providers (VirusTotal, AbuseIPDB, etc.).
     """
+
     __tablename__ = "threat_intelligence"
 
     # Primary key
@@ -231,17 +221,12 @@ class ThreatIntelligence(Base):
 
     # Foreign key to IOC
     ioc_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("iocs.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
+        Integer, ForeignKey("iocs.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
     # Intelligence provider
     provider: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-        index=True
+        String(100), nullable=False, index=True
     )  # virustotal, abuseipdb, shodan, etc.
 
     # Threat assessment
@@ -258,20 +243,14 @@ class ThreatIntelligence(Base):
 
     # Temporal metadata
     last_checked: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        index=True
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
 
     # Additional metadata
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
     # Relationships
-    ioc: Mapped["IOC"] = relationship(
-        "IOC",
-        back_populates="threat_intel"
-    )
+    ioc: Mapped["IOC"] = relationship("IOC", back_populates="threat_intel")
 
     def __repr__(self) -> str:
         return (

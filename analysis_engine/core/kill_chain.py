@@ -1,6 +1,7 @@
 """
 Lockheed Martin Cyber Kill Chain mapper.
 """
+
 from typing import Dict, List, Set, Any, Optional
 from enum import Enum
 import logging
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class KillChainStage(Enum):
     """Lockheed Martin Cyber Kill Chain stages."""
+
     RECONNAISSANCE = "reconnaissance"
     WEAPONIZATION = "weaponization"
     DELIVERY = "delivery"
@@ -37,20 +39,17 @@ KILL_CHAIN_MAPPING = {
         "s3.list_buckets",
         "api.get",
     ],
-
     # Weaponization (preparing attack)
     KillChainStage.WEAPONIZATION: [
         "lambda.create_function",
         "lambda.update_function_code",
     ],
-
     # Delivery
     KillChainStage.DELIVERY: [
         "api.authenticate",
         "api.login",
         "s3.put_object",
     ],
-
     # Exploitation
     KillChainStage.EXPLOITATION: [
         "iam.pass_role",
@@ -58,7 +57,6 @@ KILL_CHAIN_MAPPING = {
         "container.exec",
         "ec2.run_instance",
     ],
-
     # Installation (persistence)
     KillChainStage.INSTALLATION: [
         "iam.create_role",
@@ -68,12 +66,10 @@ KILL_CHAIN_MAPPING = {
         "iam.create_access_key",
         "lambda.create_function",
     ],
-
     # Command and Control
     KillChainStage.COMMAND_AND_CONTROL: [
         "network.flow",
     ],
-
     # Actions on Objectives
     KillChainStage.ACTIONS_ON_OBJECTIVES: [
         "s3.get_object",
@@ -147,8 +143,7 @@ class KillChainMapper:
 
         # Calculate coverage
         active_stages = [
-            stage for stage, events in stage_events.items()
-            if len(events) > 0
+            stage for stage, events in stage_events.items() if len(events) > 0
         ]
 
         result = {
@@ -167,10 +162,7 @@ class KillChainMapper:
 
         return result
 
-    def generate_timeline(
-        self,
-        session: CorrelationSession
-    ) -> List[Dict[str, Any]]:
+    def generate_timeline(self, session: CorrelationSession) -> List[Dict[str, Any]]:
         """
         Generate a chronological timeline with kill chain stages.
 
@@ -185,17 +177,19 @@ class KillChainMapper:
         for event in sorted(session.events, key=lambda e: e.timestamp):
             stage = self.map_event(event)
 
-            timeline.append({
-                "timestamp": event.timestamp.isoformat(),
-                "event_id": event.event_id,
-                "event_type": event.event_type,
-                "kill_chain_stage": stage.value if stage else "unknown",
-                "principal": event.principal,
-                "resource": event.resource,
-                "action": event.action,
-                "status": event.status,
-                "description": self._generate_event_description(event),
-            })
+            timeline.append(
+                {
+                    "timestamp": event.timestamp.isoformat(),
+                    "event_id": event.event_id,
+                    "event_type": event.event_type,
+                    "kill_chain_stage": stage.value if stage else "unknown",
+                    "principal": event.principal,
+                    "resource": event.resource,
+                    "action": event.action,
+                    "status": event.status,
+                    "description": self._generate_event_description(event),
+                }
+            )
 
         return timeline
 

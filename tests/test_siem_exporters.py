@@ -1,15 +1,22 @@
 """
 Tests for SIEM integration exporters.
 """
+
 import json
 
 import pytest
 
-from analysis_engine.integrations.siem_exporter import SIEMConfig, SIEMExporter, SIEMType
+from analysis_engine.integrations.siem_exporter import (
+    SIEMConfig,
+    SIEMExporter,
+    SIEMType,
+)
 
 
 def _exporter(siem_type, **kwargs):
-    return SIEMExporter(SIEMConfig(siem_type=siem_type, host="siem.local", port=8088, **kwargs))
+    return SIEMExporter(
+        SIEMConfig(siem_type=siem_type, host="siem.local", port=8088, **kwargs)
+    )
 
 
 @pytest.fixture
@@ -40,7 +47,9 @@ class TestSIEMExporter:
             _exporter("not-a-siem")
 
     def test_export_result_summary(self, sample_mixed_events):
-        result = _exporter(SIEMType.ELASTIC, index="sec", batch_size=4).export_events(sample_mixed_events)
+        result = _exporter(SIEMType.ELASTIC, index="sec", batch_size=4).export_events(
+            sample_mixed_events
+        )
 
         assert result["success"] is True
         assert result["events_sent"] == len(sample_mixed_events)
@@ -78,7 +87,9 @@ class TestSIEMExporter:
         assert formatted["security_result"][0]["severity"] == "HIGH"
 
     def test_sentinel_format(self, event):
-        formatted = _exporter(SIEMType.SENTINEL, workspace_id="ws-1")._format_sentinel(event)
+        formatted = _exporter(SIEMType.SENTINEL, workspace_id="ws-1")._format_sentinel(
+            event
+        )
 
         assert formatted["MitreTechniques"] == "T1098,T1078.004"
         assert formatted["WorkspaceId"] == "ws-1"

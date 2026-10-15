@@ -4,6 +4,7 @@ Anomaly detection using Isolation Forest and statistical methods.
 Detects unusual patterns in cloud telemetry events that may indicate
 malicious activity or misconfigurations.
 """
+
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -17,10 +18,13 @@ try:
     from sklearn.ensemble import IsolationForest
     from sklearn.preprocessing import StandardScaler
     from sklearn.decomposition import PCA
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-    logging.warning("scikit-learn not available. Anomaly detection will use statistical fallback.")
+    logging.warning(
+        "scikit-learn not available. Anomaly detection will use statistical fallback."
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +32,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AnomalyResult:
     """Result of anomaly detection analysis."""
+
     is_anomaly: bool
     anomaly_score: float  # -1.0 to 1.0, lower = more anomalous
     confidence: float  # 0.0 to 1.0
@@ -50,7 +55,7 @@ class AnomalyDetector:
         contamination: float = 0.1,
         n_estimators: int = 100,
         max_samples: int = 256,
-        random_state: int = 42
+        random_state: int = 42,
     ):
         """
         Initialize anomaly detector.
@@ -72,7 +77,7 @@ class AnomalyDetector:
                 n_estimators=n_estimators,
                 max_samples=max_samples,
                 random_state=random_state,
-                n_jobs=-1  # Use all CPUs
+                n_jobs=-1,  # Use all CPUs
             )
             self.scaler = StandardScaler()
             self.pca = None  # Optional dimensionality reduction
@@ -100,67 +105,78 @@ class AnomalyDetector:
             feature_vector = []
 
             # Temporal features
-            if 'timestamp' in event:
+            if "timestamp" in event:
                 try:
-                    ts = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
-                    feature_vector.extend([
-                        ts.hour,  # Hour of day
-                        ts.weekday(),  # Day of week
-                        ts.day,  # Day of month
-                    ])
+                    ts = datetime.fromisoformat(
+                        event["timestamp"].replace("Z", "+00:00")
+                    )
+                    feature_vector.extend(
+                        [
+                            ts.hour,  # Hour of day
+                            ts.weekday(),  # Day of week
+                            ts.day,  # Day of month
+                        ]
+                    )
                 except:
                     feature_vector.extend([0, 0, 0])
             else:
                 feature_vector.extend([0, 0, 0])
 
             # Event type encoding (hash-based)
-            event_type = event.get('event_type', '')
+            event_type = event.get("event_type", "")
             feature_vector.append(stable_bucket(event_type))
 
             # Action encoding
-            action = event.get('action', '')
+            action = event.get("action", "")
             feature_vector.append(stable_bucket(action))
 
             # Status encoding
             if is_failure(event):
                 status_code = -1
-            elif event.get('status') == 'success':
+            elif event.get("status") == "success":
                 status_code = 1
             else:
                 status_code = 0
             feature_vector.append(status_code)
 
             # Principal encoding
-            principal = event.get('principal', '')
+            principal = event.get("principal", "")
             feature_vector.append(stable_bucket(principal))
 
             # Resource encoding
-            resource = event.get('resource', '')
+            resource = event.get("resource", "")
             feature_vector.append(stable_bucket(resource))
 
             # Metadata features
-            metadata = event.get('metadata', {})
-            feature_vector.append(1 if metadata.get('suspicious') else 0)
-            feature_vector.append(len(metadata.get('mitre_techniques', [])))
+            metadata = event.get("metadata", {})
+            feature_vector.append(1 if metadata.get("suspicious") else 0)
+            feature_vector.append(len(metadata.get("mitre_techniques", [])))
 
             # IP address features (if present)
-            source_ip = event.get('source_ip', '')
-            feature_vector.append(len(source_ip.split('.')))  # IP structure
+            source_ip = event.get("source_ip", "")
+            feature_vector.append(len(source_ip.split(".")))  # IP structure
 
             features.append(feature_vector)
 
         # Store feature names for interpretation
         if not self.feature_names:
             self.feature_names = [
-                'hour', 'weekday', 'day_of_month',
-                'event_type_hash', 'action_hash', 'status_code',
-                'principal_hash', 'resource_hash',
-                'is_suspicious', 'mitre_technique_count', 'ip_structure'
+                "hour",
+                "weekday",
+                "day_of_month",
+                "event_type_hash",
+                "action_hash",
+                "status_code",
+                "principal_hash",
+                "resource_hash",
+                "is_suspicious",
+                "mitre_technique_count",
+                "ip_structure",
             ]
 
         return np.array(features, dtype=float)
 
-    def fit(self, events: List[Dict[str, Any]]) -> 'AnomalyDetector':
+    def fit(self, events: List[Dict[str, Any]]) -> "AnomalyDetector":
         """
         Train anomaly detector on baseline events.
 
@@ -171,7 +187,9 @@ class AnomalyDetector:
             Self for chaining
         """
         if len(events) < 10:
-            logger.warning(f"Insufficient training data: {len(events)} events. Need at least 10.")
+            logger.warning(
+                f"Insufficient training data: {len(events)} events. Need at least 10."
+            )
             return self
 
         logger.info(f"Training anomaly detector on {len(events)} events")
@@ -192,7 +210,9 @@ class AnomalyDetector:
             self.model.fit(X_scaled)
             self.is_fitted = True
 
-            logger.info(f"Anomaly detector trained on {X.shape[0]} samples with {X.shape[1]} features")
+            logger.info(
+                f"Anomaly detector trained on {X.shape[0]} samples with {X.shape[1]} features"
+            )
 
         # Calculate statistical baseline (works with or without sklearn)
         self._calculate_baseline_stats(events)
@@ -202,32 +222,38 @@ class AnomalyDetector:
     def _calculate_baseline_stats(self, events: List[Dict[str, Any]]):
         """Calculate statistical baseline for fallback detection."""
         # Event type distribution
-        event_types = [e.get('event_type', '') for e in events]
-        self.baseline_stats['event_type_freq'] = Counter(event_types)
+        event_types = [e.get("event_type", "") for e in events]
+        self.baseline_stats["event_type_freq"] = Counter(event_types)
 
         # Action distribution
-        actions = [e.get('action', '') for e in events]
-        self.baseline_stats['action_freq'] = Counter(actions)
+        actions = [e.get("action", "") for e in events]
+        self.baseline_stats["action_freq"] = Counter(actions)
 
         # Principal distribution
-        principals = [e.get('principal', '') for e in events]
-        self.baseline_stats['principal_freq'] = Counter(principals)
+        principals = [e.get("principal", "") for e in events]
+        self.baseline_stats["principal_freq"] = Counter(principals)
 
         # Temporal patterns (hourly distribution)
         hours = []
         for event in events:
-            if 'timestamp' in event:
+            if "timestamp" in event:
                 try:
-                    ts = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
+                    ts = datetime.fromisoformat(
+                        event["timestamp"].replace("Z", "+00:00")
+                    )
                     hours.append(ts.hour)
                 except:
                     pass
-        self.baseline_stats['hour_distribution'] = Counter(hours)
+        self.baseline_stats["hour_distribution"] = Counter(hours)
 
         # Average events per principal
         principal_counts = Counter(principals)
-        self.baseline_stats['avg_events_per_principal'] = np.mean(list(principal_counts.values())) if principal_counts else 0
-        self.baseline_stats['std_events_per_principal'] = np.std(list(principal_counts.values())) if principal_counts else 0
+        self.baseline_stats["avg_events_per_principal"] = (
+            np.mean(list(principal_counts.values())) if principal_counts else 0
+        )
+        self.baseline_stats["std_events_per_principal"] = (
+            np.std(list(principal_counts.values())) if principal_counts else 0
+        )
 
     def predict(self, events: List[Dict[str, Any]]) -> List[AnomalyResult]:
         """
@@ -267,18 +293,20 @@ class AnomalyDetector:
         scores_normalized = 1 / (1 + np.exp(scores))  # Sigmoid normalization
 
         results = []
-        for i, (event, pred, score) in enumerate(zip(events, predictions, scores_normalized)):
+        for i, (event, pred, score) in enumerate(
+            zip(events, predictions, scores_normalized)
+        ):
             is_anomaly = pred == -1
 
             # Determine severity based on score
             if score > 0.9:
-                severity = 'critical'
+                severity = "critical"
             elif score > 0.75:
-                severity = 'high'
+                severity = "high"
             elif score > 0.6:
-                severity = 'medium'
+                severity = "medium"
             else:
-                severity = 'low'
+                severity = "low"
 
             # Feature importance (simplified)
             feature_vector = X[i]
@@ -293,15 +321,19 @@ class AnomalyDetector:
             # Generate explanation
             explanation = self._generate_explanation(event, anomaly_type, score)
 
-            results.append(AnomalyResult(
-                is_anomaly=is_anomaly,
-                anomaly_score=float(score),
-                confidence=min(abs(score - 0.5) * 2, 1.0),  # Distance from decision boundary
-                anomaly_type=anomaly_type,
-                explanation=explanation,
-                contributing_features=contributing_features,
-                severity=severity
-            ))
+            results.append(
+                AnomalyResult(
+                    is_anomaly=is_anomaly,
+                    anomaly_score=float(score),
+                    confidence=min(
+                        abs(score - 0.5) * 2, 1.0
+                    ),  # Distance from decision boundary
+                    anomaly_type=anomaly_type,
+                    explanation=explanation,
+                    contributing_features=contributing_features,
+                    severity=severity,
+                )
+            )
 
         return results
 
@@ -314,49 +346,55 @@ class AnomalyDetector:
             anomalies = []
 
             # Check event type frequency
-            event_type = event.get('event_type', '')
-            expected_freq = self.baseline_stats.get('event_type_freq', {}).get(event_type, 0)
+            event_type = event.get("event_type", "")
+            expected_freq = self.baseline_stats.get("event_type_freq", {}).get(
+                event_type, 0
+            )
             if expected_freq < 2:  # Rare event type
                 score += 0.3
-                anomalies.append('rare_event_type')
+                anomalies.append("rare_event_type")
 
             # Check action frequency
-            action = event.get('action', '')
-            action_freq = self.baseline_stats.get('action_freq', {}).get(action, 0)
+            action = event.get("action", "")
+            action_freq = self.baseline_stats.get("action_freq", {}).get(action, 0)
             if action_freq < 2:
                 score += 0.2
-                anomalies.append('rare_action')
+                anomalies.append("rare_action")
 
             # Check principal activity
-            principal = event.get('principal', '')
-            principal_freq = self.baseline_stats.get('principal_freq', {}).get(principal, 0)
-            avg_principal = self.baseline_stats.get('avg_events_per_principal', 0)
-            std_principal = self.baseline_stats.get('std_events_per_principal', 1)
+            principal = event.get("principal", "")
+            principal_freq = self.baseline_stats.get("principal_freq", {}).get(
+                principal, 0
+            )
+            avg_principal = self.baseline_stats.get("avg_events_per_principal", 0)
+            std_principal = self.baseline_stats.get("std_events_per_principal", 1)
 
             if avg_principal > 0 and principal_freq > avg_principal + 2 * std_principal:
                 score += 0.3
-                anomalies.append('high_volume_principal')
+                anomalies.append("high_volume_principal")
 
             # Check temporal anomalies
-            if 'timestamp' in event:
+            if "timestamp" in event:
                 try:
-                    ts = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
-                    hour_dist = self.baseline_stats.get('hour_distribution', {})
+                    ts = datetime.fromisoformat(
+                        event["timestamp"].replace("Z", "+00:00")
+                    )
+                    hour_dist = self.baseline_stats.get("hour_distribution", {})
                     if hour_dist.get(ts.hour, 0) < 2:  # Unusual hour
                         score += 0.2
-                        anomalies.append('unusual_time')
+                        anomalies.append("unusual_time")
                 except:
                     pass
 
             # Check for suspicious metadata
-            if event.get('metadata', {}).get('suspicious'):
+            if event.get("metadata", {}).get("suspicious"):
                 score += 0.5
-                anomalies.append('marked_suspicious')
+                anomalies.append("marked_suspicious")
 
             # Failed actions are more suspicious
             if is_failure(event):
                 score += 0.1
-                anomalies.append('failed_action')
+                anomalies.append("failed_action")
 
             # Normalize score
             score = min(score, 1.0)
@@ -364,56 +402,66 @@ class AnomalyDetector:
             is_anomaly = score > 0.5
 
             if score > 0.8:
-                severity = 'high'
+                severity = "high"
             elif score > 0.6:
-                severity = 'medium'
+                severity = "medium"
             else:
-                severity = 'low'
+                severity = "low"
 
-            anomaly_type = 'statistical'
-            if 'high_volume' in str(anomalies):
-                anomaly_type = 'volumetric'
-            elif 'unusual_time' in str(anomalies):
-                anomaly_type = 'temporal'
+            anomaly_type = "statistical"
+            if "high_volume" in str(anomalies):
+                anomaly_type = "volumetric"
+            elif "unusual_time" in str(anomalies):
+                anomaly_type = "temporal"
             elif anomalies:
-                anomaly_type = 'behavioral'
+                anomaly_type = "behavioral"
 
-            explanation = f"Statistical anomaly detected: {', '.join(anomalies)}" if anomalies else "Normal behavior"
+            explanation = (
+                f"Statistical anomaly detected: {', '.join(anomalies)}"
+                if anomalies
+                else "Normal behavior"
+            )
 
-            results.append(AnomalyResult(
-                is_anomaly=is_anomaly,
-                anomaly_score=score,
-                confidence=score if is_anomaly else (1.0 - score),
-                anomaly_type=anomaly_type,
-                explanation=explanation,
-                contributing_features={'score': score},
-                severity=severity
-            ))
+            results.append(
+                AnomalyResult(
+                    is_anomaly=is_anomaly,
+                    anomaly_score=score,
+                    confidence=score if is_anomaly else (1.0 - score),
+                    anomaly_type=anomaly_type,
+                    explanation=explanation,
+                    contributing_features={"score": score},
+                    severity=severity,
+                )
+            )
 
         return results
 
-    def _determine_anomaly_type(self, event: Dict[str, Any], features: np.ndarray) -> str:
+    def _determine_anomaly_type(
+        self, event: Dict[str, Any], features: np.ndarray
+    ) -> str:
         """Determine the type of anomaly based on features."""
         # Check temporal features
         hour, weekday, day = features[0:3]
         if hour < 6 or hour > 22:  # Outside business hours
-            return 'temporal'
+            return "temporal"
 
         # Check if status is failed
         if features[5] == -1:  # status_code for failed
-            return 'behavioral'
+            return "behavioral"
 
         # Check if marked suspicious
         if features[8] == 1:
-            return 'behavioral'
+            return "behavioral"
 
         # Check MITRE technique count
         if features[9] > 3:
-            return 'behavioral'
+            return "behavioral"
 
-        return 'statistical'
+        return "statistical"
 
-    def _generate_explanation(self, event: Dict[str, Any], anomaly_type: str, score: float) -> str:
+    def _generate_explanation(
+        self, event: Dict[str, Any], anomaly_type: str, score: float
+    ) -> str:
         """Generate human-readable explanation for anomaly."""
         explanations = []
 
@@ -424,24 +472,22 @@ class AnomalyDetector:
         else:
             explanations.append("Slightly unusual pattern")
 
-        if anomaly_type == 'temporal':
+        if anomaly_type == "temporal":
             explanations.append("occurring at unusual time")
-        elif anomaly_type == 'behavioral':
+        elif anomaly_type == "behavioral":
             explanations.append("showing abnormal behavior")
-        elif anomaly_type == 'volumetric':
+        elif anomaly_type == "volumetric":
             explanations.append("with unusual volume")
 
-        event_type = event.get('event_type', 'unknown')
-        principal = event.get('principal', 'unknown')
+        event_type = event.get("event_type", "unknown")
+        principal = event.get("principal", "unknown")
 
         explanations.append(f"for event type '{event_type}' by '{principal}'")
 
         return " ".join(explanations)
 
     def batch_predict(
-        self,
-        events: List[Dict[str, Any]],
-        threshold: float = 0.6
+        self, events: List[Dict[str, Any]], threshold: float = 0.6
     ) -> Tuple[List[Dict[str, Any]], List[AnomalyResult]]:
         """
         Batch predict and filter anomalies.
@@ -456,7 +502,8 @@ class AnomalyDetector:
         results = self.predict(events)
 
         anomalous_events = [
-            event for event, result in zip(events, results)
+            event
+            for event, result in zip(events, results)
             if result.is_anomaly and result.anomaly_score >= threshold
         ]
 

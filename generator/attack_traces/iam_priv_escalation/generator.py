@@ -1,6 +1,7 @@
 """
 IAM Privilege Escalation scenario generator.
 """
+
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -25,7 +26,7 @@ def generate_iam_privilege_escalation_scenario(
     account_id: str = "123456789012",
     region: str = "us-east-1",
     duration_hours: float = 1.0,
-    add_noise: bool = True
+    add_noise: bool = True,
 ) -> Dict[str, Any]:
     """
     Generate IAM privilege escalation attack scenario.
@@ -52,7 +53,9 @@ def generate_iam_privilege_escalation_scenario(
     session_id = generate_session_id()
 
     # Time setup
-    start_time, end_time = get_scenario_timeframe(duration_hours=duration_hours, days_ago=1)
+    start_time, end_time = get_scenario_timeframe(
+        duration_hours=duration_hours, days_ago=1
+    )
 
     events: List[Dict[str, Any]] = []
 
@@ -111,7 +114,7 @@ def generate_iam_privilege_escalation_scenario(
             session_id=session_id,
             request_parameters={
                 "roleName": "HighPrivilegeRole",
-                "policyName": "HighPrivilegePolicy"
+                "policyName": "HighPrivilegePolicy",
             },
             metadata={"attack_stage": "reconnaissance"},
         )
@@ -129,7 +132,7 @@ def generate_iam_privilege_escalation_scenario(
             session_id=session_id,
             request_parameters={
                 "userName": "service-account-readonly",
-                "policyName": "ServiceAccountPolicy"
+                "policyName": "ServiceAccountPolicy",
             },
             metadata={"attack_stage": "reconnaissance"},
         )
@@ -158,15 +161,15 @@ def generate_iam_privilege_escalation_scenario(
                 "role": high_priv_role,  # PassRole exploitation!
                 "runtime": "python3.11",
                 "handler": "index.handler",
-                "code": {"zipFile": "<base64-encoded-payload>"}
+                "code": {"zipFile": "<base64-encoded-payload>"},
             },
             response_elements={
                 "functionArn": f"arn:aws:lambda:{region}:{account_id}:function:{malicious_function_name}",
-                "role": high_priv_role
+                "role": high_priv_role,
             },
             metadata={
                 "attack_stage": "privilege_escalation",
-                "technique": "PassRole abuse"
+                "technique": "PassRole abuse",
             },
         )
     )
@@ -184,7 +187,7 @@ def generate_iam_privilege_escalation_scenario(
             session_id=session_id,
             metadata={
                 "attack_stage": "privilege_escalation",
-                "invocation_type": "RequestResponse"
+                "invocation_type": "RequestResponse",
             },
         )
     )
@@ -210,22 +213,21 @@ def generate_iam_privilege_escalation_scenario(
                 "roleName": backdoor_role_name,
                 "assumeRolePolicyDocument": {
                     "Version": "2012-10-17",
-                    "Statement": [{
-                        "Effect": "Allow",
-                        "Principal": {"AWS": f"arn:aws:iam::{account_id}:root"},
-                        "Action": "sts:AssumeRole"
-                    }]
-                }
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {"AWS": f"arn:aws:iam::{account_id}:root"},
+                            "Action": "sts:AssumeRole",
+                        }
+                    ],
+                },
             },
             response_elements={
-                "role": {
-                    "arn": backdoor_role_arn,
-                    "roleName": backdoor_role_name
-                }
+                "role": {"arn": backdoor_role_arn, "roleName": backdoor_role_name}
             },
             metadata={
                 "attack_stage": "persistence",
-                "suspicious": "role_created_outside_normal_process"
+                "suspicious": "role_created_outside_normal_process",
             },
         )
     )
@@ -247,17 +249,13 @@ def generate_iam_privilege_escalation_scenario(
                 "policyName": "AdminAccess",
                 "policyDocument": {
                     "Version": "2012-10-17",
-                    "Statement": [{
-                        "Effect": "Allow",
-                        "Action": "*",
-                        "Resource": "*"
-                    }]
-                }
+                    "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}],
+                },
             },
             metadata={
                 "attack_stage": "persistence",
                 "policy_type": "inline",
-                "overly_permissive": True
+                "overly_permissive": True,
             },
         )
     )
@@ -297,13 +295,10 @@ def generate_iam_privilege_escalation_scenario(
                 "accessKey": {
                     "accessKeyId": fake_access_key,
                     "status": "Active",
-                    "userName": backdoor_user
+                    "userName": backdoor_user,
                 }
             },
-            metadata={
-                "attack_stage": "persistence",
-                "credential_theft": True
-            },
+            metadata={"attack_stage": "persistence", "credential_theft": True},
         )
     )
 
@@ -320,7 +315,7 @@ def generate_iam_privilege_escalation_scenario(
             session_id=session_id,
             request_parameters={
                 "userName": backdoor_user,
-                "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+                "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess",
             },
             metadata={"attack_stage": "persistence"},
         )
@@ -346,7 +341,11 @@ def generate_iam_privilege_escalation_scenario(
     )
 
     # Access sensitive S3 data
-    sensitive_buckets = ["prod-data-bucket", "customer-data-archive", "financial-records"]
+    sensitive_buckets = [
+        "prod-data-bucket",
+        "customer-data-archive",
+        "financial-records",
+    ]
     for i, bucket in enumerate(sensitive_buckets):
         if i + 1 >= len(impact_timestamps):
             break
@@ -361,10 +360,7 @@ def generate_iam_privilege_escalation_scenario(
                 user_agent=attacker_user_agent,
                 status="success",
                 session_id=generate_session_id(),
-                metadata={
-                    "attack_stage": "impact",
-                    "data_exfiltration": True
-                },
+                metadata={"attack_stage": "impact", "data_exfiltration": True},
             )
         )
 
@@ -386,19 +382,22 @@ def generate_iam_privilege_escalation_scenario(
         "end_time": end_time.isoformat(),
         "attacker_ip": attacker_ip,
         "compromised_principal": compromised_principal,
-        "created_backdoors": [backdoor_role_arn, f"arn:aws:iam::{account_id}:user/{backdoor_user}"],
+        "created_backdoors": [
+            backdoor_role_arn,
+            f"arn:aws:iam::{account_id}:user/{backdoor_user}",
+        ],
         "attack_stages": [
             "reconnaissance",
             "privilege_escalation",
             "persistence",
-            "impact"
+            "impact",
         ],
         "mitre_techniques": [
             "T1087.004",  # Account Discovery: Cloud Account
             "T1078.004",  # Valid Accounts: Cloud Accounts
             "T1548.005",  # Abuse Elevation Control Mechanism
             "T1136.003",  # Create Account: Cloud Account
-            "T1530",      # Data from Cloud Storage Object
+            "T1530",  # Data from Cloud Storage Object
         ],
     }
 
@@ -411,9 +410,7 @@ if __name__ == "__main__":
     output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = generate_iam_privilege_escalation_scenario(
-        output_dir=output_dir,
-        duration_hours=1.0,
-        add_noise=True
+        output_dir=output_dir, duration_hours=1.0, add_noise=True
     )
 
     print(f"Generated {metadata['num_events']} events")

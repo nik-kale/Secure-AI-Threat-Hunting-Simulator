@@ -3,13 +3,19 @@ Unit tests for the database persistence layer.
 
 Run with: pytest tests/test_database.py
 """
+
 import pytest
 from datetime import datetime
 from pathlib import Path
 import tempfile
 
 from analysis_engine.database.database import DatabaseConfig, DatabaseManager
-from analysis_engine.database.models import AnalysisRun, DetectedSession, IOC, ThreatIntelligence
+from analysis_engine.database.models import (
+    AnalysisRun,
+    DetectedSession,
+    IOC,
+    ThreatIntelligence,
+)
 from analysis_engine.database.repository import (
     AnalysisRepository,
     SessionRepository,
@@ -488,12 +494,8 @@ class TestThreatIntelligenceRepository:
         )
 
         # Create IOCs with different threat levels
-        ioc1 = ioc_repo.save_ioc(
-            detected_session.id, "ip", "203.0.113.50", "critical"
-        )
-        ioc2 = ioc_repo.save_ioc(
-            detected_session.id, "ip", "198.51.100.1", "low"
-        )
+        ioc1 = ioc_repo.save_ioc(detected_session.id, "ip", "203.0.113.50", "critical")
+        ioc2 = ioc_repo.save_ioc(detected_session.id, "ip", "198.51.100.1", "low")
 
         intel_repo.save_threat_intelligence(
             ioc1.id, "virustotal", True, {"positives": 45}, reputation_score=0.95

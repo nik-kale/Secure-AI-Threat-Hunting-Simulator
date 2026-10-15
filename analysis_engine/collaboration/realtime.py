@@ -1,12 +1,15 @@
 """Real-time collaboration features for team exercises."""
+
 from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 import json
 
+
 class MessageType(str, Enum):
     """Types of real-time messages."""
+
     CHAT = "chat"
     SYSTEM = "system"
     ALERT = "alert"
@@ -14,16 +17,20 @@ class MessageType(str, Enum):
     STATUS_UPDATE = "status_update"
     DETECTION = "detection"
 
+
 class MessagePriority(str, Enum):
     """Message priority levels."""
+
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
     URGENT = "urgent"
 
+
 @dataclass
 class Message:
     """Real-time message."""
+
     message_id: str
     workspace_id: str
     sender_id: str
@@ -36,23 +43,28 @@ class Message:
     attachments: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class UserPresence:
     """User presence status."""
+
     user_id: str
     status: str  # online, away, busy, offline
     last_seen: datetime
     current_workspace: Optional[str] = None
     current_activity: Optional[str] = None
 
+
 @dataclass
 class LiveUpdate:
     """Live workspace update."""
+
     update_id: str
     workspace_id: str
     update_type: str  # event_detected, user_joined, objective_completed, etc.
     data: Dict[str, Any]
     timestamp: datetime
+
 
 class RealtimeCollaboration:
     """Real-time collaboration system for team exercises."""
@@ -61,7 +73,9 @@ class RealtimeCollaboration:
         self.messages: Dict[str, List[Message]] = {}  # workspace_id -> messages
         self.presence: Dict[str, UserPresence] = {}  # user_id -> presence
         self.subscriptions: Dict[str, List[Callable]] = {}  # workspace_id -> callbacks
-        self.typing_indicators: Dict[str, Dict[str, datetime]] = {}  # workspace_id -> {user_id: timestamp}
+        self.typing_indicators: Dict[str, Dict[str, datetime]] = (
+            {}
+        )  # workspace_id -> {user_id: timestamp}
 
     def send_message(
         self,
@@ -72,7 +86,7 @@ class RealtimeCollaboration:
         priority: MessagePriority = MessagePriority.NORMAL,
         thread_id: Optional[str] = None,
         mentions: Optional[List[str]] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None
+        attachments: Optional[List[Dict[str, Any]]] = None,
     ) -> Message:
         """Send a message to workspace.
 
@@ -104,7 +118,7 @@ class RealtimeCollaboration:
             priority=priority,
             thread_id=thread_id,
             mentions=mentions or [],
-            attachments=attachments or []
+            attachments=attachments or [],
         )
 
         self.messages[workspace_id].append(message)
@@ -119,7 +133,7 @@ class RealtimeCollaboration:
         workspace_id: str,
         limit: int = 50,
         since: Optional[datetime] = None,
-        message_type: Optional[MessageType] = None
+        message_type: Optional[MessageType] = None,
     ) -> List[Message]:
         """Get messages from workspace.
 
@@ -150,7 +164,7 @@ class RealtimeCollaboration:
         user_id: str,
         status: str,
         workspace_id: Optional[str] = None,
-        activity: Optional[str] = None
+        activity: Optional[str] = None,
     ):
         """Update user presence status.
 
@@ -165,7 +179,7 @@ class RealtimeCollaboration:
             status=status,
             last_seen=datetime.now(),
             current_workspace=workspace_id,
-            current_activity=activity
+            current_activity=activity,
         )
 
         # Notify workspace of presence change
@@ -173,7 +187,7 @@ class RealtimeCollaboration:
             self._notify_subscribers(
                 workspace_id,
                 "presence_update",
-                {"user_id": user_id, "status": status, "activity": activity}
+                {"user_id": user_id, "status": status, "activity": activity},
             )
 
     def get_workspace_users(self, workspace_id: str) -> List[UserPresence]:
@@ -186,7 +200,8 @@ class RealtimeCollaboration:
             List of user presence info
         """
         return [
-            presence for presence in self.presence.values()
+            presence
+            for presence in self.presence.values()
             if presence.current_workspace == workspace_id
         ]
 
@@ -208,9 +223,7 @@ class RealtimeCollaboration:
 
         # Notify subscribers
         self._notify_subscribers(
-            workspace_id,
-            "typing",
-            {"user_id": user_id, "is_typing": is_typing}
+            workspace_id, "typing", {"user_id": user_id, "is_typing": is_typing}
         )
 
     def get_typing_users(self, workspace_id: str) -> List[str]:
@@ -228,7 +241,8 @@ class RealtimeCollaboration:
         # Remove stale typing indicators (>10 seconds old)
         now = datetime.now()
         stale_users = [
-            user_id for user_id, timestamp in self.typing_indicators[workspace_id].items()
+            user_id
+            for user_id, timestamp in self.typing_indicators[workspace_id].items()
             if (now - timestamp).total_seconds() > 10
         ]
         for user_id in stale_users:
@@ -242,7 +256,7 @@ class RealtimeCollaboration:
         alert_type: str,
         message: str,
         priority: MessagePriority = MessagePriority.HIGH,
-        data: Optional[Dict[str, Any]] = None
+        data: Optional[Dict[str, Any]] = None,
     ) -> Message:
         """Send system alert to workspace.
 
@@ -261,13 +275,10 @@ class RealtimeCollaboration:
             sender_id="system",
             content=message,
             message_type=MessageType.ALERT,
-            priority=priority
+            priority=priority,
         )
 
-        alert_msg.metadata = {
-            "alert_type": alert_type,
-            "data": data or {}
-        }
+        alert_msg.metadata = {"alert_type": alert_type, "data": data or {}}
 
         return alert_msg
 
@@ -277,7 +288,7 @@ class RealtimeCollaboration:
         user_id: str,
         event_id: str,
         annotation: str,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ) -> Message:
         """Add annotation to an event.
 
@@ -296,11 +307,9 @@ class RealtimeCollaboration:
             sender_id=user_id,
             content=annotation,
             message_type=MessageType.ANNOTATION,
-            attachments=[{
-                "type": "event_reference",
-                "event_id": event_id,
-                "tags": tags or []
-            }]
+            attachments=[
+                {"type": "event_reference", "event_id": event_id, "tags": tags or []}
+            ],
         )
 
     def subscribe(self, workspace_id: str, callback: Callable[[str, Any], None]):
@@ -350,7 +359,7 @@ class RealtimeCollaboration:
         severity: str,
         event_count: int,
         mitre_techniques: List[str],
-        summary: str
+        summary: str,
     ) -> Message:
         """Broadcast detection to workspace.
 
@@ -369,7 +378,7 @@ class RealtimeCollaboration:
             "low": MessagePriority.LOW,
             "medium": MessagePriority.NORMAL,
             "high": MessagePriority.HIGH,
-            "critical": MessagePriority.URGENT
+            "critical": MessagePriority.URGENT,
         }
 
         message = self.send_message(
@@ -377,7 +386,7 @@ class RealtimeCollaboration:
             sender_id="detection_engine",
             content=f"**{detection_name}**\n{summary}",
             message_type=MessageType.DETECTION,
-            priority=priority_map.get(severity.lower(), MessagePriority.NORMAL)
+            priority=priority_map.get(severity.lower(), MessagePriority.NORMAL),
         )
 
         message.metadata = {
@@ -385,17 +394,13 @@ class RealtimeCollaboration:
             "severity": severity,
             "event_count": event_count,
             "mitre_techniques": mitre_techniques,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         return message
 
     def create_thread(
-        self,
-        workspace_id: str,
-        parent_message_id: str,
-        user_id: str,
-        content: str
+        self, workspace_id: str, parent_message_id: str, user_id: str, content: str
     ) -> Message:
         """Create threaded reply to message.
 
@@ -412,7 +417,7 @@ class RealtimeCollaboration:
             workspace_id=workspace_id,
             sender_id=user_id,
             content=content,
-            thread_id=parent_message_id
+            thread_id=parent_message_id,
         )
 
     def get_thread(self, workspace_id: str, thread_id: str) -> List[Message]:
@@ -427,16 +432,12 @@ class RealtimeCollaboration:
         """
         messages = self.messages.get(workspace_id, [])
         thread_messages = [
-            m for m in messages
-            if m.message_id == thread_id or m.thread_id == thread_id
+            m for m in messages if m.message_id == thread_id or m.thread_id == thread_id
         ]
         return sorted(thread_messages, key=lambda m: m.timestamp)
 
     def search_messages(
-        self,
-        workspace_id: str,
-        query: str,
-        limit: int = 20
+        self, workspace_id: str, query: str, limit: int = 20
     ) -> List[Message]:
         """Search messages in workspace.
 
@@ -452,7 +453,8 @@ class RealtimeCollaboration:
         query_lower = query.lower()
 
         matches = [
-            m for m in messages
+            m
+            for m in messages
             if query_lower in m.content.lower() or query_lower in m.sender_id.lower()
         ]
 

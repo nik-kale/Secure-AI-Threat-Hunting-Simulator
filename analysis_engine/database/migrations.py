@@ -4,6 +4,7 @@ Database migration utilities for AI Threat Hunting Simulator.
 This module provides utilities for managing database schema migrations
 using Alembic.
 """
+
 import logging
 from pathlib import Path
 from typing import Optional
@@ -52,11 +53,7 @@ class MigrationManager:
         command.init(self.alembic_cfg, str(migrations_dir))
         logger.info(f"Initialized migrations directory: {migrations_dir}")
 
-    def create_migration(
-        self,
-        message: str,
-        autogenerate: bool = True
-    ) -> None:
+    def create_migration(self, message: str, autogenerate: bool = True) -> None:
         """
         Create a new migration revision.
 
@@ -67,11 +64,7 @@ class MigrationManager:
         if self.alembic_cfg is None:
             raise RuntimeError("Alembic not configured. Run init() first.")
 
-        command.revision(
-            self.alembic_cfg,
-            message=message,
-            autogenerate=autogenerate
-        )
+        command.revision(self.alembic_cfg, message=message, autogenerate=autogenerate)
         logger.info(f"Created migration: {message}")
 
     def upgrade(self, revision: str = "head") -> None:
@@ -129,9 +122,7 @@ class MigrationManager:
 
 
 def create_initial_migration(
-    database_url: str,
-    migrations_dir: Path,
-    message: str = "Initial database schema"
+    database_url: str, migrations_dir: Path, message: str = "Initial database schema"
 ) -> None:
     """
     Create initial database migration.

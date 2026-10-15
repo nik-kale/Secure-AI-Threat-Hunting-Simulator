@@ -1,6 +1,7 @@
 """
 Main analysis pipeline orchestrator.
 """
+
 from pathlib import Path
 from typing import Any, Dict, Optional
 import logging
@@ -27,8 +28,7 @@ from .agents import (
 from .reports import JsonReporter, MarkdownReporter
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -41,14 +41,18 @@ try:
         SessionRepository,
         IOCRepository,
     )
+
     DATABASE_AVAILABLE = True
 except ImportError:
     DATABASE_AVAILABLE = False
-    logger.warning("Database module not available. Analysis results will not be persisted.")
+    logger.warning(
+        "Database module not available. Analysis results will not be persisted."
+    )
 
 # Optional LLM integration
 try:
     from .llm import get_llm_provider, LLMProvider
+
     LLM_AVAILABLE = True
 except ImportError:
     LLM_AVAILABLE = False
@@ -57,6 +61,7 @@ except ImportError:
 # Optional cache integration
 try:
     from .cache import get_cache, CacheNamespace
+
     CACHE_AVAILABLE = True
 except ImportError:
     CACHE_AVAILABLE = False
@@ -65,6 +70,7 @@ except ImportError:
 # Optional threat intelligence integration
 try:
     from .threat_intel import IOCEnricher, create_enricher_from_config
+
     THREAT_INTEL_AVAILABLE = True
 except ImportError:
     THREAT_INTEL_AVAILABLE = False
@@ -95,7 +101,7 @@ class ThreatHuntingPipeline:
         llm_api_key: Optional[str] = None,
         llm_model: Optional[str] = None,
         enable_threat_intel: bool = None,
-        threat_intel_config: Optional[Any] = None
+        threat_intel_config: Optional[Any] = None,
     ):
         """
         Initialize the analysis pipeline.
@@ -117,7 +123,7 @@ class ThreatHuntingPipeline:
         self.parser = EventParser()
         self.correlator = EventCorrelator(
             time_window_minutes=time_window_minutes,
-            min_events_for_session=min_events_for_session
+            min_events_for_session=min_events_for_session,
         )
         self.kill_chain_mapper = KillChainMapper()
         self.mitre_mapper = MitreMapper()
@@ -135,32 +141,40 @@ class ThreatHuntingPipeline:
                     self.llm_provider = get_llm_provider(
                         provider_type=llm_provider_type,
                         api_key=llm_api_key,
-                        model=llm_model
+                        model=llm_model,
                     )
                     logger.info(f"LLM provider initialized: {llm_provider_type}")
                 except Exception as e:
-                    logger.warning(f"Failed to initialize LLM provider: {e}. Using template-based analysis.")
+                    logger.warning(
+                        f"Failed to initialize LLM provider: {e}. Using template-based analysis."
+                    )
                     self.llm_provider = None
             else:
-                logger.warning("LLM integration requested but not available. Using template-based analysis.")
+                logger.warning(
+                    "LLM integration requested but not available. Using template-based analysis."
+                )
 
         # Initialize threat intelligence enricher if configured
         self.threat_intel_enricher = None
         if enable_threat_intel is None:
             # Auto-detect: enable if config provided and module available
             enable_threat_intel = (
-                THREAT_INTEL_AVAILABLE and
-                threat_intel_config is not None and
-                getattr(threat_intel_config, 'enable_threat_intel', False)
+                THREAT_INTEL_AVAILABLE
+                and threat_intel_config is not None
+                and getattr(threat_intel_config, "enable_threat_intel", False)
             )
 
         if enable_threat_intel and THREAT_INTEL_AVAILABLE:
             try:
                 if threat_intel_config:
-                    self.threat_intel_enricher = create_enricher_from_config(threat_intel_config)
+                    self.threat_intel_enricher = create_enricher_from_config(
+                        threat_intel_config
+                    )
                     logger.info("Threat intelligence enrichment enabled")
                 else:
-                    logger.warning("Threat intelligence requested but no config provided")
+                    logger.warning(
+                        "Threat intelligence requested but no config provided"
+                    )
             except Exception as e:
                 logger.warning(f"Failed to initialize threat intelligence: {e}")
                 self.threat_intel_enricher = None
@@ -170,19 +184,19 @@ class ThreatHuntingPipeline:
             llm_provider=self.llm_provider,
             use_llm=self.llm_provider is not None,
             threat_intel_enricher=self.threat_intel_enricher,
-            enable_enrichment=self.threat_intel_enricher is not None
+            enable_enrichment=self.threat_intel_enricher is not None,
         )
         self.narrative_generator = ThreatNarrativeAgent(
-            llm_provider=self.llm_provider,
-            use_llm=self.llm_provider is not None
+            llm_provider=self.llm_provider, use_llm=self.llm_provider is not None
         )
         self.response_planner = ResponsePlannerAgent(
-            llm_provider=self.llm_provider,
-            use_llm=self.llm_provider is not None
+            llm_provider=self.llm_provider, use_llm=self.llm_provider is not None
         )
 
         # Initialize graph correlator if available and enabled
-        self.enable_graph_analysis = enable_graph_analysis and GRAPH_CORRELATION_AVAILABLE
+        self.enable_graph_analysis = (
+            enable_graph_analysis and GRAPH_CORRELATION_AVAILABLE
+        )
         if self.enable_graph_analysis:
             self.graph_correlator = GraphCorrelator()
             logger.info("Graph-based correlation enabled")
@@ -196,7 +210,9 @@ class ThreatHuntingPipeline:
 
         # Initialize database persistence if available and enabled
         if enable_database is None:
-            enable_database = DATABASE_AVAILABLE and os.getenv("DB_CONNECTION_STRING") is not None
+            enable_database = (
+                DATABASE_AVAILABLE and os.getenv("DB_CONNECTION_STRING") is not None
+            )
 
         self.enable_database = enable_database and DATABASE_AVAILABLE
         self.db_manager = None
@@ -205,8 +221,7 @@ class ThreatHuntingPipeline:
             try:
                 # Get database URL from parameter or environment
                 db_url = database_url or os.getenv(
-                    "DB_CONNECTION_STRING",
-                    "sqlite:///./data/threat_hunting.db"
+                    "DB_CONNECTION_STRING", "sqlite:///./data/threat_hunting.db"
                 )
 
                 # Initialize database manager
@@ -215,6 +230,7 @@ class ThreatHuntingPipeline:
 
                 # Create tables if they don't exist
                 from .database.models import Base
+
                 Base.metadata.create_all(self.db_manager.engine)
 
                 logger.info(f"Database persistence enabled: {db_url}")
@@ -227,7 +243,7 @@ class ThreatHuntingPipeline:
         self,
         telemetry_path: Path,
         output_dir: Optional[Path] = None,
-        force_streaming: bool = False
+        force_streaming: bool = False,
     ) -> Dict[str, Any]:
         """
         Analyze telemetry from a file.
@@ -273,8 +289,7 @@ class ThreatHuntingPipeline:
 
         # Step 3: Identify suspicious sessions
         suspicious_sessions = self.correlator.identify_suspicious_sessions(
-            sessions,
-            threshold=self.risk_threshold
+            sessions, threshold=self.risk_threshold
         )
         logger.info(f"Identified {len(suspicious_sessions)} suspicious sessions")
 
@@ -304,7 +319,7 @@ class ThreatHuntingPipeline:
                     scenario_name=telemetry_path.stem,
                     telemetry_file_path=str(telemetry_path),
                     summary=summary,
-                    analysis_results=analysis_results
+                    analysis_results=analysis_results,
                 )
             except Exception as e:
                 logger.error(f"Failed to save analysis to database: {e}")
@@ -356,9 +371,7 @@ class ThreatHuntingPipeline:
             return 0.0
 
     def _analyze_with_streaming(
-        self,
-        telemetry_path: Path,
-        output_dir: Optional[Path] = None
+        self, telemetry_path: Path, output_dir: Optional[Path] = None
     ) -> Dict[str, Any]:
         """
         Analyze telemetry using streaming mode.
@@ -375,7 +388,7 @@ class ThreatHuntingPipeline:
             time_window_minutes=self.correlator.time_window.total_seconds() / 60,
             min_events_for_session=self.correlator.min_events,
             risk_threshold=self.risk_threshold,
-            chunk_size=1000
+            chunk_size=1000,
         )
 
         # Define progress callback
@@ -389,9 +402,7 @@ class ThreatHuntingPipeline:
 
         # Run streaming analysis
         return streaming_pipeline.analyze_telemetry_stream(
-            telemetry_path,
-            output_dir,
-            progress_callback=log_progress
+            telemetry_path, output_dir, progress_callback=log_progress
         )
 
     def analyze_session(self, session) -> Dict[str, Any]:
@@ -425,7 +436,7 @@ class ThreatHuntingPipeline:
             session=session,
             kill_chain_data=kill_chain_data,
             mitre_data=mitre_data,
-            ioc_data=ioc_data
+            ioc_data=ioc_data,
         )
 
         # Response planning
@@ -433,7 +444,7 @@ class ThreatHuntingPipeline:
             session=session,
             mitre_data=mitre_data,
             ioc_data=ioc_data,
-            narrative_data=narrative_data
+            narrative_data=narrative_data,
         )
 
         # Compile results
@@ -481,14 +492,12 @@ class ThreatHuntingPipeline:
 
             # Find pivot points
             pivot_points = self.graph_correlator.find_pivot_points(
-                top_n=5,
-                min_degree=2
+                top_n=5, min_degree=2
             )
 
             # Identify lateral movement
             lateral_movements = self.graph_correlator.identify_lateral_movement(
-                min_hops=2,
-                time_window_minutes=60
+                min_hops=2, time_window_minutes=60
             )
 
             # Compile graph analysis results
@@ -509,10 +518,7 @@ class ThreatHuntingPipeline:
 
         except Exception as e:
             logger.error(f"Graph analysis failed: {e}")
-            return {
-                "error": str(e),
-                "graph_summary": {"nodes": 0, "edges": 0}
-            }
+            return {"error": str(e), "graph_summary": {"nodes": 0, "edges": 0}}
 
     def _save_to_database(
         self,
@@ -520,7 +526,7 @@ class ThreatHuntingPipeline:
         telemetry_file_path: str,
         summary: Dict[str, Any],
         analysis_results: list,
-        analysis_duration_seconds: Optional[float] = None
+        analysis_duration_seconds: Optional[float] = None,
     ) -> None:
         """
         Save analysis results to database.
@@ -566,7 +572,8 @@ class ThreatHuntingPipeline:
                         risk_score=session_data.get("risk_score", 0.0),
                         start_time=session_data.get("start_time"),
                         end_time=session_data.get("end_time"),
-                        is_malicious=session_data.get("risk_score", 0.0) >= self.risk_threshold,
+                        is_malicious=session_data.get("risk_score", 0.0)
+                        >= self.risk_threshold,
                         mitre_techniques=session_data.get("mitre_techniques", []),
                         kill_chain_stages=session_data.get("kill_chain_stages", []),
                         session_data=session_data,
@@ -617,11 +624,7 @@ class ThreatHuntingPipeline:
             logger.error(f"Error saving to database: {e}")
             raise
 
-    def write_reports(
-        self,
-        analysis_results: Dict[str, Any],
-        output_dir: Path
-    ) -> None:
+    def write_reports(self, analysis_results: Dict[str, Any], output_dir: Path) -> None:
         """
         Write analysis reports to files.
 
@@ -670,7 +673,7 @@ class StreamingPipeline(ThreatHuntingPipeline):
         min_events_for_session: int = 3,
         risk_threshold: float = 0.5,
         chunk_size: int = 1000,
-        enable_graph_analysis: bool = True
+        enable_graph_analysis: bool = True,
     ):
         """
         Initialize the streaming pipeline.
@@ -686,7 +689,7 @@ class StreamingPipeline(ThreatHuntingPipeline):
             time_window_minutes=time_window_minutes,
             min_events_for_session=min_events_for_session,
             risk_threshold=risk_threshold,
-            enable_graph_analysis=enable_graph_analysis
+            enable_graph_analysis=enable_graph_analysis,
         )
 
         self.streaming_loader = StreamingTelemetryLoader(chunk_size=chunk_size)
@@ -697,7 +700,7 @@ class StreamingPipeline(ThreatHuntingPipeline):
         self,
         telemetry_path: Path,
         output_dir: Optional[Path] = None,
-        progress_callback: Optional[callable] = None
+        progress_callback: Optional[callable] = None,
     ) -> Dict[str, Any]:
         """
         Analyze telemetry using streaming to handle large files.
@@ -718,12 +721,13 @@ class StreamingPipeline(ThreatHuntingPipeline):
         # Count total events for progress tracking
         try:
             total_events = self.streaming_loader.count_events(
-                telemetry_path,
-                file_format
+                telemetry_path, file_format
             )
             logger.info(f"File contains {total_events} total events")
         except Exception as e:
-            logger.warning(f"Could not count events: {e}. Progress tracking may be limited.")
+            logger.warning(
+                f"Could not count events: {e}. Progress tracking may be limited."
+            )
             total_events = 0
 
         # Initialize progress tracking
@@ -731,6 +735,7 @@ class StreamingPipeline(ThreatHuntingPipeline):
 
         # Process chunks
         from .core.correlation import CorrelationSession
+
         all_sessions = []
         chunk_num = 0
 
@@ -747,13 +752,17 @@ class StreamingPipeline(ThreatHuntingPipeline):
                 progress.processed_events += len(normalized_events)
 
                 # Correlate events in this chunk
-                chunk_sessions = self.correlator.correlate_multi_criteria(normalized_events)
+                chunk_sessions = self.correlator.correlate_multi_criteria(
+                    normalized_events
+                )
 
                 # Merge with existing sessions
                 all_sessions = merge_sessions(
                     all_sessions,
                     chunk_sessions,
-                    time_window_minutes=int(self.correlator.time_window.total_seconds() / 60)
+                    time_window_minutes=int(
+                        self.correlator.time_window.total_seconds() / 60
+                    ),
                 )
                 progress.total_sessions = len(all_sessions)
 
@@ -772,12 +781,13 @@ class StreamingPipeline(ThreatHuntingPipeline):
             logger.error(f"Error during streaming analysis: {e}")
             raise
 
-        logger.info(f"Streaming load complete: {len(all_sessions)} total sessions correlated")
+        logger.info(
+            f"Streaming load complete: {len(all_sessions)} total sessions correlated"
+        )
 
         # Identify suspicious sessions
         suspicious_sessions = self.correlator.identify_suspicious_sessions(
-            all_sessions,
-            threshold=self.risk_threshold
+            all_sessions, threshold=self.risk_threshold
         )
         progress.suspicious_sessions = len(suspicious_sessions)
         logger.info(f"Identified {len(suspicious_sessions)} suspicious sessions")
@@ -799,7 +809,7 @@ class StreamingPipeline(ThreatHuntingPipeline):
             "streaming_stats": {
                 "chunks_processed": progress.processed_chunks,
                 "chunk_size": self.chunk_size,
-            }
+            },
         }
 
         # Write reports if output directory specified
@@ -813,7 +823,7 @@ class StreamingPipeline(ThreatHuntingPipeline):
                     scenario_name=telemetry_path.stem,
                     telemetry_file_path=str(telemetry_path),
                     summary=summary,
-                    analysis_results=analysis_results
+                    analysis_results=analysis_results,
                 )
             except Exception as e:
                 logger.error(f"Failed to save streaming analysis to database: {e}")
@@ -827,7 +837,7 @@ def analyze_scenario(
     output_dir: Path,
     time_window: int = 60,
     min_events: int = 3,
-    force_streaming: bool = False
+    force_streaming: bool = False,
 ) -> Dict[str, Any]:
     """
     Convenience function to analyze a scenario.
@@ -843,12 +853,9 @@ def analyze_scenario(
         Analysis results
     """
     pipeline = ThreatHuntingPipeline(
-        time_window_minutes=time_window,
-        min_events_for_session=min_events
+        time_window_minutes=time_window, min_events_for_session=min_events
     )
 
     return pipeline.analyze_telemetry_file(
-        telemetry_path,
-        output_dir,
-        force_streaming=force_streaming
+        telemetry_path, output_dir, force_streaming=force_streaming
     )

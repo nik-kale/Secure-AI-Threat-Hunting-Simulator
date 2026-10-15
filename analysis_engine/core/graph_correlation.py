@@ -4,6 +4,7 @@ Graph-based correlation engine for advanced attack pattern detection.
 Uses NetworkX to build directed graphs of security events and detect
 attack campaigns, pivot points, lateral movement, and attack paths.
 """
+
 from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime
@@ -15,6 +16,7 @@ from pathlib import Path
 try:
     import networkx as nx
     from networkx.algorithms import community
+
     NETWORKX_AVAILABLE = True
 except ImportError:
     NETWORKX_AVAILABLE = False
@@ -63,7 +65,11 @@ class AttackCampaign:
             "resources": list(self.resources),
             "start_time": self.start_time.isoformat() if self.start_time else None,
             "end_time": self.end_time.isoformat() if self.end_time else None,
-            "duration_seconds": (self.end_time - self.start_time).total_seconds() if self.start_time and self.end_time else 0,
+            "duration_seconds": (
+                (self.end_time - self.start_time).total_seconds()
+                if self.start_time and self.end_time
+                else 0
+            ),
             "modularity": self.modularity,
             "density": self.density,
             "size": self.size,
@@ -193,7 +199,9 @@ class GraphCorrelator:
 
         self.min_edge_weight = min_edge_weight
         self.graph = nx.DiGraph()
-        self.events_by_edge: Dict[Tuple[str, str], List[NormalizedEvent]] = defaultdict(list)
+        self.events_by_edge: Dict[Tuple[str, str], List[NormalizedEvent]] = defaultdict(
+            list
+        )
         self.events_by_node: Dict[str, List[NormalizedEvent]] = defaultdict(list)
 
         logger.info("Initialized GraphCorrelator")
@@ -233,17 +241,16 @@ class GraphCorrelator:
                         type=entity_type,
                         first_seen=event.timestamp,
                         last_seen=event.timestamp,
-                        event_count=0
+                        event_count=0,
                     )
                 else:
                     # Update last seen time
-                    self.graph.nodes[entity_id]['last_seen'] = max(
-                        self.graph.nodes[entity_id]['last_seen'],
-                        event.timestamp
+                    self.graph.nodes[entity_id]["last_seen"] = max(
+                        self.graph.nodes[entity_id]["last_seen"], event.timestamp
                     )
 
                 # Increment event count
-                self.graph.nodes[entity_id]['event_count'] += 1
+                self.graph.nodes[entity_id]["event_count"] += 1
                 self.events_by_node[entity_id].append(event)
 
             # Create edges between entities (directed)
@@ -256,23 +263,25 @@ class GraphCorrelator:
 
                 # Add or update edge
                 if self.graph.has_edge(source, target):
-                    self.graph[source][target]['weight'] += 1
-                    self.graph[source][target]['timestamps'].append(event.timestamp)
-                    self.graph[source][target]['event_types'].add(event.event_type)
+                    self.graph[source][target]["weight"] += 1
+                    self.graph[source][target]["timestamps"].append(event.timestamp)
+                    self.graph[source][target]["event_types"].add(event.event_type)
                 else:
                     self.graph.add_edge(
-                        source, target,
+                        source,
+                        target,
                         weight=1,
                         timestamps=[event.timestamp],
                         event_types={event.event_type},
-                        first_event=event.timestamp
+                        first_event=event.timestamp,
                     )
 
         # Filter edges by minimum weight
         if self.min_edge_weight > 1:
             edges_to_remove = [
-                (u, v) for u, v, d in self.graph.edges(data=True)
-                if d['weight'] < self.min_edge_weight
+                (u, v)
+                for u, v, d in self.graph.edges(data=True)
+                if d["weight"] < self.min_edge_weight
             ]
             self.graph.remove_edges_from(edges_to_remove)
             logger.info(f"Removed {len(edges_to_remove)} low-weight edges")
@@ -305,9 +314,7 @@ class GraphCorrelator:
         return entities
 
     def _create_edges(
-        self,
-        entities: List[Tuple[str, str]],
-        event: NormalizedEvent
+        self, entities: List[Tuple[str, str]], event: NormalizedEvent
     ) -> List[Tuple[str, str]]:
         """
         Create directed edges between entities.
@@ -323,23 +330,21 @@ class GraphCorrelator:
         entity_dict = {etype: eid for eid, etype in entities}
 
         # Principal to resource
-        if 'principal' in entity_dict and 'resource' in entity_dict:
-            edges.append((entity_dict['principal'], entity_dict['resource']))
+        if "principal" in entity_dict and "resource" in entity_dict:
+            edges.append((entity_dict["principal"], entity_dict["resource"]))
 
         # IP to resource
-        if 'ip' in entity_dict and 'resource' in entity_dict:
-            edges.append((entity_dict['ip'], entity_dict['resource']))
+        if "ip" in entity_dict and "resource" in entity_dict:
+            edges.append((entity_dict["ip"], entity_dict["resource"]))
 
         # IP to principal (if both exist, showing association)
-        if 'ip' in entity_dict and 'principal' in entity_dict:
-            edges.append((entity_dict['ip'], entity_dict['principal']))
+        if "ip" in entity_dict and "principal" in entity_dict:
+            edges.append((entity_dict["ip"], entity_dict["principal"]))
 
         return edges
 
     def detect_attack_campaigns(
-        self,
-        resolution: float = 1.0,
-        min_campaign_size: int = 3
+        self, resolution: float = 1.0, min_campaign_size: int = 3
     ) -> List[AttackCampaign]:
         """
         Detect attack campaigns using community detection.
@@ -366,9 +371,7 @@ class GraphCorrelator:
         # Apply Louvain community detection
         try:
             communities_dict = community.louvain_communities(
-                undirected,
-                resolution=resolution,
-                seed=42
+                undirected, resolution=resolution, seed=42
             )
         except Exception as e:
             logger.error(f"Community detection failed: {e}")
@@ -387,7 +390,7 @@ class GraphCorrelator:
             campaign = AttackCampaign(
                 campaign_id=f"campaign-{i}",
                 nodes=set(community_nodes),
-                size=len(community_nodes)
+                size=len(community_nodes),
             )
 
             # Extract edges within campaign
@@ -405,13 +408,13 @@ class GraphCorrelator:
 
             # Extract principals, IPs, resources
             for node in community_nodes:
-                node_type = self.graph.nodes[node].get('type', '')
-                if node_type == 'principal':
-                    campaign.principals.add(node.replace('principal:', ''))
-                elif node_type == 'ip':
-                    campaign.source_ips.add(node.replace('ip:', ''))
-                elif node_type == 'resource':
-                    campaign.resources.add(node.replace('resource:', ''))
+                node_type = self.graph.nodes[node].get("type", "")
+                if node_type == "principal":
+                    campaign.principals.add(node.replace("principal:", ""))
+                elif node_type == "ip":
+                    campaign.source_ips.add(node.replace("ip:", ""))
+                elif node_type == "resource":
+                    campaign.resources.add(node.replace("resource:", ""))
 
             # Time range
             if campaign.events:
@@ -424,9 +427,7 @@ class GraphCorrelator:
         return campaigns
 
     def find_pivot_points(
-        self,
-        top_n: int = 10,
-        min_degree: int = 3
+        self, top_n: int = 10, min_degree: int = 3
     ) -> List[PivotPoint]:
         """
         Find pivot points (high betweenness centrality nodes).
@@ -449,7 +450,7 @@ class GraphCorrelator:
         logger.info("Finding pivot points using centrality analysis")
 
         # Calculate centrality metrics
-        betweenness = nx.betweenness_centrality(self.graph, weight='weight')
+        betweenness = nx.betweenness_centrality(self.graph, weight="weight")
         degree_centrality = nx.degree_centrality(self.graph)
 
         # Calculate closeness (may fail on disconnected graphs)
@@ -468,7 +469,7 @@ class GraphCorrelator:
 
             pivot = PivotPoint(
                 node_id=node,
-                node_type=self.graph.nodes[node].get('type', 'unknown'),
+                node_type=self.graph.nodes[node].get("type", "unknown"),
                 betweenness_centrality=betweenness.get(node, 0.0),
                 degree_centrality=degree_centrality.get(node, 0.0),
                 closeness_centrality=closeness.get(node, 0.0),
@@ -476,7 +477,7 @@ class GraphCorrelator:
                 out_degree=self.graph.out_degree(node),
                 total_degree=degree,
                 connected_nodes=set(self.graph.neighbors(node)),
-                events=self.events_by_node.get(node, [])
+                events=self.events_by_node.get(node, []),
             )
 
             pivot_points.append(pivot)
@@ -491,10 +492,7 @@ class GraphCorrelator:
         return result
 
     def trace_attack_path(
-        self,
-        source_entity: str,
-        target_entity: str,
-        k: int = 3
+        self, source_entity: str, target_entity: str, k: int = 3
     ) -> List[AttackPath]:
         """
         Find attack paths between two entities.
@@ -507,7 +505,9 @@ class GraphCorrelator:
         Returns:
             List of attack paths
         """
-        if not self.graph.has_node(source_entity) or not self.graph.has_node(target_entity):
+        if not self.graph.has_node(source_entity) or not self.graph.has_node(
+            target_entity
+        ):
             logger.warning(f"Source or target entity not found in graph")
             return []
 
@@ -517,17 +517,18 @@ class GraphCorrelator:
 
         try:
             # Find k shortest paths
-            simple_paths = list(nx.shortest_simple_paths(
-                self.graph,
-                source_entity,
-                target_entity,
-                weight='weight'
-            ))
+            simple_paths = list(
+                nx.shortest_simple_paths(
+                    self.graph, source_entity, target_entity, weight="weight"
+                )
+            )
 
             for i, path_nodes in enumerate(simple_paths[:k]):
                 # Create edges from nodes
-                path_edges = [(path_nodes[j], path_nodes[j+1])
-                             for j in range(len(path_nodes) - 1)]
+                path_edges = [
+                    (path_nodes[j], path_nodes[j + 1])
+                    for j in range(len(path_nodes) - 1)
+                ]
 
                 # Gather events along path
                 path_events = []
@@ -543,7 +544,7 @@ class GraphCorrelator:
                     source_node=source_entity,
                     target_node=target_entity,
                     path_length=len(path_nodes) - 1,
-                    is_shortest=(i == 0)
+                    is_shortest=(i == 0),
                 )
 
                 paths.append(attack_path)
@@ -559,9 +560,7 @@ class GraphCorrelator:
         return paths
 
     def identify_lateral_movement(
-        self,
-        min_hops: int = 2,
-        time_window_minutes: int = 60
+        self, min_hops: int = 2, time_window_minutes: int = 60
     ) -> List[LateralMovement]:
         """
         Identify lateral movement patterns.
@@ -587,8 +586,7 @@ class GraphCorrelator:
 
         # Find all principal nodes
         principal_nodes = [
-            n for n, d in self.graph.nodes(data=True)
-            if d.get('type') == 'principal'
+            n for n, d in self.graph.nodes(data=True) if d.get("type") == "principal"
         ]
 
         for principal in principal_nodes:
@@ -603,13 +601,13 @@ class GraphCorrelator:
                         self.graph,
                         principal,
                         target,
-                        cutoff=min_hops + 2  # Limit search depth
+                        cutoff=min_hops + 2,  # Limit search depth
                     ):
                         if len(path) - 1 < min_hops:
                             continue
 
                         # Create hops
-                        hops = [(path[i], path[i+1]) for i in range(len(path) - 1)]
+                        hops = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
 
                         # Gather events for this movement
                         movement_events = []
@@ -622,8 +620,9 @@ class GraphCorrelator:
                             continue
 
                         movement_events.sort(key=lambda e: e.timestamp)
-                        time_span = (movement_events[-1].timestamp -
-                                   movement_events[0].timestamp).total_seconds() / 60
+                        time_span = (
+                            movement_events[-1].timestamp - movement_events[0].timestamp
+                        ).total_seconds() / 60
 
                         if time_span > time_window_minutes:
                             continue
@@ -635,18 +634,18 @@ class GraphCorrelator:
                             num_hops=len(hops),
                             events=movement_events,
                             start_time=movement_events[0].timestamp,
-                            end_time=movement_events[-1].timestamp
+                            end_time=movement_events[-1].timestamp,
                         )
 
                         # Extract entities
                         for node in path:
-                            node_type = self.graph.nodes[node].get('type', '')
-                            if node_type == 'principal':
-                                movement.principals.add(node.replace('principal:', ''))
-                            elif node_type == 'ip':
-                                movement.source_ips.add(node.replace('ip:', ''))
-                            elif node_type == 'resource':
-                                movement.resources.add(node.replace('resource:', ''))
+                            node_type = self.graph.nodes[node].get("type", "")
+                            if node_type == "principal":
+                                movement.principals.add(node.replace("principal:", ""))
+                            elif node_type == "ip":
+                                movement.source_ips.add(node.replace("ip:", ""))
+                            elif node_type == "resource":
+                                movement.resources.add(node.replace("resource:", ""))
 
                         movements.append(movement)
                         movement_id += 1
@@ -674,21 +673,21 @@ class GraphCorrelator:
         graph_copy = self.graph.copy()
 
         for node in graph_copy.nodes():
-            for attr in ['first_seen', 'last_seen']:
+            for attr in ["first_seen", "last_seen"]:
                 if attr in graph_copy.nodes[node]:
                     graph_copy.nodes[node][attr] = str(graph_copy.nodes[node][attr])
 
         for u, v in graph_copy.edges():
-            if 'timestamps' in graph_copy[u][v]:
-                graph_copy[u][v]['timestamps'] = ','.join(
-                    str(ts) for ts in graph_copy[u][v]['timestamps']
+            if "timestamps" in graph_copy[u][v]:
+                graph_copy[u][v]["timestamps"] = ",".join(
+                    str(ts) for ts in graph_copy[u][v]["timestamps"]
                 )
-            if 'event_types' in graph_copy[u][v]:
-                graph_copy[u][v]['event_types'] = ','.join(
-                    graph_copy[u][v]['event_types']
+            if "event_types" in graph_copy[u][v]:
+                graph_copy[u][v]["event_types"] = ",".join(
+                    graph_copy[u][v]["event_types"]
                 )
-            if 'first_event' in graph_copy[u][v]:
-                graph_copy[u][v]['first_event'] = str(graph_copy[u][v]['first_event'])
+            if "first_event" in graph_copy[u][v]:
+                graph_copy[u][v]["first_event"] = str(graph_copy[u][v]["first_event"])
 
         # Ensure output directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -706,11 +705,7 @@ class GraphCorrelator:
             Dictionary with graph statistics and metrics
         """
         if self.graph.number_of_nodes() == 0:
-            return {
-                "nodes": 0,
-                "edges": 0,
-                "error": "Empty graph"
-            }
+            return {"nodes": 0, "edges": 0, "error": "Empty graph"}
 
         # Basic stats
         summary = {
@@ -722,7 +717,7 @@ class GraphCorrelator:
         # Node type breakdown
         node_types = defaultdict(int)
         for node, data in self.graph.nodes(data=True):
-            node_types[data.get('type', 'unknown')] += 1
+            node_types[data.get("type", "unknown")] += 1
         summary["node_types"] = dict(node_types)
 
         # Connectivity
@@ -731,7 +726,9 @@ class GraphCorrelator:
             summary["diameter"] = nx.diameter(self.graph.to_undirected())
         else:
             summary["is_connected"] = False
-            summary["num_components"] = nx.number_weakly_connected_components(self.graph)
+            summary["num_components"] = nx.number_weakly_connected_components(
+                self.graph
+            )
 
         # Degree statistics
         degrees = [d for n, d in self.graph.degree()]
@@ -741,11 +738,7 @@ class GraphCorrelator:
             summary["min_degree"] = min(degrees)
 
         # Top nodes by degree
-        top_nodes = sorted(
-            self.graph.degree(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:5]
+        top_nodes = sorted(self.graph.degree(), key=lambda x: x[1], reverse=True)[:5]
         summary["top_nodes_by_degree"] = [
             {"node": n, "degree": d} for n, d in top_nodes
         ]

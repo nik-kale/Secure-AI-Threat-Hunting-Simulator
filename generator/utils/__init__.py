@@ -1,4 +1,5 @@
 """Generator utilities."""
+
 from .time_utils import (
     generate_timestamp,
     generate_time_sequence,

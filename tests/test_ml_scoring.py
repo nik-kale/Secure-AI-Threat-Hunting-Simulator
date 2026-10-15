@@ -1,6 +1,7 @@
 """
 Tests for ML event classification and risk scoring with schema status values.
 """
+
 import pytest
 
 from analysis_engine.ml.event_classifier import EventClassifier
@@ -26,14 +27,18 @@ def test_stable_bucket_is_deterministic_and_bounded():
 def test_risk_scorer_weights_schema_failures():
     scorer = MLRiskScorer()
 
-    assert scorer.score_event({"status": "failure"}) == pytest.approx(scorer.weights["failed_actions"])
+    assert scorer.score_event({"status": "failure"}) == pytest.approx(
+        scorer.weights["failed_actions"]
+    )
     assert scorer.score_event({"status": "success"}) == 0.0
 
 
 def test_failed_login_is_medium_risk():
     classifier = EventClassifier()
 
-    result = classifier.classify({"event_type": "auth.login", "action": "ConsoleLogin", "status": "failure"})
+    result = classifier.classify(
+        {"event_type": "auth.login", "action": "ConsoleLogin", "status": "failure"}
+    )
 
     assert result.category == "authentication"
     assert result.risk_level == "medium"

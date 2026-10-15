@@ -1,11 +1,14 @@
 """Advanced Role-Based Access Control (RBAC) for enterprise."""
+
 from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 
+
 class Permission(str, Enum):
     """Granular system permissions."""
+
     # Event permissions
     VIEW_EVENTS = "view_events"
     EXPORT_EVENTS = "export_events"
@@ -57,9 +60,11 @@ class Permission(str, Enum):
     CONFIGURE_SYSTEM = "configure_system"
     VIEW_SYSTEM_HEALTH = "view_system_health"
 
+
 @dataclass
 class Role:
     """Role with assigned permissions."""
+
     role_id: str
     name: str
     description: str
@@ -68,9 +73,11 @@ class Role:
     created_at: datetime = field(default_factory=datetime.now)
     modified_at: datetime = field(default_factory=datetime.now)
 
+
 @dataclass
 class RoleAssignment:
     """Assignment of role to user."""
+
     assignment_id: str
     user_id: str
     role_id: str
@@ -78,6 +85,7 @@ class RoleAssignment:
     assigned_by: str = ""
     assigned_at: datetime = field(default_factory=datetime.now)
     expires_at: Optional[datetime] = None
+
 
 class RBACManager:
     """Advanced Role-Based Access Control manager."""
@@ -95,7 +103,7 @@ class RBACManager:
                 name="Super Administrator",
                 description="Full system access across all tenants",
                 permissions=set(Permission),  # All permissions
-                is_system_role=True
+                is_system_role=True,
             ),
             Role(
                 role_id="tenant_admin",
@@ -121,9 +129,9 @@ class RBACManager:
                     Permission.EXPORT_AUDIT_LOGS,
                     Permission.VIEW_COMPLIANCE,
                     Permission.CONFIGURE_SIEM,
-                    Permission.EXPORT_TO_SIEM
+                    Permission.EXPORT_TO_SIEM,
                 },
-                is_system_role=True
+                is_system_role=True,
             ),
             Role(
                 role_id="security_analyst",
@@ -137,9 +145,9 @@ class RBACManager:
                     Permission.VIEW_EXERCISES,
                     Permission.PARTICIPATE_EXERCISES,
                     Permission.VIEW_AUDIT_LOGS,
-                    Permission.VIEW_COMPLIANCE
+                    Permission.VIEW_COMPLIANCE,
                 },
-                is_system_role=True
+                is_system_role=True,
             ),
             Role(
                 role_id="soc_operator",
@@ -150,9 +158,9 @@ class RBACManager:
                     Permission.VIEW_DETECTIONS,
                     Permission.VIEW_EXERCISES,
                     Permission.PARTICIPATE_EXERCISES,
-                    Permission.VIEW_SYSTEM_HEALTH
+                    Permission.VIEW_SYSTEM_HEALTH,
                 },
-                is_system_role=True
+                is_system_role=True,
             ),
             Role(
                 role_id="red_team",
@@ -161,9 +169,9 @@ class RBACManager:
                 permissions={
                     Permission.VIEW_EVENTS,
                     Permission.VIEW_EXERCISES,
-                    Permission.PARTICIPATE_EXERCISES
+                    Permission.PARTICIPATE_EXERCISES,
                 },
-                is_system_role=True
+                is_system_role=True,
             ),
             Role(
                 role_id="blue_team",
@@ -173,9 +181,9 @@ class RBACManager:
                     Permission.VIEW_EVENTS,
                     Permission.VIEW_DETECTIONS,
                     Permission.VIEW_EXERCISES,
-                    Permission.PARTICIPATE_EXERCISES
+                    Permission.PARTICIPATE_EXERCISES,
                 },
-                is_system_role=True
+                is_system_role=True,
             ),
             Role(
                 role_id="purple_team",
@@ -189,9 +197,9 @@ class RBACManager:
                     Permission.VIEW_EXERCISES,
                     Permission.CREATE_EXERCISES,
                     Permission.PARTICIPATE_EXERCISES,
-                    Permission.MANAGE_EXERCISES
+                    Permission.MANAGE_EXERCISES,
                 },
-                is_system_role=True
+                is_system_role=True,
             ),
             Role(
                 role_id="compliance_auditor",
@@ -201,9 +209,9 @@ class RBACManager:
                     Permission.VIEW_AUDIT_LOGS,
                     Permission.EXPORT_AUDIT_LOGS,
                     Permission.VIEW_COMPLIANCE,
-                    Permission.ASSESS_COMPLIANCE
+                    Permission.ASSESS_COMPLIANCE,
                 },
-                is_system_role=True
+                is_system_role=True,
             ),
             Role(
                 role_id="read_only",
@@ -212,21 +220,17 @@ class RBACManager:
                 permissions={
                     Permission.VIEW_EVENTS,
                     Permission.VIEW_DETECTIONS,
-                    Permission.VIEW_EXERCISES
+                    Permission.VIEW_EXERCISES,
                 },
-                is_system_role=True
-            )
+                is_system_role=True,
+            ),
         ]
 
         for role in system_roles:
             self.roles[role.role_id] = role
 
     def create_role(
-        self,
-        role_id: str,
-        name: str,
-        description: str,
-        permissions: Set[Permission]
+        self, role_id: str, name: str, description: str, permissions: Set[Permission]
     ) -> Role:
         """Create custom role.
 
@@ -250,7 +254,7 @@ class RBACManager:
             name=name,
             description=description,
             permissions=permissions,
-            is_system_role=False
+            is_system_role=False,
         )
 
         self.roles[role_id] = role
@@ -262,7 +266,7 @@ class RBACManager:
         role_id: str,
         assigned_by: str,
         tenant_id: Optional[str] = None,
-        expires_in_days: Optional[int] = None
+        expires_in_days: Optional[int] = None,
     ) -> RoleAssignment:
         """Assign role to user.
 
@@ -292,7 +296,7 @@ class RBACManager:
             role_id=role_id,
             tenant_id=tenant_id,
             assigned_by=assigned_by,
-            expires_at=expires_at
+            expires_at=expires_at,
         )
 
         self.assignments.append(assignment)
@@ -314,10 +318,7 @@ class RBACManager:
         return False
 
     def check_permission(
-        self,
-        user_id: str,
-        permission: Permission,
-        tenant_id: Optional[str] = None
+        self, user_id: str, permission: Permission, tenant_id: Optional[str] = None
     ) -> bool:
         """Check if user has permission.
 
@@ -339,9 +340,7 @@ class RBACManager:
         return False
 
     def get_user_roles(
-        self,
-        user_id: str,
-        tenant_id: Optional[str] = None
+        self, user_id: str, tenant_id: Optional[str] = None
     ) -> List[str]:
         """Get all active roles for user.
 
@@ -372,9 +371,7 @@ class RBACManager:
         return active_roles
 
     def get_user_permissions(
-        self,
-        user_id: str,
-        tenant_id: Optional[str] = None
+        self, user_id: str, tenant_id: Optional[str] = None
     ) -> Set[Permission]:
         """Get all permissions for user.
 
@@ -413,7 +410,7 @@ class RBACManager:
         self,
         user_id: Optional[str] = None,
         role_id: Optional[str] = None,
-        tenant_id: Optional[str] = None
+        tenant_id: Optional[str] = None,
     ) -> List[RoleAssignment]:
         """Get role assignments with filters.
 
@@ -438,10 +435,7 @@ class RBACManager:
 
         # Remove expired assignments
         now = datetime.now()
-        assignments = [
-            a for a in assignments
-            if not a.expires_at or a.expires_at > now
-        ]
+        assignments = [a for a in assignments if not a.expires_at or a.expires_at > now]
 
         return assignments
 
@@ -461,26 +455,35 @@ class RBACManager:
         for assignment in assignments:
             role = self.roles.get(assignment.role_id)
             if role:
-                role_details.append({
-                    "role_id": role.role_id,
-                    "role_name": role.name,
-                    "tenant_id": assignment.tenant_id,
-                    "assigned_at": assignment.assigned_at.isoformat(),
-                    "expires_at": assignment.expires_at.isoformat() if assignment.expires_at else None
-                })
+                role_details.append(
+                    {
+                        "role_id": role.role_id,
+                        "role_name": role.name,
+                        "tenant_id": assignment.tenant_id,
+                        "assigned_at": assignment.assigned_at.isoformat(),
+                        "expires_at": (
+                            assignment.expires_at.isoformat()
+                            if assignment.expires_at
+                            else None
+                        ),
+                    }
+                )
 
         return {
             "user_id": user_id,
             "total_roles": len(assignments),
             "total_permissions": len(permissions),
             "roles": role_details,
-            "permissions": [p.value for p in sorted(permissions, key=lambda x: x.value)]
+            "permissions": [
+                p.value for p in sorted(permissions, key=lambda x: x.value)
+            ],
         }
 
 
 @dataclass
 class License:
     """Enterprise license."""
+
     license_id: str
     license_key: str
     tenant_id: str
@@ -491,6 +494,7 @@ class License:
     issued_at: datetime
     expires_at: datetime
     is_active: bool = True
+
 
 class LicenseManager:
     """Enterprise license management."""
@@ -504,7 +508,7 @@ class LicenseManager:
         tier: str,
         max_users: int,
         max_events_per_day: int,
-        validity_days: int = 365
+        validity_days: int = 365,
     ) -> License:
         """Create new license.
 
@@ -527,15 +531,27 @@ class LicenseManager:
         feature_sets = {
             "starter": {"basic_detection", "event_analysis"},
             "professional": {
-                "basic_detection", "event_analysis", "ml_anomaly_detection",
-                "threat_hunting", "graph_analysis", "ctf_mode"
+                "basic_detection",
+                "event_analysis",
+                "ml_anomaly_detection",
+                "threat_hunting",
+                "graph_analysis",
+                "ctf_mode",
             },
             "enterprise": {
-                "basic_detection", "event_analysis", "ml_anomaly_detection",
-                "threat_hunting", "graph_analysis", "ctf_mode",
-                "purple_team", "siem_integration", "multi_tenancy",
-                "sso_saml", "audit_logging", "compliance_reporting"
-            }
+                "basic_detection",
+                "event_analysis",
+                "ml_anomaly_detection",
+                "threat_hunting",
+                "graph_analysis",
+                "ctf_mode",
+                "purple_team",
+                "siem_integration",
+                "multi_tenancy",
+                "sso_saml",
+                "audit_logging",
+                "compliance_reporting",
+            },
         }
 
         license = License(
@@ -547,7 +563,7 @@ class LicenseManager:
             max_events_per_day=max_events_per_day,
             enabled_features=feature_sets.get(tier, set()),
             issued_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=validity_days)
+            expires_at=datetime.now() + timedelta(days=validity_days),
         )
 
         self.licenses[license_id] = license
@@ -614,5 +630,9 @@ class LicenseManager:
             "issued_at": license.issued_at.isoformat(),
             "expires_at": license.expires_at.isoformat(),
             "days_remaining": days_remaining,
-            "status": "active" if days_remaining > 30 else "expiring_soon" if days_remaining > 0 else "expired"
+            "status": (
+                "active"
+                if days_remaining > 30
+                else "expiring_soon" if days_remaining > 0 else "expired"
+            ),
         }

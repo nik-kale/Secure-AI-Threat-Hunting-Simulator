@@ -1,11 +1,14 @@
 """Compliance reporting framework for enterprise deployments."""
+
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 
+
 class ComplianceStandard(str, Enum):
     """Supported compliance standards."""
+
     SOC2 = "soc2"
     ISO27001 = "iso27001"
     NIST_CSF = "nist_csf"
@@ -15,16 +18,20 @@ class ComplianceStandard(str, Enum):
     CCPA = "ccpa"
     FedRAMP = "fedramp"
 
+
 class ControlStatus(str, Enum):
     """Compliance control status."""
+
     IMPLEMENTED = "implemented"
     PARTIAL = "partial"
     NOT_IMPLEMENTED = "not_implemented"
     NOT_APPLICABLE = "not_applicable"
 
+
 @dataclass
 class ComplianceControl:
     """Individual compliance control."""
+
     control_id: str
     standard: ComplianceStandard
     title: str
@@ -36,9 +43,11 @@ class ComplianceControl:
     last_assessed: Optional[datetime] = None
     next_review: Optional[datetime] = None
 
+
 @dataclass
 class ComplianceReport:
     """Compliance assessment report."""
+
     report_id: str
     standard: ComplianceStandard
     generated_at: datetime
@@ -53,6 +62,7 @@ class ComplianceReport:
     findings: List[Dict[str, Any]] = field(default_factory=list)
     recommendations: List[str] = field(default_factory=list)
 
+
 class ComplianceFramework:
     """Enterprise compliance reporting framework."""
 
@@ -63,8 +73,12 @@ class ComplianceFramework:
     def _load_standard_controls(self):
         """Load compliance controls for various standards."""
         self.controls[ComplianceStandard.SOC2.value] = self._load_soc2_controls()
-        self.controls[ComplianceStandard.ISO27001.value] = self._load_iso27001_controls()
-        self.controls[ComplianceStandard.NIST_CSF.value] = self._load_nist_csf_controls()
+        self.controls[ComplianceStandard.ISO27001.value] = (
+            self._load_iso27001_controls()
+        )
+        self.controls[ComplianceStandard.NIST_CSF.value] = (
+            self._load_nist_csf_controls()
+        )
         self.controls[ComplianceStandard.GDPR.value] = self._load_gdpr_controls()
 
     def _load_soc2_controls(self) -> List[ComplianceControl]:
@@ -79,15 +93,15 @@ class ComplianceFramework:
                     "Implement authentication mechanisms",
                     "Enforce role-based access controls",
                     "Log and monitor access attempts",
-                    "Review access logs regularly"
+                    "Review access logs regularly",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "SSO/SAML authentication implemented",
                     "RBAC system in place",
                     "Audit logging enabled",
-                    "Monthly access reviews"
-                ]
+                    "Monthly access reviews",
+                ],
             ),
             ComplianceControl(
                 control_id="CC7.2",
@@ -98,15 +112,15 @@ class ComplianceFramework:
                     "Deploy intrusion detection systems",
                     "Implement anomaly detection",
                     "Monitor for security events",
-                    "Alert on suspicious activities"
+                    "Alert on suspicious activities",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "ML-based anomaly detection deployed",
                     "Real-time threat detection rules",
                     "SIEM integration configured",
-                    "24/7 monitoring alerts"
-                ]
+                    "24/7 monitoring alerts",
+                ],
             ),
             ComplianceControl(
                 control_id="CC7.3",
@@ -117,15 +131,15 @@ class ComplianceFramework:
                     "Incident response plan documented",
                     "Incident classification procedures",
                     "Response team designated",
-                    "Post-incident analysis conducted"
+                    "Post-incident analysis conducted",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "IR playbooks available",
                     "Purple team exercises conducted",
                     "Incident response team trained",
-                    "Post-mortem reports generated"
-                ]
+                    "Post-mortem reports generated",
+                ],
             ),
             ComplianceControl(
                 control_id="CC8.1",
@@ -136,14 +150,11 @@ class ComplianceFramework:
                     "Change approval process",
                     "Testing before deployment",
                     "Change documentation",
-                    "Rollback procedures"
+                    "Rollback procedures",
                 ],
                 status=ControlStatus.PARTIAL,
-                evidence=[
-                    "Code review process",
-                    "Automated testing"
-                ],
-                notes="Need to implement formal change approval workflow"
+                evidence=["Code review process", "Automated testing"],
+                notes="Need to implement formal change approval workflow",
             ),
             ComplianceControl(
                 control_id="A1.2",
@@ -154,15 +165,15 @@ class ComplianceFramework:
                     "Data classification policy",
                     "Labeling of sensitive data",
                     "Access controls based on classification",
-                    "Encryption of confidential data"
+                    "Encryption of confidential data",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "Multi-tenancy data isolation",
                     "Encryption at rest and in transit",
-                    "Access controls per tenant"
-                ]
-            )
+                    "Access controls per tenant",
+                ],
+            ),
         ]
 
     def _load_iso27001_controls(self) -> List[ComplianceControl]:
@@ -177,14 +188,14 @@ class ComplianceFramework:
                     "Document access control policy",
                     "Define roles and responsibilities",
                     "Review policy annually",
-                    "Communicate to all users"
+                    "Communicate to all users",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "RBAC policy documented",
                     "Annual policy review",
-                    "User training completed"
-                ]
+                    "User training completed",
+                ],
             ),
             ComplianceControl(
                 control_id="A.12.4.1",
@@ -195,15 +206,15 @@ class ComplianceFramework:
                     "Log security events",
                     "Include timestamps and user IDs",
                     "Protect log integrity",
-                    "Retain logs per policy"
+                    "Retain logs per policy",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "Comprehensive audit logging",
                     "Tamper-evident log chain",
                     "Log retention for 1 year",
-                    "Hash-based integrity verification"
-                ]
+                    "Hash-based integrity verification",
+                ],
             ),
             ComplianceControl(
                 control_id="A.12.6.1",
@@ -214,13 +225,11 @@ class ComplianceFramework:
                     "Vulnerability scanning",
                     "Patch management process",
                     "Track and remediate vulnerabilities",
-                    "Regular security assessments"
+                    "Regular security assessments",
                 ],
                 status=ControlStatus.PARTIAL,
-                evidence=[
-                    "Dependency scanning enabled"
-                ],
-                notes="Need automated vulnerability scanning"
+                evidence=["Dependency scanning enabled"],
+                notes="Need automated vulnerability scanning",
             ),
             ComplianceControl(
                 control_id="A.16.1.5",
@@ -231,14 +240,14 @@ class ComplianceFramework:
                     "Incident response procedures",
                     "Incident classification",
                     "Escalation procedures",
-                    "Evidence collection"
+                    "Evidence collection",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "IR procedures documented",
                     "Purple team exercises",
-                    "Incident tracking system"
-                ]
+                    "Incident tracking system",
+                ],
             ),
             ComplianceControl(
                 control_id="A.18.1.5",
@@ -249,15 +258,15 @@ class ComplianceFramework:
                     "Encryption policy",
                     "Key management procedures",
                     "Approved algorithms only",
-                    "Regular cryptographic review"
+                    "Regular cryptographic review",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "TLS 1.3 for data in transit",
                     "AES-256 for data at rest",
-                    "Key rotation procedures"
-                ]
-            )
+                    "Key rotation procedures",
+                ],
+            ),
         ]
 
     def _load_nist_csf_controls(self) -> List[ComplianceControl]:
@@ -272,14 +281,14 @@ class ComplianceFramework:
                     "Maintain asset inventory",
                     "Track hardware and software",
                     "Regular inventory updates",
-                    "Asset classification"
+                    "Asset classification",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "Cloud resource tracking",
                     "Multi-cloud asset discovery",
-                    "Automated inventory updates"
-                ]
+                    "Automated inventory updates",
+                ],
             ),
             ComplianceControl(
                 control_id="PR.AC-1",
@@ -290,14 +299,14 @@ class ComplianceFramework:
                     "Identity management system",
                     "Credential lifecycle management",
                     "Access reviews",
-                    "Privileged access management"
+                    "Privileged access management",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "SSO/SAML integration",
                     "Quarterly access reviews",
-                    "MFA enforcement"
-                ]
+                    "MFA enforcement",
+                ],
             ),
             ComplianceControl(
                 control_id="DE.AE-1",
@@ -308,15 +317,15 @@ class ComplianceFramework:
                     "Establish baselines",
                     "Detect deviations",
                     "Alert on anomalies",
-                    "Regular baseline updates"
+                    "Regular baseline updates",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "Behavioral baseline learning",
                     "ML anomaly detection",
                     "Real-time anomaly alerts",
-                    "Weekly baseline updates"
-                ]
+                    "Weekly baseline updates",
+                ],
             ),
             ComplianceControl(
                 control_id="RS.AN-1",
@@ -327,14 +336,14 @@ class ComplianceFramework:
                     "Investigation procedures",
                     "Alert triage process",
                     "Incident classification",
-                    "Root cause analysis"
+                    "Root cause analysis",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "Purple team analysis",
                     "Threat hunting capabilities",
-                    "MITRE ATT&CK mapping"
-                ]
+                    "MITRE ATT&CK mapping",
+                ],
             ),
             ComplianceControl(
                 control_id="RC.RP-1",
@@ -345,15 +354,12 @@ class ComplianceFramework:
                     "Recovery procedures documented",
                     "Regular testing of recovery",
                     "Recovery time objectives",
-                    "Communication plan"
+                    "Communication plan",
                 ],
                 status=ControlStatus.PARTIAL,
-                evidence=[
-                    "Backup procedures",
-                    "DR documentation"
-                ],
-                notes="Need to conduct tabletop exercises"
-            )
+                evidence=["Backup procedures", "DR documentation"],
+                notes="Need to conduct tabletop exercises",
+            ),
         ]
 
     def _load_gdpr_controls(self) -> List[ComplianceControl]:
@@ -368,14 +374,14 @@ class ComplianceFramework:
                     "Encryption of personal data",
                     "Pseudonymization where possible",
                     "Ensure confidentiality and integrity",
-                    "Regular security testing"
+                    "Regular security testing",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "Data encryption",
                     "Multi-tenancy isolation",
-                    "Regular security assessments"
-                ]
+                    "Regular security assessments",
+                ],
             ),
             ComplianceControl(
                 control_id="Art.33",
@@ -386,14 +392,14 @@ class ComplianceFramework:
                     "Breach detection mechanisms",
                     "Notification procedures",
                     "Breach documentation",
-                    "Timeline compliance"
+                    "Timeline compliance",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "Real-time breach detection",
                     "Automated alerting",
-                    "Incident response procedures"
-                ]
+                    "Incident response procedures",
+                ],
             ),
             ComplianceControl(
                 control_id="Art.30",
@@ -404,15 +410,15 @@ class ComplianceFramework:
                     "Document processing activities",
                     "Record purposes of processing",
                     "Data retention periods",
-                    "Security measures"
+                    "Security measures",
                 ],
                 status=ControlStatus.IMPLEMENTED,
                 evidence=[
                     "Comprehensive audit logging",
                     "Data processing inventory",
-                    "Retention policies"
-                ]
-            )
+                    "Retention policies",
+                ],
+            ),
         ]
 
     def assess_compliance(
@@ -420,7 +426,7 @@ class ComplianceFramework:
         standard: ComplianceStandard,
         assessed_by: str,
         period_start: datetime,
-        period_end: datetime
+        period_end: datetime,
     ) -> ComplianceReport:
         """Generate compliance assessment report.
 
@@ -438,7 +444,9 @@ class ComplianceFramework:
         # Count control statuses
         implemented = sum(1 for c in controls if c.status == ControlStatus.IMPLEMENTED)
         partial = sum(1 for c in controls if c.status == ControlStatus.PARTIAL)
-        not_implemented = sum(1 for c in controls if c.status == ControlStatus.NOT_IMPLEMENTED)
+        not_implemented = sum(
+            1 for c in controls if c.status == ControlStatus.NOT_IMPLEMENTED
+        )
         total = len([c for c in controls if c.status != ControlStatus.NOT_APPLICABLE])
 
         # Calculate compliance score (weighted: full=1.0, partial=0.5, none=0.0)
@@ -450,24 +458,32 @@ class ComplianceFramework:
 
         for control in controls:
             if control.status == ControlStatus.NOT_IMPLEMENTED:
-                findings.append({
-                    "control_id": control.control_id,
-                    "title": control.title,
-                    "severity": "high",
-                    "description": f"Control not implemented: {control.description}",
-                    "recommendation": f"Implement {control.control_id}: {control.title}"
-                })
-                recommendations.append(f"Implement {control.control_id}: {control.title}")
+                findings.append(
+                    {
+                        "control_id": control.control_id,
+                        "title": control.title,
+                        "severity": "high",
+                        "description": f"Control not implemented: {control.description}",
+                        "recommendation": f"Implement {control.control_id}: {control.title}",
+                    }
+                )
+                recommendations.append(
+                    f"Implement {control.control_id}: {control.title}"
+                )
 
             elif control.status == ControlStatus.PARTIAL:
-                findings.append({
-                    "control_id": control.control_id,
-                    "title": control.title,
-                    "severity": "medium",
-                    "description": f"Partial implementation: {control.notes or 'See requirements'}",
-                    "recommendation": f"Complete implementation of {control.control_id}"
-                })
-                recommendations.append(f"Complete {control.control_id}: {control.notes}")
+                findings.append(
+                    {
+                        "control_id": control.control_id,
+                        "title": control.title,
+                        "severity": "medium",
+                        "description": f"Partial implementation: {control.notes or 'See requirements'}",
+                        "recommendation": f"Complete implementation of {control.control_id}",
+                    }
+                )
+                recommendations.append(
+                    f"Complete {control.control_id}: {control.notes}"
+                )
 
         report = ComplianceReport(
             report_id=f"compliance-{standard.value}-{datetime.now().strftime('%Y%m%d')}",
@@ -482,15 +498,13 @@ class ComplianceFramework:
             controls_not_implemented=not_implemented,
             compliance_score=score * 100,  # Convert to percentage
             findings=findings,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
         return report
 
     def get_control_details(
-        self,
-        standard: ComplianceStandard,
-        control_id: str
+        self, standard: ComplianceStandard, control_id: str
     ) -> Optional[ComplianceControl]:
         """Get details of specific control.
 
@@ -513,7 +527,7 @@ class ComplianceFramework:
         control_id: str,
         status: ControlStatus,
         evidence: Optional[List[str]] = None,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
     ) -> bool:
         """Update control implementation status.
 
@@ -549,8 +563,12 @@ class ComplianceFramework:
         dashboard = {}
 
         for standard_value, controls in self.controls.items():
-            total = len([c for c in controls if c.status != ControlStatus.NOT_APPLICABLE])
-            implemented = sum(1 for c in controls if c.status == ControlStatus.IMPLEMENTED)
+            total = len(
+                [c for c in controls if c.status != ControlStatus.NOT_APPLICABLE]
+            )
+            implemented = sum(
+                1 for c in controls if c.status == ControlStatus.IMPLEMENTED
+            )
             partial = sum(1 for c in controls if c.status == ControlStatus.PARTIAL)
 
             score = (implemented + (partial * 0.5)) / total if total > 0 else 0.0
@@ -559,9 +577,15 @@ class ComplianceFramework:
                 "total_controls": total,
                 "implemented": implemented,
                 "partial": partial,
-                "not_implemented": sum(1 for c in controls if c.status == ControlStatus.NOT_IMPLEMENTED),
+                "not_implemented": sum(
+                    1 for c in controls if c.status == ControlStatus.NOT_IMPLEMENTED
+                ),
                 "compliance_score": round(score * 100, 1),
-                "status": "compliant" if score >= 0.9 else "partial" if score >= 0.7 else "non-compliant"
+                "status": (
+                    "compliant"
+                    if score >= 0.9
+                    else "partial" if score >= 0.7 else "non-compliant"
+                ),
             }
 
         return dashboard

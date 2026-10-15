@@ -1,6 +1,7 @@
 """
 LLM provider implementations for AI-powered threat analysis.
 """
+
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
 import logging
@@ -38,7 +39,7 @@ class LLMProvider(ABC):
         kill_chain_data: Dict[str, Any],
         mitre_data: Dict[str, Any],
         ioc_data: Dict[str, Any],
-        prompt_template: str
+        prompt_template: str,
     ) -> Dict[str, Any]:
         """
         Generate a comprehensive threat narrative.
@@ -57,9 +58,7 @@ class LLMProvider(ABC):
 
     @abstractmethod
     async def extract_iocs(
-        self,
-        events: List[Dict[str, Any]],
-        prompt_template: str
+        self, events: List[Dict[str, Any]], prompt_template: str
     ) -> Dict[str, Any]:
         """
         Extract indicators of compromise from events.
@@ -80,7 +79,7 @@ class LLMProvider(ABC):
         mitre_data: Dict[str, Any],
         ioc_data: Dict[str, Any],
         narrative_data: Dict[str, Any],
-        prompt_template: str
+        prompt_template: str,
     ) -> Dict[str, Any]:
         """
         Generate an incident response plan.
@@ -99,9 +98,7 @@ class LLMProvider(ABC):
 
     @abstractmethod
     async def identify_mitre_techniques(
-        self,
-        events: List[Dict[str, Any]],
-        prompt_template: str
+        self, events: List[Dict[str, Any]], prompt_template: str
     ) -> List[str]:
         """
         Identify MITRE ATT&CK techniques from events.
@@ -128,7 +125,7 @@ class LLMProvider(ABC):
                     f"LLM call failed (attempt {attempt + 1}/{self.max_retries}): {e}"
                 )
                 if attempt < self.max_retries - 1:
-                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                    await asyncio.sleep(2**attempt)  # Exponential backoff
 
         raise last_error
 
@@ -158,6 +155,7 @@ class OpenAIProvider(LLMProvider):
 
         try:
             import openai
+
             self.client = openai.AsyncOpenAI(api_key=self.api_key)
         except ImportError:
             raise ImportError(
@@ -170,16 +168,17 @@ class OpenAIProvider(LLMProvider):
         kill_chain_data: Dict[str, Any],
         mitre_data: Dict[str, Any],
         ioc_data: Dict[str, Any],
-        prompt_template: str
+        prompt_template: str,
     ) -> Dict[str, Any]:
         """Generate threat narrative using GPT-4."""
+
         async def _call():
             # Format the prompt with data
             formatted_prompt = prompt_template.format(
                 session_data=self._format_session_data(session_data),
                 kill_chain_data=self._format_data(kill_chain_data),
                 mitre_data=self._format_data(mitre_data),
-                ioc_data=self._format_data(ioc_data)
+                ioc_data=self._format_data(ioc_data),
             )
 
             response = await self.client.chat.completions.create(
@@ -187,16 +186,13 @@ class OpenAIProvider(LLMProvider):
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert cybersecurity analyst specializing in cloud security and threat hunting."
+                        "content": "You are an expert cybersecurity analyst specializing in cloud security and threat hunting.",
                     },
-                    {
-                        "role": "user",
-                        "content": formatted_prompt
-                    }
+                    {"role": "user", "content": formatted_prompt},
                 ],
                 temperature=0.3,  # Lower temperature for more consistent output
                 max_tokens=2000,
-                timeout=self.timeout
+                timeout=self.timeout,
             )
 
             narrative_text = response.choices[0].message.content
@@ -207,18 +203,16 @@ class OpenAIProvider(LLMProvider):
         return await self._call_with_retry(_call)
 
     async def extract_iocs(
-        self,
-        events: List[Dict[str, Any]],
-        prompt_template: str
+        self, events: List[Dict[str, Any]], prompt_template: str
     ) -> Dict[str, Any]:
         """Extract IOCs using GPT-4."""
+
         async def _call():
             # Limit events to avoid token limits
             sample_events = events[:100] if len(events) > 100 else events
 
             formatted_prompt = prompt_template.format(
-                events=self._format_events(sample_events),
-                total_events=len(events)
+                events=self._format_events(sample_events), total_events=len(events)
             )
 
             response = await self.client.chat.completions.create(
@@ -226,16 +220,13 @@ class OpenAIProvider(LLMProvider):
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert in cybersecurity forensics and IOC identification."
+                        "content": "You are an expert in cybersecurity forensics and IOC identification.",
                     },
-                    {
-                        "role": "user",
-                        "content": formatted_prompt
-                    }
+                    {"role": "user", "content": formatted_prompt},
                 ],
                 temperature=0.2,
                 max_tokens=1500,
-                timeout=self.timeout
+                timeout=self.timeout,
             )
 
             ioc_text = response.choices[0].message.content
@@ -249,15 +240,16 @@ class OpenAIProvider(LLMProvider):
         mitre_data: Dict[str, Any],
         ioc_data: Dict[str, Any],
         narrative_data: Dict[str, Any],
-        prompt_template: str
+        prompt_template: str,
     ) -> Dict[str, Any]:
         """Generate response plan using GPT-4."""
+
         async def _call():
             formatted_prompt = prompt_template.format(
                 session_data=self._format_session_data(session_data),
                 mitre_data=self._format_data(mitre_data),
                 ioc_data=self._format_data(ioc_data),
-                narrative_summary=narrative_data.get("executive_summary", "")
+                narrative_summary=narrative_data.get("executive_summary", ""),
             )
 
             response = await self.client.chat.completions.create(
@@ -265,16 +257,13 @@ class OpenAIProvider(LLMProvider):
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert incident responder specializing in cloud security incidents."
+                        "content": "You are an expert incident responder specializing in cloud security incidents.",
                     },
-                    {
-                        "role": "user",
-                        "content": formatted_prompt
-                    }
+                    {"role": "user", "content": formatted_prompt},
                 ],
                 temperature=0.3,
                 max_tokens=2000,
-                timeout=self.timeout
+                timeout=self.timeout,
             )
 
             plan_text = response.choices[0].message.content
@@ -283,11 +272,10 @@ class OpenAIProvider(LLMProvider):
         return await self._call_with_retry(_call)
 
     async def identify_mitre_techniques(
-        self,
-        events: List[Dict[str, Any]],
-        prompt_template: str
+        self, events: List[Dict[str, Any]], prompt_template: str
     ) -> List[str]:
         """Identify MITRE techniques using GPT-4."""
+
         async def _call():
             sample_events = events[:50] if len(events) > 50 else events
 
@@ -300,16 +288,13 @@ class OpenAIProvider(LLMProvider):
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert in MITRE ATT&CK framework and threat classification."
+                        "content": "You are an expert in MITRE ATT&CK framework and threat classification.",
                     },
-                    {
-                        "role": "user",
-                        "content": formatted_prompt
-                    }
+                    {"role": "user", "content": formatted_prompt},
                 ],
                 temperature=0.1,
                 max_tokens=500,
-                timeout=self.timeout
+                timeout=self.timeout,
             )
 
             techniques_text = response.choices[0].message.content
@@ -330,6 +315,7 @@ Time Range: {session_data.get('start_time', 'N/A')} to {session_data.get('end_ti
     def _format_data(self, data: Dict[str, Any]) -> str:
         """Format dictionary data for prompt."""
         import json
+
         return json.dumps(data, indent=2, default=str)
 
     def _format_events(self, events: List[Dict[str, Any]]) -> str:
@@ -356,7 +342,7 @@ Event {i}:
             "attack_timeline": "",
             "detailed_analysis": "",
             "impact_assessment": "",
-            "recommended_actions": []
+            "recommended_actions": [],
         }
 
         # Try to extract sections
@@ -370,11 +356,7 @@ Event {i}:
 
     def _parse_iocs(self, text: str) -> Dict[str, Any]:
         """Parse IOC text into structured format."""
-        return {
-            "iocs": {},
-            "raw_analysis": text,
-            "llm_generated": True
-        }
+        return {"iocs": {}, "raw_analysis": text, "llm_generated": True}
 
     def _parse_response_plan(self, text: str) -> Dict[str, Any]:
         """Parse response plan text into structured format."""
@@ -385,14 +367,15 @@ Event {i}:
             "recovery": [],
             "lessons_learned": [],
             "raw_plan": text,
-            "llm_generated": True
+            "llm_generated": True,
         }
 
     def _parse_mitre_techniques(self, text: str) -> List[str]:
         """Extract MITRE technique IDs from text."""
         import re
+
         # Find all T#### patterns
-        techniques = re.findall(r'T\d{4}(?:\.\d{3})?', text)
+        techniques = re.findall(r"T\d{4}(?:\.\d{3})?", text)
         return list(set(techniques))  # Deduplicate
 
 
@@ -421,6 +404,7 @@ class AnthropicProvider(LLMProvider):
 
         try:
             import anthropic
+
             self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
         except ImportError:
             raise ImportError(
@@ -433,15 +417,16 @@ class AnthropicProvider(LLMProvider):
         kill_chain_data: Dict[str, Any],
         mitre_data: Dict[str, Any],
         ioc_data: Dict[str, Any],
-        prompt_template: str
+        prompt_template: str,
     ) -> Dict[str, Any]:
         """Generate threat narrative using Claude."""
+
         async def _call():
             formatted_prompt = prompt_template.format(
                 session_data=self._format_session_data(session_data),
                 kill_chain_data=self._format_data(kill_chain_data),
                 mitre_data=self._format_data(mitre_data),
-                ioc_data=self._format_data(ioc_data)
+                ioc_data=self._format_data(ioc_data),
             )
 
             response = await self.client.messages.create(
@@ -449,13 +434,8 @@ class AnthropicProvider(LLMProvider):
                 max_tokens=4000,
                 temperature=0.3,
                 system="You are an expert cybersecurity analyst specializing in cloud security and threat hunting. Provide detailed, actionable analysis.",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": formatted_prompt
-                    }
-                ],
-                timeout=self.timeout
+                messages=[{"role": "user", "content": formatted_prompt}],
+                timeout=self.timeout,
             )
 
             narrative_text = response.content[0].text
@@ -464,17 +444,15 @@ class AnthropicProvider(LLMProvider):
         return await self._call_with_retry(_call)
 
     async def extract_iocs(
-        self,
-        events: List[Dict[str, Any]],
-        prompt_template: str
+        self, events: List[Dict[str, Any]], prompt_template: str
     ) -> Dict[str, Any]:
         """Extract IOCs using Claude."""
+
         async def _call():
             sample_events = events[:100] if len(events) > 100 else events
 
             formatted_prompt = prompt_template.format(
-                events=self._format_events(sample_events),
-                total_events=len(events)
+                events=self._format_events(sample_events), total_events=len(events)
             )
 
             response = await self.client.messages.create(
@@ -482,13 +460,8 @@ class AnthropicProvider(LLMProvider):
                 max_tokens=3000,
                 temperature=0.2,
                 system="You are an expert in cybersecurity forensics and IOC identification. Extract and categorize all indicators of compromise.",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": formatted_prompt
-                    }
-                ],
-                timeout=self.timeout
+                messages=[{"role": "user", "content": formatted_prompt}],
+                timeout=self.timeout,
             )
 
             ioc_text = response.content[0].text
@@ -502,15 +475,16 @@ class AnthropicProvider(LLMProvider):
         mitre_data: Dict[str, Any],
         ioc_data: Dict[str, Any],
         narrative_data: Dict[str, Any],
-        prompt_template: str
+        prompt_template: str,
     ) -> Dict[str, Any]:
         """Generate response plan using Claude."""
+
         async def _call():
             formatted_prompt = prompt_template.format(
                 session_data=self._format_session_data(session_data),
                 mitre_data=self._format_data(mitre_data),
                 ioc_data=self._format_data(ioc_data),
-                narrative_summary=narrative_data.get("executive_summary", "")
+                narrative_summary=narrative_data.get("executive_summary", ""),
             )
 
             response = await self.client.messages.create(
@@ -518,13 +492,8 @@ class AnthropicProvider(LLMProvider):
                 max_tokens=4000,
                 temperature=0.3,
                 system="You are an expert incident responder specializing in cloud security incidents. Provide detailed, actionable response plans.",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": formatted_prompt
-                    }
-                ],
-                timeout=self.timeout
+                messages=[{"role": "user", "content": formatted_prompt}],
+                timeout=self.timeout,
             )
 
             plan_text = response.content[0].text
@@ -533,11 +502,10 @@ class AnthropicProvider(LLMProvider):
         return await self._call_with_retry(_call)
 
     async def identify_mitre_techniques(
-        self,
-        events: List[Dict[str, Any]],
-        prompt_template: str
+        self, events: List[Dict[str, Any]], prompt_template: str
     ) -> List[str]:
         """Identify MITRE techniques using Claude."""
+
         async def _call():
             sample_events = events[:50] if len(events) > 50 else events
 
@@ -550,13 +518,8 @@ class AnthropicProvider(LLMProvider):
                 max_tokens=1000,
                 temperature=0.1,
                 system="You are an expert in MITRE ATT&CK framework and threat classification. Identify relevant technique IDs.",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": formatted_prompt
-                    }
-                ],
-                timeout=self.timeout
+                messages=[{"role": "user", "content": formatted_prompt}],
+                timeout=self.timeout,
             )
 
             techniques_text = response.content[0].text
@@ -577,6 +540,7 @@ Time Range: {session_data.get('start_time', 'N/A')} to {session_data.get('end_ti
     def _format_data(self, data: Dict[str, Any]) -> str:
         """Format dictionary data for prompt."""
         import json
+
         return json.dumps(data, indent=2, default=str)
 
     def _format_events(self, events: List[Dict[str, Any]]) -> str:
@@ -602,7 +566,7 @@ Event {i}:
             "attack_timeline": "",
             "detailed_analysis": "",
             "impact_assessment": "",
-            "recommended_actions": []
+            "recommended_actions": [],
         }
 
         if "Executive Summary" in text or "EXECUTIVE SUMMARY" in text:
@@ -615,11 +579,7 @@ Event {i}:
 
     def _parse_iocs(self, text: str) -> Dict[str, Any]:
         """Parse IOC text into structured format."""
-        return {
-            "iocs": {},
-            "raw_analysis": text,
-            "llm_generated": True
-        }
+        return {"iocs": {}, "raw_analysis": text, "llm_generated": True}
 
     def _parse_response_plan(self, text: str) -> Dict[str, Any]:
         """Parse response plan text into structured format."""
@@ -630,20 +590,21 @@ Event {i}:
             "recovery": [],
             "lessons_learned": [],
             "raw_plan": text,
-            "llm_generated": True
+            "llm_generated": True,
         }
 
     def _parse_mitre_techniques(self, text: str) -> List[str]:
         """Extract MITRE technique IDs from text."""
         import re
-        techniques = re.findall(r'T\d{4}(?:\.\d{3})?', text)
+
+        techniques = re.findall(r"T\d{4}(?:\.\d{3})?", text)
         return list(set(techniques))
 
 
 def get_llm_provider(
     provider_type: str = "openai",
     api_key: Optional[str] = None,
-    model: Optional[str] = None
+    model: Optional[str] = None,
 ) -> LLMProvider:
     """
     Factory function to get an LLM provider instance.
@@ -672,7 +633,9 @@ def get_llm_provider(
             f"Supported providers: {', '.join(providers.keys())}"
         )
 
-    logger.info(f"Initializing {provider_type} provider with model {model or 'default'}")
+    logger.info(
+        f"Initializing {provider_type} provider with model {model or 'default'}"
+    )
 
     try:
         return provider_class(api_key=api_key, model=model)

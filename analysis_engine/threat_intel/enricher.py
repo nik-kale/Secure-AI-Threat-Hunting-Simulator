@@ -3,6 +3,7 @@ IOC enrichment engine with batch processing and parallel API calls.
 
 Coordinates threat intelligence enrichment across multiple providers.
 """
+
 import logging
 import asyncio
 from typing import Dict, List, Any, Optional, Set
@@ -12,7 +13,7 @@ from analysis_engine.threat_intel.providers import (
     ThreatIntelProvider,
     AbuseIPDBProvider,
     VirusTotalProvider,
-    MockThreatIntelProvider
+    MockThreatIntelProvider,
 )
 from analysis_engine.threat_intel.cache import CacheManager
 
@@ -32,7 +33,7 @@ class IOCEnricher:
         providers: Optional[List[ThreatIntelProvider]] = None,
         cache_manager: Optional[CacheManager] = None,
         max_concurrent_requests: int = 10,
-        batch_size: int = 50
+        batch_size: int = 50,
     ):
         """
         Initialize the IOC enricher.
@@ -67,7 +68,7 @@ class IOCEnricher:
         self,
         ioc_type: str,
         ioc_value: str,
-        providers: Optional[List[ThreatIntelProvider]] = None
+        providers: Optional[List[ThreatIntelProvider]] = None,
     ) -> Dict[str, Any]:
         """
         Enrich a single IOC with threat intelligence.
@@ -88,7 +89,7 @@ class IOCEnricher:
                 "ioc_type": ioc_type,
                 "ioc_value": ioc_value,
                 "enrichments": [],
-                "error": "No providers configured"
+                "error": "No providers configured",
             }
 
         # Create tasks for each provider
@@ -97,9 +98,13 @@ class IOCEnricher:
             if ioc_type == "ip":
                 tasks.append(self._safe_check(provider.check_ip, ioc_value, provider))
             elif ioc_type == "domain":
-                tasks.append(self._safe_check(provider.check_domain, ioc_value, provider))
+                tasks.append(
+                    self._safe_check(provider.check_domain, ioc_value, provider)
+                )
             elif ioc_type == "hash":
-                tasks.append(self._safe_check(provider.check_file_hash, ioc_value, provider))
+                tasks.append(
+                    self._safe_check(provider.check_file_hash, ioc_value, provider)
+                )
             else:
                 logger.warning(f"Unknown IOC type: {ioc_type}")
 
@@ -112,7 +117,7 @@ class IOCEnricher:
             "ioc_value": ioc_value,
             "enrichments": [e for e in enrichments if e is not None],
             "enriched_at": datetime.utcnow().isoformat(),
-            "providers_queried": len(enrichments)
+            "providers_queried": len(enrichments),
         }
 
         # Add aggregated threat assessment
@@ -120,7 +125,9 @@ class IOCEnricher:
 
         return result
 
-    async def _safe_check(self, check_func, ioc_value: str, provider: ThreatIntelProvider) -> Optional[Dict[str, Any]]:
+    async def _safe_check(
+        self, check_func, ioc_value: str, provider: ThreatIntelProvider
+    ) -> Optional[Dict[str, Any]]:
         """
         Safely execute a provider check with error handling.
 
@@ -135,18 +142,20 @@ class IOCEnricher:
         try:
             return await check_func(ioc_value)
         except Exception as e:
-            logger.error(f"Error checking {ioc_value} with {provider.__class__.__name__}: {e}")
+            logger.error(
+                f"Error checking {ioc_value} with {provider.__class__.__name__}: {e}"
+            )
             return {
                 "provider": provider.__class__.__name__,
                 "error": str(e),
                 "ioc_value": ioc_value,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     async def enrich_iocs_batch(
         self,
         iocs: Dict[str, List[str]],
-        providers: Optional[List[ThreatIntelProvider]] = None
+        providers: Optional[List[ThreatIntelProvider]] = None,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Enrich multiple IOCs in batch with rate limiting.
@@ -173,7 +182,7 @@ class IOCEnricher:
             # Process in batches to avoid overwhelming APIs
             enriched_batch = []
             for i in range(0, len(unique_iocs), self.batch_size):
-                batch = unique_iocs[i:i + self.batch_size]
+                batch = unique_iocs[i : i + self.batch_size]
 
                 # Create semaphore for concurrency control
                 semaphore = asyncio.Semaphore(self.max_concurrent_requests)
@@ -189,7 +198,9 @@ class IOCEnricher:
 
                 enriched_batch.extend(batch_results)
 
-                logger.info(f"Processed batch {i // self.batch_size + 1} of {ioc_type} IOCs")
+                logger.info(
+                    f"Processed batch {i // self.batch_size + 1} of {ioc_type} IOCs"
+                )
 
             enriched_iocs[ioc_type] = enriched_batch
 
@@ -198,7 +209,7 @@ class IOCEnricher:
     async def enrich_ioc_report(
         self,
         ioc_report: Dict[str, Any],
-        providers: Optional[List[ThreatIntelProvider]] = None
+        providers: Optional[List[ThreatIntelProvider]] = None,
     ) -> Dict[str, Any]:
         """
         Enrich an IOC report (from IOC extractor) with threat intelligence.
@@ -237,10 +248,14 @@ class IOCEnricher:
             "threat_intelligence": enriched,
             "enrichment_metadata": {
                 "enriched_at": datetime.utcnow().isoformat(),
-                "providers_used": [p.__class__.__name__ for p in (providers or self.providers)],
+                "providers_used": [
+                    p.__class__.__name__ for p in (providers or self.providers)
+                ],
                 "total_enriched": sum(len(iocs) for iocs in enriched.values()),
-                "processing_time_seconds": (datetime.utcnow() - start_time).total_seconds()
-            }
+                "processing_time_seconds": (
+                    datetime.utcnow() - start_time
+                ).total_seconds(),
+            },
         }
 
         # Add high-level threat summary
@@ -253,7 +268,9 @@ class IOCEnricher:
 
         return enhanced_report
 
-    def _aggregate_threat_assessment(self, enrichments: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _aggregate_threat_assessment(
+        self, enrichments: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
         Aggregate threat assessment from multiple providers.
 
@@ -267,12 +284,7 @@ class IOCEnricher:
             return {"overall_threat_level": "unknown", "is_malicious": False}
 
         # Count threat levels
-        threat_levels = {
-            "critical": 0,
-            "high": 0,
-            "medium": 0,
-            "low": 0
-        }
+        threat_levels = {"critical": 0, "high": 0, "medium": 0, "low": 0}
 
         malicious_count = 0
         total_count = 0
@@ -304,10 +316,12 @@ class IOCEnricher:
             "malicious_sources": malicious_count,
             "total_sources": total_count,
             "threat_level_breakdown": threat_levels,
-            "confidence": malicious_count / total_count if total_count > 0 else 0
+            "confidence": malicious_count / total_count if total_count > 0 else 0,
         }
 
-    def _generate_threat_summary(self, enriched_iocs: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
+    def _generate_threat_summary(
+        self, enriched_iocs: Dict[str, List[Dict[str, Any]]]
+    ) -> Dict[str, Any]:
         """
         Generate high-level threat summary from enriched IOCs.
 
@@ -347,10 +361,13 @@ class IOCEnricher:
             "total_iocs_enriched": total_iocs,
             "malicious_iocs": malicious_iocs,
             "clean_iocs": total_iocs - malicious_iocs,
-            "malicious_percentage": (malicious_iocs / total_iocs * 100) if total_iocs > 0 else 0,
+            "malicious_percentage": (
+                (malicious_iocs / total_iocs * 100) if total_iocs > 0 else 0
+            ),
             "threat_level_distribution": threat_level_counts,
             "overall_risk_level": overall_risk,
-            "requires_immediate_attention": overall_risk in ["critical", "high"] and malicious_iocs > 0
+            "requires_immediate_attention": overall_risk in ["critical", "high"]
+            and malicious_iocs > 0,
         }
 
     def get_cache_stats(self) -> Optional[Dict[str, Any]]:
@@ -388,8 +405,7 @@ def create_enricher_from_config(config) -> IOCEnricher:
     """
     # Initialize cache manager
     cache_manager = CacheManager(
-        cache_dir="./data/threat_intel_cache",
-        default_ttl=config.threat_intel_cache_ttl
+        cache_dir="./data/threat_intel_cache", default_ttl=config.threat_intel_cache_ttl
     )
 
     # Initialize providers
@@ -401,7 +417,7 @@ def create_enricher_from_config(config) -> IOCEnricher:
             AbuseIPDBProvider(
                 api_key=config.abuseipdb_api_key,
                 cache_manager=cache_manager,
-                cache_ttl=config.threat_intel_cache_ttl
+                cache_ttl=config.threat_intel_cache_ttl,
             )
         )
         logger.info("AbuseIPDB provider configured")
@@ -412,7 +428,7 @@ def create_enricher_from_config(config) -> IOCEnricher:
             VirusTotalProvider(
                 api_key=config.virustotal_api_key,
                 cache_manager=cache_manager,
-                cache_ttl=config.threat_intel_cache_ttl
+                cache_ttl=config.threat_intel_cache_ttl,
             )
         )
         logger.info("VirusTotal provider configured")
@@ -422,8 +438,7 @@ def create_enricher_from_config(config) -> IOCEnricher:
         logger.warning("No threat intel API keys configured, using mock provider")
         providers.append(
             MockThreatIntelProvider(
-                cache_manager=cache_manager,
-                cache_ttl=config.threat_intel_cache_ttl
+                cache_manager=cache_manager, cache_ttl=config.threat_intel_cache_ttl
             )
         )
 
@@ -432,7 +447,7 @@ def create_enricher_from_config(config) -> IOCEnricher:
         providers=providers,
         cache_manager=cache_manager,
         max_concurrent_requests=10,
-        batch_size=50
+        batch_size=50,
     )
 
     return enricher

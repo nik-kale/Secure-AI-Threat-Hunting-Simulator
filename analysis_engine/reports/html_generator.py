@@ -1,4 +1,5 @@
 """HTML report generator."""
+
 from pathlib import Path
 from typing import Dict, Any
 from datetime import datetime
@@ -8,30 +9,32 @@ import json
 
 class HTMLReportGenerator:
     """Generate HTML reports from analysis results."""
-    
+
     def __init__(self, template_dir: Path = None):
         """Initialize HTML generator."""
         self.template_dir = template_dir or Path(__file__).parent / "templates"
-    
+
     def generate(self, analysis_result: Dict[str, Any], output_path: Path) -> Path:
         """
         Generate HTML report.
-        
+
         Args:
             analysis_result: Analysis results dictionary
             output_path: Output file path
-            
+
         Returns:
             Path to generated HTML
         """
+
         # Telemetry values (user agents, commands, principals) are attacker
         # controlled, so everything interpolated into the page is escaped.
         def esc(value: Any) -> str:
             return html.escape(str(value), quote=True)
 
-        sessions = analysis_result.get('sessions', 0)
+        sessions = analysis_result.get("sessions", 0)
         sessions_detected = analysis_result.get(
-            'suspicious_sessions', len(sessions) if isinstance(sessions, list) else sessions
+            "suspicious_sessions",
+            len(sessions) if isinstance(sessions, list) else sessions,
         )
 
         html_content = f"""
@@ -66,8 +69,7 @@ class HTMLReportGenerator:
 </body>
 </html>
 """
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(html_content)
-        
-        return output_path
 
+        return output_path

@@ -1,6 +1,7 @@
 """
 Packaging checks: the distribution must ship every first-party module its code imports.
 """
+
 import ast
 import runpy
 from pathlib import Path
@@ -14,7 +15,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 def setup_kwargs(monkeypatch_module):
     setuptools = pytest.importorskip("setuptools")
     captured = {}
-    monkeypatch_module.setattr(setuptools, "setup", lambda **kwargs: captured.update(kwargs))
+    monkeypatch_module.setattr(
+        setuptools, "setup", lambda **kwargs: captured.update(kwargs)
+    )
     monkeypatch_module.chdir(REPO_ROOT)
     runpy.run_path(str(REPO_ROOT / "setup.py"), run_name="__main__")
     return captured

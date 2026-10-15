@@ -4,6 +4,7 @@ Threat intelligence providers for IOC enrichment.
 Supports multiple threat intelligence sources with rate limiting,
 caching, and error handling.
 """
+
 import logging
 import asyncio
 import aiohttp
@@ -37,7 +38,9 @@ class RateLimiter:
         now = time.time()
 
         # Remove old calls outside the window
-        self.calls = [call_time for call_time in self.calls if now - call_time < self.period]
+        self.calls = [
+            call_time for call_time in self.calls if now - call_time < self.period
+        ]
 
         if len(self.calls) >= self.max_calls:
             # Need to wait
@@ -61,7 +64,7 @@ class ThreatIntelProvider(ABC):
         self,
         api_key: str,
         cache_manager: Optional[CacheManager] = None,
-        cache_ttl: int = 3600
+        cache_ttl: int = 3600,
     ):
         """
         Initialize the provider.
@@ -122,10 +125,7 @@ class ThreatIntelProvider(ABC):
         return f"{self.provider_name}:{ioc_type}:{ioc_value}"
 
     async def _get_cached_or_fetch(
-        self,
-        ioc_type: str,
-        ioc_value: str,
-        fetch_func
+        self, ioc_type: str, ioc_value: str, fetch_func
     ) -> Dict[str, Any]:
         """
         Get from cache or fetch from API.
@@ -157,13 +157,15 @@ class ThreatIntelProvider(ABC):
             return result
 
         except Exception as e:
-            logger.error(f"Error fetching {ioc_type}:{ioc_value} from {self.provider_name}: {e}")
+            logger.error(
+                f"Error fetching {ioc_type}:{ioc_value} from {self.provider_name}: {e}"
+            )
             return {
                 "error": str(e),
                 "provider": self.provider_name,
                 "ioc_type": ioc_type,
                 "ioc_value": ioc_value,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
 
@@ -176,10 +178,17 @@ class AbuseIPDBProvider(ThreatIntelProvider):
 
     BASE_URL = "https://api.abuseipdb.com/api/v2"
 
-    def __init__(self, api_key: str, cache_manager: Optional[CacheManager] = None, cache_ttl: int = 3600):
+    def __init__(
+        self,
+        api_key: str,
+        cache_manager: Optional[CacheManager] = None,
+        cache_ttl: int = 3600,
+    ):
         """Initialize AbuseIPDB provider."""
         super().__init__(api_key, cache_manager, cache_ttl)
-        self.rate_limiter = RateLimiter(max_calls=10, period=60)  # 10 calls per minute for free tier
+        self.rate_limiter = RateLimiter(
+            max_calls=10, period=60
+        )  # 10 calls per minute for free tier
 
     async def check_ip(self, ip_address: str) -> Dict[str, Any]:
         """
@@ -191,26 +200,20 @@ class AbuseIPDBProvider(ThreatIntelProvider):
         Returns:
             Dictionary with reputation data
         """
+
         async def fetch():
             await self.rate_limiter.acquire()
 
-            headers = {
-                "Key": self.api_key,
-                "Accept": "application/json"
-            }
+            headers = {"Key": self.api_key, "Accept": "application/json"}
 
-            params = {
-                "ipAddress": ip_address,
-                "maxAgeInDays": 90,
-                "verbose": ""
-            }
+            params = {"ipAddress": ip_address, "maxAgeInDays": 90, "verbose": ""}
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f"{self.BASE_URL}/check",
                     headers=headers,
                     params=params,
-                    timeout=aiohttp.ClientTimeout(total=10)
+                    timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -243,8 +246,10 @@ class AbuseIPDBProvider(ThreatIntelProvider):
             "num_distinct_users": ip_data.get("numDistinctUsers", 0),
             "last_reported_at": ip_data.get("lastReportedAt"),
             "is_malicious": ip_data.get("abuseConfidenceScore", 0) > 50,
-            "threat_level": self._get_threat_level(ip_data.get("abuseConfidenceScore", 0)),
-            "timestamp": datetime.utcnow().isoformat()
+            "threat_level": self._get_threat_level(
+                ip_data.get("abuseConfidenceScore", 0)
+            ),
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     def _get_threat_level(self, score: int) -> str:
@@ -264,7 +269,7 @@ class AbuseIPDBProvider(ThreatIntelProvider):
             "provider": "AbuseIPDB",
             "error": "Domain checking not supported by AbuseIPDB",
             "domain": domain,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     async def check_file_hash(self, file_hash: str) -> Dict[str, Any]:
@@ -273,7 +278,7 @@ class AbuseIPDBProvider(ThreatIntelProvider):
             "provider": "AbuseIPDB",
             "error": "File hash checking not supported by AbuseIPDB",
             "file_hash": file_hash,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
 
@@ -286,25 +291,29 @@ class VirusTotalProvider(ThreatIntelProvider):
 
     BASE_URL = "https://www.virustotal.com/api/v3"
 
-    def __init__(self, api_key: str, cache_manager: Optional[CacheManager] = None, cache_ttl: int = 3600):
+    def __init__(
+        self,
+        api_key: str,
+        cache_manager: Optional[CacheManager] = None,
+        cache_ttl: int = 3600,
+    ):
         """Initialize VirusTotal provider."""
         super().__init__(api_key, cache_manager, cache_ttl)
-        self.rate_limiter = RateLimiter(max_calls=4, period=60)  # 4 requests per minute for free tier
+        self.rate_limiter = RateLimiter(
+            max_calls=4, period=60
+        )  # 4 requests per minute for free tier
 
     async def _make_request(self, endpoint: str) -> Dict[str, Any]:
         """Make a request to VirusTotal API."""
         await self.rate_limiter.acquire()
 
-        headers = {
-            "x-apikey": self.api_key,
-            "Accept": "application/json"
-        }
+        headers = {"x-apikey": self.api_key, "Accept": "application/json"}
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{self.BASE_URL}/{endpoint}",
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=10)
+                timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status == 200:
                     return await response.json()
@@ -328,6 +337,7 @@ class VirusTotalProvider(ThreatIntelProvider):
         Returns:
             Dictionary with reputation data
         """
+
         async def fetch():
             data = await self._make_request(f"ip_addresses/{ip_address}")
             return self._parse_ip_response(data)
@@ -356,7 +366,7 @@ class VirusTotalProvider(ThreatIntelProvider):
             "is_malicious": malicious_count > 0 or suspicious_count > 2,
             "threat_level": self._get_threat_level(malicious_count, suspicious_count),
             "reputation": attributes.get("reputation", 0),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     async def check_domain(self, domain: str) -> Dict[str, Any]:
@@ -369,6 +379,7 @@ class VirusTotalProvider(ThreatIntelProvider):
         Returns:
             Dictionary with reputation data
         """
+
         async def fetch():
             data = await self._make_request(f"domains/{domain}")
             return self._parse_domain_response(data)
@@ -397,7 +408,7 @@ class VirusTotalProvider(ThreatIntelProvider):
             "is_malicious": malicious_count > 0 or suspicious_count > 2,
             "threat_level": self._get_threat_level(malicious_count, suspicious_count),
             "reputation": attributes.get("reputation", 0),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     async def check_file_hash(self, file_hash: str) -> Dict[str, Any]:
@@ -410,6 +421,7 @@ class VirusTotalProvider(ThreatIntelProvider):
         Returns:
             Dictionary with reputation data
         """
+
         async def fetch():
             data = await self._make_request(f"files/{file_hash}")
             return self._parse_file_response(data)
@@ -440,7 +452,7 @@ class VirusTotalProvider(ThreatIntelProvider):
             "is_malicious": malicious_count > 0 or suspicious_count > 2,
             "threat_level": self._get_threat_level(malicious_count, suspicious_count),
             "reputation": attributes.get("reputation", 0),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     def _get_threat_level(self, malicious_count: int, suspicious_count: int) -> str:
@@ -462,9 +474,13 @@ class MockThreatIntelProvider(ThreatIntelProvider):
     Returns simulated threat intelligence data based on IOC patterns.
     """
 
-    def __init__(self, cache_manager: Optional[CacheManager] = None, cache_ttl: int = 3600):
+    def __init__(
+        self, cache_manager: Optional[CacheManager] = None, cache_ttl: int = 3600
+    ):
         """Initialize mock provider."""
-        super().__init__(api_key="mock_key", cache_manager=cache_manager, cache_ttl=cache_ttl)
+        super().__init__(
+            api_key="mock_key", cache_manager=cache_manager, cache_ttl=cache_ttl
+        )
 
     async def check_ip(self, ip_address: str) -> Dict[str, Any]:
         """Return mock IP reputation data."""
@@ -480,7 +496,7 @@ class MockThreatIntelProvider(ThreatIntelProvider):
             "total_reports": 42 if is_malicious else 0,
             "country_code": "US",
             "isp": "Mock ISP",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     async def check_domain(self, domain: str) -> Dict[str, Any]:
@@ -495,7 +511,7 @@ class MockThreatIntelProvider(ThreatIntelProvider):
             "is_malicious": is_malicious,
             "threat_level": "critical" if is_malicious else "low",
             "total_engines": 50,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     async def check_file_hash(self, file_hash: str) -> Dict[str, Any]:
@@ -509,5 +525,5 @@ class MockThreatIntelProvider(ThreatIntelProvider):
             "is_malicious": is_malicious,
             "threat_level": "critical" if is_malicious else "low",
             "total_engines": 60,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }

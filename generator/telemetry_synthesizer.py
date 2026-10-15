@@ -1,6 +1,7 @@
 """
 Core telemetry synthesizer for generating realistic cloud events.
 """
+
 import json
 import random
 from datetime import datetime, timedelta
@@ -23,7 +24,7 @@ class TelemetrySynthesizer:
         self,
         account_id: str = "123456789012",
         region: str = "us-east-1",
-        topology_path: Optional[Path] = None
+        topology_path: Optional[Path] = None,
     ):
         """
         Initialize the synthesizer.
@@ -39,15 +40,11 @@ class TelemetrySynthesizer:
 
     def _load_topology(self, topology_path: Path) -> Dict[str, Any]:
         """Load cloud topology configuration."""
-        with open(topology_path, 'r') as f:
+        with open(topology_path, "r") as f:
             return json.load(f)
 
     def create_base_event(
-        self,
-        event_type: str,
-        event_source: str,
-        timestamp: str,
-        **kwargs
+        self, event_type: str, event_source: str, timestamp: str, **kwargs
     ) -> Dict[str, Any]:
         """
         Create a base telemetry event with common fields.
@@ -84,7 +81,7 @@ class TelemetrySynthesizer:
         user_agent: Optional[str] = None,
         resource: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create an IAM-related event."""
         event = self.create_base_event(
@@ -122,7 +119,7 @@ class TelemetrySynthesizer:
         timestamp: str,
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create an S3-related event."""
         event = self.create_base_event(
@@ -156,10 +153,12 @@ class TelemetrySynthesizer:
         timestamp: str,
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create a Lambda-related event."""
-        function_arn = f"arn:aws:lambda:{self.region}:{self.account_id}:function:{function_name}"
+        function_arn = (
+            f"arn:aws:lambda:{self.region}:{self.account_id}:function:{function_name}"
+        )
 
         event = self.create_base_event(
             event_type=f"lambda.{action.lower().replace(':', '_')}",
@@ -175,7 +174,9 @@ class TelemetrySynthesizer:
             status=status,
         )
 
-        event["request_parameters"] = kwargs.get("request_parameters", {"functionName": function_name})
+        event["request_parameters"] = kwargs.get(
+            "request_parameters", {"functionName": function_name}
+        )
         event["response_elements"] = kwargs.get("response_elements", {})
         event["metadata"] = kwargs.get("metadata", {})
         event["session_id"] = kwargs.get("session_id", generate_session_id())
@@ -189,7 +190,7 @@ class TelemetrySynthesizer:
         timestamp: str,
         source_ip: Optional[str] = None,
         status_code: int = 200,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create an API Gateway access log event."""
         event = self.create_base_event(
@@ -226,7 +227,7 @@ class TelemetrySynthesizer:
         dst_port: int,
         protocol: str,
         timestamp: str,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create a VPC flow log event."""
         event = self.create_base_event(
@@ -247,17 +248,15 @@ class TelemetrySynthesizer:
             "bytes": kwargs.get("bytes", random.randint(100, 10000)),
             "packets": kwargs.get("packets", random.randint(1, 100)),
             "vpc_id": kwargs.get("vpc_id", "vpc-" + generate_event_id()[:10]),
-            "interface_id": kwargs.get("interface_id", "eni-" + generate_event_id()[:10]),
+            "interface_id": kwargs.get(
+                "interface_id", "eni-" + generate_event_id()[:10]
+            ),
         }
 
         return event
 
     def create_container_event(
-        self,
-        action: str,
-        container_id: str,
-        timestamp: str,
-        **kwargs
+        self, action: str, container_id: str, timestamp: str, **kwargs
     ) -> Dict[str, Any]:
         """Create a container/ECS event."""
         event = self.create_base_event(
@@ -272,7 +271,10 @@ class TelemetrySynthesizer:
             "container_id": container_id,
             "image": kwargs.get("image", "nginx:latest"),
             "cluster": kwargs.get("cluster", "default-cluster"),
-            "task_arn": kwargs.get("task_arn", f"arn:aws:ecs:{self.region}:{self.account_id}:task/default-cluster/{generate_event_id()}"),
+            "task_arn": kwargs.get(
+                "task_arn",
+                f"arn:aws:ecs:{self.region}:{self.account_id}:task/default-cluster/{generate_event_id()}",
+            ),
         }
 
         if "principal" in kwargs:
@@ -289,7 +291,7 @@ class TelemetrySynthesizer:
         assumed_role: Optional[str] = None,
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create an STS (Security Token Service) event."""
         event = self.create_base_event(
@@ -325,7 +327,7 @@ class TelemetrySynthesizer:
         database_type: str = "rds",
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create a database event (RDS, DynamoDB, etc.)."""
         event = self.create_base_event(
@@ -340,7 +342,9 @@ class TelemetrySynthesizer:
             status=status,
         )
 
-        event["resource"] = f"arn:aws:{database_type}:{self.region}:{self.account_id}:db:{database_name}"
+        event["resource"] = (
+            f"arn:aws:{database_type}:{self.region}:{self.account_id}:db:{database_name}"
+        )
         event["resource_type"] = "database"
         event["metadata"] = kwargs.get("metadata", {})
         event["metadata"]["database_name"] = database_name
@@ -359,7 +363,7 @@ class TelemetrySynthesizer:
         timestamp: str,
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create a KMS (Key Management Service) event."""
         event = self.create_base_event(
@@ -391,7 +395,7 @@ class TelemetrySynthesizer:
         timestamp: str,
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create a CloudTrail management event."""
         event = self.create_base_event(
@@ -406,13 +410,15 @@ class TelemetrySynthesizer:
             status=status,
         )
 
-        event["resource"] = f"arn:aws:cloudtrail:{self.region}:{self.account_id}:trail/{trail_name}"
+        event["resource"] = (
+            f"arn:aws:cloudtrail:{self.region}:{self.account_id}:trail/{trail_name}"
+        )
         event["resource_type"] = "trail"
         event["metadata"] = kwargs.get("metadata", {})
         event["request_parameters"] = kwargs.get("request_parameters", {})
         event["response_elements"] = kwargs.get("response_elements", {})
         event["session_id"] = kwargs.get("session_id", generate_session_id())
-        
+
         # Add error code if status is failure
         if "error_code" in kwargs:
             event["error_code"] = kwargs["error_code"]
@@ -427,7 +433,7 @@ class TelemetrySynthesizer:
         timestamp: str,
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create a Secrets Manager event."""
         event = self.create_base_event(
@@ -442,7 +448,9 @@ class TelemetrySynthesizer:
             status=status,
         )
 
-        event["resource"] = f"arn:aws:secretsmanager:{self.region}:{self.account_id}:secret:{secret_name}"
+        event["resource"] = (
+            f"arn:aws:secretsmanager:{self.region}:{self.account_id}:secret:{secret_name}"
+        )
         event["resource_type"] = "secret"
         event["metadata"] = kwargs.get("metadata", {})
         event["request_parameters"] = kwargs.get("request_parameters", {})
@@ -459,7 +467,7 @@ class TelemetrySynthesizer:
         timestamp: str,
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create an ECR (Elastic Container Registry) event."""
         event = self.create_base_event(
@@ -474,7 +482,9 @@ class TelemetrySynthesizer:
             status=status,
         )
 
-        event["resource"] = f"arn:aws:ecr:{self.region}:{self.account_id}:repository/{repository_name}"
+        event["resource"] = (
+            f"arn:aws:ecr:{self.region}:{self.account_id}:repository/{repository_name}"
+        )
         event["resource_type"] = "repository"
         event["metadata"] = kwargs.get("metadata", {})
         event["request_parameters"] = kwargs.get("request_parameters", {})
@@ -491,7 +501,7 @@ class TelemetrySynthesizer:
         timestamp: str,
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create a CodeBuild event."""
         event = self.create_base_event(
@@ -506,7 +516,9 @@ class TelemetrySynthesizer:
             status=status,
         )
 
-        event["resource"] = f"arn:aws:codebuild:{self.region}:{self.account_id}:project/{project_name}"
+        event["resource"] = (
+            f"arn:aws:codebuild:{self.region}:{self.account_id}:project/{project_name}"
+        )
         event["resource_type"] = "project"
         event["metadata"] = kwargs.get("metadata", {})
         event["request_parameters"] = kwargs.get("request_parameters", {})
@@ -523,7 +535,7 @@ class TelemetrySynthesizer:
         timestamp: str,
         source_ip: Optional[str] = None,
         status: str = "success",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Create a CodePipeline event."""
         event = self.create_base_event(
@@ -538,7 +550,9 @@ class TelemetrySynthesizer:
             status=status,
         )
 
-        event["resource"] = f"arn:aws:codepipeline:{self.region}:{self.account_id}:pipeline/{pipeline_name}"
+        event["resource"] = (
+            f"arn:aws:codepipeline:{self.region}:{self.account_id}:pipeline/{pipeline_name}"
+        )
         event["resource_type"] = "pipeline"
         event["metadata"] = kwargs.get("metadata", {})
         event["request_parameters"] = kwargs.get("request_parameters", {})
@@ -548,9 +562,7 @@ class TelemetrySynthesizer:
         return event
 
     def add_benign_noise(
-        self,
-        events: List[Dict[str, Any]],
-        noise_ratio: float = 0.3
+        self, events: List[Dict[str, Any]], noise_ratio: float = 0.3
     ) -> List[Dict[str, Any]]:
         """
         Add benign background events to make telemetry realistic.
@@ -583,8 +595,8 @@ class TelemetrySynthesizer:
         for _ in range(num_noise_events):
             # Random timestamp within range
             # Parse start and end times to generate proper random timestamps
-            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
             time_diff = (end_dt - start_dt).total_seconds()
             random_offset = random.uniform(0, time_diff)
             random_dt = start_dt + timedelta(seconds=random_offset)
@@ -639,9 +651,7 @@ class TelemetrySynthesizer:
         return all_events
 
     def write_events_jsonl(
-        self,
-        events: List[Dict[str, Any]],
-        output_path: Path
+        self, events: List[Dict[str, Any]], output_path: Path
     ) -> None:
         """
         Write events to a JSONL file in chronological order.
@@ -652,14 +662,12 @@ class TelemetrySynthesizer:
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             for event in sorted(events, key=lambda e: e.get("timestamp", "")):
-                f.write(json.dumps(event) + '\n')
+                f.write(json.dumps(event) + "\n")
 
     def write_events_json(
-        self,
-        events: List[Dict[str, Any]],
-        output_path: Path
+        self, events: List[Dict[str, Any]], output_path: Path
     ) -> None:
         """
         Write events to a JSON file in chronological order.
@@ -670,5 +678,5 @@ class TelemetrySynthesizer:
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(sorted(events, key=lambda e: e.get("timestamp", "")), f, indent=2)

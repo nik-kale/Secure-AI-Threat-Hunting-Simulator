@@ -1,6 +1,7 @@
 """
 Tests for API endpoints.
 """
+
 import pytest
 import json
 from pathlib import Path
@@ -9,8 +10,9 @@ import tempfile
 import os
 
 from analysis_engine.api.server import app
-from generator.attack_traces.lateral_movement.generator import generate_lateral_movement_scenario
-
+from generator.attack_traces.lateral_movement.generator import (
+    generate_lateral_movement_scenario,
+)
 
 # Set API key for testing
 os.environ["API_KEY"] = "test_api_key_12345"
@@ -45,7 +47,7 @@ class TestHealthEndpoint:
         """Test health endpoint returns proper structure."""
         response = client.get("/health")
         data = response.json()
-        
+
         assert "status" in data
         assert data["status"] in ["healthy", "ok", "degraded"]
         assert "version" in data or "service" in data
@@ -64,11 +66,11 @@ class TestAnalyzeEndpoint:
 
     def test_analyze_with_valid_file(self, client, api_headers, temp_telemetry_file):
         """Test analysis with valid telemetry file."""
-        with open(temp_telemetry_file, 'rb') as f:
+        with open(temp_telemetry_file, "rb") as f:
             response = client.post(
                 "/analyze/upload",
                 files={"file": ("telemetry.jsonl", f, "application/json")},
-                headers=api_headers
+                headers=api_headers,
             )
 
         assert response.status_code == 200, response.text
@@ -80,11 +82,11 @@ class TestAnalyzeEndpoint:
         """Suspicious sessions are returned in the flat API Session shape."""
         generate_lateral_movement_scenario(output_dir=tmp_path, add_noise=False)
 
-        with open(tmp_path / "telemetry.jsonl", 'rb') as f:
+        with open(tmp_path / "telemetry.jsonl", "rb") as f:
             response = client.post(
                 "/analyze/upload",
                 files={"file": ("telemetry.jsonl", f, "application/json")},
-                headers=api_headers
+                headers=api_headers,
             )
 
         assert response.status_code == 200, response.text
@@ -100,8 +102,10 @@ class TestAnalyzeEndpoint:
         """Test analysis rejects invalid file types."""
         response = client.post(
             "/analyze/upload",
-            files={"file": ("malware.exe", b"invalid content", "application/octet-stream")},
-            headers=api_headers
+            files={
+                "file": ("malware.exe", b"invalid content", "application/octet-stream")
+            },
+            headers=api_headers,
         )
 
         assert response.status_code == 400
@@ -111,7 +115,7 @@ class TestAnalyzeEndpoint:
         response = client.post(
             "/analyze/upload",
             files={"file": ("empty.jsonl", b"", "application/json")},
-            headers=api_headers
+            headers=api_headers,
         )
 
         assert response.status_code == 400
@@ -129,7 +133,7 @@ class TestMetricsEndpoint:
     def test_metrics_format(self, client):
         """Test metrics are in Prometheus format."""
         response = client.get("/metrics")
-        
+
         if response.status_code == 200:
             # Prometheus metrics should be text
             content = response.text
@@ -192,7 +196,7 @@ class TestRateLimiting:
         for _ in range(150):  # Exceed typical rate limit
             response = client.get("/health")
             responses.append(response.status_code)
-        
+
         # Some requests should be rate limited (429)
         # or all should succeed if limit is high
         assert 200 in responses  # At least some succeed
@@ -202,10 +206,10 @@ class TestRateLimiting:
         """Test rate limiting is per-endpoint."""
         # Health endpoint
         health_responses = [client.get("/health").status_code for _ in range(50)]
-        
+
         # Different endpoint
         metrics_responses = [client.get("/metrics").status_code for _ in range(50)]
-        
+
         # Both should have some successful responses
         assert 200 in health_responses or 401 in health_responses
 
@@ -227,7 +231,7 @@ class TestErrorHandling:
         """Test error responses have proper structure."""
         response = client.get("/nonexistent")
         assert response.status_code == 404
-        
+
         data = response.json()
         # Should have error information
         assert "detail" in data or "error" in data or "message" in data
@@ -242,21 +246,18 @@ class TestCORS:
             "/health",
             headers={
                 "Origin": "http://localhost:3000",
-                "Access-Control-Request-Method": "GET"
-            }
+                "Access-Control-Request-Method": "GET",
+            },
         )
-        
+
         # Should have CORS headers
         # (actual values depend on configuration)
         assert response.status_code in [200, 404]
 
     def test_cors_allows_configured_origins(self, client):
         """Test CORS allows configured origins."""
-        response = client.get(
-            "/health",
-            headers={"Origin": "http://localhost:3000"}
-        )
-        
+        response = client.get("/health", headers={"Origin": "http://localhost:3000"})
+
         assert response.status_code == 200
 
 
@@ -266,9 +267,9 @@ class TestSecurityHeaders:
     def test_security_headers_present(self, client):
         """Test security headers are included in responses."""
         response = client.get("/health")
-        
+
         headers = response.headers
-        
+
         # Common security headers
         # (may or may not be present depending on configuration)
         # X-Content-Type-Options, X-Frame-Options, etc.
@@ -277,9 +278,9 @@ class TestSecurityHeaders:
     def test_no_sensitive_info_in_errors(self, client):
         """Test error responses don't leak sensitive information."""
         response = client.get("/nonexistent")
-        
+
         body = response.text.lower()
-        
+
         # Should not contain stack traces, file paths, etc.
         # (This is a basic check - real implementation may vary)
         assert "traceback" not in body or response.status_code != 500
@@ -295,7 +296,9 @@ class TestFileValidation:
         monkeypatch.setattr(server.settings, "max_upload_size_mb", 1)
         response = client.post(
             "/analyze/upload",
-            files={"file": ("large.jsonl", b"x" * (2 * 1024 * 1024), "application/json")},
+            files={
+                "file": ("large.jsonl", b"x" * (2 * 1024 * 1024), "application/json")
+            },
             headers=api_headers,
         )
 
@@ -318,14 +321,18 @@ class TestClientIdentity:
     def _request(peer, headers=None):
         from starlette.requests import Request
 
-        raw_headers = [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
+        raw_headers = [
+            (k.lower().encode(), v.encode()) for k, v in (headers or {}).items()
+        ]
         return Request({"type": "http", "client": (peer, 1234), "headers": raw_headers})
 
     def test_forwarded_for_ignored_from_untrusted_peer(self, monkeypatch):
         from analysis_engine.api.security import get_client_ip
 
         monkeypatch.delenv("TRUSTED_PROXIES", raising=False)
-        request = self._request("203.0.113.9", {"X-Forwarded-For": "1.2.3.4", "X-Real-IP": "5.6.7.8"})
+        request = self._request(
+            "203.0.113.9", {"X-Forwarded-For": "1.2.3.4", "X-Real-IP": "5.6.7.8"}
+        )
 
         assert get_client_ip(request) == "203.0.113.9"
 
@@ -334,7 +341,9 @@ class TestClientIdentity:
 
         monkeypatch.setenv("TRUSTED_PROXIES", "10.0.0.2, 10.0.0.3")
         # Client-supplied junk first, then the address nginx actually saw, then an inner proxy.
-        request = self._request("10.0.0.2", {"X-Forwarded-For": "6.6.6.6, 198.51.100.7, 10.0.0.3"})
+        request = self._request(
+            "10.0.0.2", {"X-Forwarded-For": "6.6.6.6, 198.51.100.7, 10.0.0.3"}
+        )
 
         assert get_client_ip(request) == "198.51.100.7"
 
@@ -342,7 +351,9 @@ class TestClientIdentity:
         from analysis_engine.api import auth
 
         monkeypatch.delenv("TRUSTED_PROXIES", raising=False)
-        monkeypatch.setattr(auth, "failed_attempts", __import__("collections").defaultdict(list))
+        monkeypatch.setattr(
+            auth, "failed_attempts", __import__("collections").defaultdict(list)
+        )
         monkeypatch.setattr(auth, "locked_ips", {})
 
         statuses = [
@@ -357,15 +368,34 @@ class TestClientIdentity:
         assert statuses[-1] == 429
 
 
-IAM_RULE = (Path(__file__).resolve().parent.parent / "detection_rules" / "sigma" / "iam_priv_escalation.yml").read_text()
+IAM_RULE = (
+    Path(__file__).resolve().parent.parent
+    / "detection_rules"
+    / "sigma"
+    / "iam_priv_escalation.yml"
+).read_text()
 
 
 def _iam_events():
     return [
-        {"event_id": "e1", "timestamp": "2025-01-01T00:00:00Z", "event_type": "iam.passrole",
-         "event_source": "iam", "action": "PassRole", "principal": "p", "status": "success"},
-        {"event_id": "e2", "timestamp": "2025-01-01T00:01:00Z", "event_type": "iam.getuser",
-         "event_source": "iam", "action": "GetUser", "principal": "p", "status": "success"},
+        {
+            "event_id": "e1",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "event_type": "iam.passrole",
+            "event_source": "iam",
+            "action": "PassRole",
+            "principal": "p",
+            "status": "success",
+        },
+        {
+            "event_id": "e2",
+            "timestamp": "2025-01-01T00:01:00Z",
+            "event_type": "iam.getuser",
+            "event_source": "iam",
+            "action": "GetUser",
+            "principal": "p",
+            "status": "success",
+        },
     ]
 
 
@@ -373,7 +403,9 @@ class TestJsonBodyEndpoints:
     """These routes take JSON bodies shaped as the README documents."""
 
     def test_analyze_data_accepts_events_object(self, client, api_headers):
-        response = client.post("/analyze/data", json={"events": _iam_events()}, headers=api_headers)
+        response = client.post(
+            "/analyze/data", json={"events": _iam_events()}, headers=api_headers
+        )
 
         assert response.status_code == 200, response.text
         assert response.json()["total_events"] == 2
@@ -381,7 +413,11 @@ class TestJsonBodyEndpoints:
     def test_test_rule_returns_counts(self, client, api_headers):
         response = client.post(
             "/detection/test-rule",
-            json={"rule_content": IAM_RULE, "events": _iam_events(), "ground_truth": ["e1"]},
+            json={
+                "rule_content": IAM_RULE,
+                "events": _iam_events(),
+                "ground_truth": ["e1"],
+            },
             headers=api_headers,
         )
 
@@ -394,7 +430,10 @@ class TestJsonBodyEndpoints:
     def test_test_rules_batch_returns_counts(self, client, api_headers):
         response = client.post(
             "/detection/test-rules-batch",
-            json={"rules": [{"name": "iam", "content": IAM_RULE}], "events": _iam_events()},
+            json={
+                "rules": [{"name": "iam", "content": IAM_RULE}],
+                "events": _iam_events(),
+            },
             headers=api_headers,
         )
 

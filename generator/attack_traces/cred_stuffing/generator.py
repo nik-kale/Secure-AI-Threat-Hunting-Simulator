@@ -1,6 +1,7 @@
 """
 Credential stuffing attack scenario generator.
 """
+
 import sys
 import random
 from pathlib import Path
@@ -10,7 +11,11 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from generator.telemetry_synthesizer import TelemetrySynthesizer
 from generator.utils.time_utils import generate_time_sequence, get_scenario_timeframe
-from generator.utils.id_utils import generate_ip_address, generate_user_agent, generate_session_id
+from generator.utils.id_utils import (
+    generate_ip_address,
+    generate_user_agent,
+    generate_session_id,
+)
 
 
 def generate_credential_stuffing_scenario(
@@ -18,7 +23,7 @@ def generate_credential_stuffing_scenario(
     account_id: str = "123456789012",
     region: str = "us-east-1",
     duration_hours: float = 0.33,  # ~20 minutes
-    add_noise: bool = True
+    add_noise: bool = True,
 ) -> Dict[str, Any]:
     """Generate credential stuffing attack scenario."""
     synthesizer = TelemetrySynthesizer(account_id=account_id, region=region)
@@ -40,7 +45,9 @@ def generate_credential_stuffing_scenario(
     ]
     successful_username = "sarah.johnson@example.com"
 
-    start_time, end_time = get_scenario_timeframe(duration_hours=duration_hours, days_ago=1)
+    start_time, end_time = get_scenario_timeframe(
+        duration_hours=duration_hours, days_ago=1
+    )
 
     events: List[Dict[str, Any]] = []
 
@@ -56,7 +63,7 @@ def generate_credential_stuffing_scenario(
             source_ip=botnet_ips[0],
             status_code=200,
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            metadata={"attack_stage": "reconnaissance"}
+            metadata={"attack_stage": "reconnaissance"},
         )
     )
 
@@ -82,8 +89,8 @@ def generate_credential_stuffing_scenario(
                     "attack_stage": "credential_stuffing",
                     "username": username,
                     "authentication": "failed",
-                    "reason": "invalid_credentials"
-                }
+                    "reason": "invalid_credentials",
+                },
             )
         )
 
@@ -103,8 +110,8 @@ def generate_credential_stuffing_scenario(
                 "attack_stage": "credential_stuffing",
                 "username": successful_username,
                 "authentication": "success",
-                "compromised_account": True
-            }
+                "compromised_account": True,
+            },
         )
     )
 
@@ -126,7 +133,7 @@ def generate_credential_stuffing_scenario(
             user_agent=generate_user_agent(malicious=True),
             status="success",
             session_id=session_id,
-            metadata={"attack_stage": "validation"}
+            metadata={"attack_stage": "validation"},
         )
     )
 
@@ -142,7 +149,7 @@ def generate_credential_stuffing_scenario(
                 user_agent=generate_user_agent(malicious=True),
                 status="success",
                 session_id=session_id,
-                metadata={"attack_stage": "validation"}
+                metadata={"attack_stage": "validation"},
             )
         )
 
@@ -156,12 +163,14 @@ def generate_credential_stuffing_scenario(
             user_agent=generate_user_agent(malicious=True),
             status="success",
             session_id=session_id,
-            metadata={"attack_stage": "validation"}
+            metadata={"attack_stage": "validation"},
         )
     )
 
     if add_noise:
-        events = synthesizer.add_benign_noise(events, noise_ratio=0.15)  # Less noise for this scenario
+        events = synthesizer.add_benign_noise(
+            events, noise_ratio=0.15
+        )  # Less noise for this scenario
 
     # Write telemetry
     output_path = output_dir / "telemetry.jsonl"
@@ -177,15 +186,11 @@ def generate_credential_stuffing_scenario(
         "end_time": end_time.isoformat(),
         "botnet_ips": botnet_ips,
         "compromised_account": successful_username,
-        "attack_stages": [
-            "reconnaissance",
-            "credential_stuffing",
-            "validation"
-        ],
+        "attack_stages": ["reconnaissance", "credential_stuffing", "validation"],
         "mitre_techniques": [
             "T1589.001",  # Gather Victim Identity Information
             "T1110.004",  # Brute Force: Credential Stuffing
-            "T1087",      # Account Discovery
+            "T1087",  # Account Discovery
             "T1078.004",  # Valid Accounts: Cloud Accounts
         ],
     }
@@ -198,8 +203,7 @@ if __name__ == "__main__":
     output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = generate_credential_stuffing_scenario(
-        output_dir=output_dir,
-        add_noise=True
+        output_dir=output_dir, add_noise=True
     )
 
     print(f"Generated {metadata['num_events']} events")

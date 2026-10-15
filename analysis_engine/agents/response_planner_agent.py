@@ -1,6 +1,7 @@
 """
 Incident response planning agent.
 """
+
 from typing import Dict, List, Any, Optional
 import logging
 import asyncio
@@ -12,10 +13,13 @@ logger = logging.getLogger(__name__)
 # Optional LLM integration
 try:
     from analysis_engine.llm import LLMProvider, get_prompt
+
     LLM_AVAILABLE = True
 except ImportError:
     LLM_AVAILABLE = False
-    logger.info("LLM integration not available. Using template-based response planning.")
+    logger.info(
+        "LLM integration not available. Using template-based response planning."
+    )
 
 
 class ResponsePlannerAgent:
@@ -26,7 +30,9 @@ class ResponsePlannerAgent:
     automatic fallback to templates if LLM is unavailable.
     """
 
-    def __init__(self, llm_provider: Optional['LLMProvider'] = None, use_llm: bool = True):
+    def __init__(
+        self, llm_provider: Optional["LLMProvider"] = None, use_llm: bool = True
+    ):
         """
         Initialize the response planner.
 
@@ -47,7 +53,7 @@ class ResponsePlannerAgent:
         session: CorrelationSession,
         mitre_data: Dict[str, Any],
         ioc_data: Dict[str, Any],
-        narrative_data: Dict[str, Any]
+        narrative_data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
         Generate an incident response plan.
@@ -66,11 +72,15 @@ class ResponsePlannerAgent:
         if self.use_llm:
             try:
                 # Try LLM-based planning
-                return asyncio.run(self._generate_response_plan_llm(
-                    session, mitre_data, ioc_data, narrative_data
-                ))
+                return asyncio.run(
+                    self._generate_response_plan_llm(
+                        session, mitre_data, ioc_data, narrative_data
+                    )
+                )
             except Exception as e:
-                logger.warning(f"LLM response planning failed: {e}. Falling back to template-based.")
+                logger.warning(
+                    f"LLM response planning failed: {e}. Falling back to template-based."
+                )
                 # Fall through to template-based planning
 
         # Template-based planning (fallback or default)
@@ -83,7 +93,7 @@ class ResponsePlannerAgent:
         session: CorrelationSession,
         mitre_data: Dict[str, Any],
         ioc_data: Dict[str, Any],
-        narrative_data: Dict[str, Any]
+        narrative_data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Generate response plan using LLM."""
         # Prepare session data for LLM
@@ -105,7 +115,7 @@ class ResponsePlannerAgent:
             mitre_data=mitre_data,
             ioc_data=ioc_data,
             narrative_data=narrative_data,
-            prompt_template=prompt
+            prompt_template=prompt,
         )
 
         # Also generate template-based plan for structured data
@@ -129,73 +139,79 @@ class ResponsePlannerAgent:
         session: CorrelationSession,
         mitre_data: Dict[str, Any],
         ioc_data: Dict[str, Any],
-        narrative_data: Dict[str, Any]
+        narrative_data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Generate response plan using templates (original implementation)."""
         plan = {
             "immediate_actions": self._generate_immediate_actions(session, ioc_data),
             "containment": self._generate_containment_steps(session, mitre_data),
-            "eradication": self._generate_eradication_steps(session, mitre_data, ioc_data),
+            "eradication": self._generate_eradication_steps(
+                session, mitre_data, ioc_data
+            ),
             "recovery": self._generate_recovery_steps(session),
             "lessons_learned": self._generate_lessons_learned(session, mitre_data),
             "timeline_estimate": self._estimate_response_timeline(session),
-            "generation_method": "template"
+            "generation_method": "template",
         }
 
         return plan
 
     def _generate_immediate_actions(
-        self,
-        session: CorrelationSession,
-        ioc_data: Dict[str, Any]
+        self, session: CorrelationSession, ioc_data: Dict[str, Any]
     ) -> List[Dict[str, str]]:
         """Generate immediate response actions (first 15 minutes)."""
         actions = []
 
         # Isolate compromised accounts
         if ioc_data.get("iocs", {}).get("principals"):
-            actions.append({
-                "action": "Disable compromised accounts",
-                "priority": "CRITICAL",
-                "timeframe": "Immediate (0-5 minutes)",
-                "command": "aws iam update-access-key --access-key-id <KEY> --status Inactive",
-                "details": "Disable all access keys for compromised accounts"
-            })
+            actions.append(
+                {
+                    "action": "Disable compromised accounts",
+                    "priority": "CRITICAL",
+                    "timeframe": "Immediate (0-5 minutes)",
+                    "command": "aws iam update-access-key --access-key-id <KEY> --status Inactive",
+                    "details": "Disable all access keys for compromised accounts",
+                }
+            )
 
         # Block suspicious IPs
         if ioc_data.get("iocs", {}).get("ip_addresses"):
-            actions.append({
-                "action": "Block malicious IP addresses",
-                "priority": "HIGH",
-                "timeframe": "Immediate (0-5 minutes)",
-                "command": "Update WAF rules / security groups to block IPs",
-                "details": f"Block {len(ioc_data['iocs']['ip_addresses'])} suspicious IPs"
-            })
+            actions.append(
+                {
+                    "action": "Block malicious IP addresses",
+                    "priority": "HIGH",
+                    "timeframe": "Immediate (0-5 minutes)",
+                    "command": "Update WAF rules / security groups to block IPs",
+                    "details": f"Block {len(ioc_data['iocs']['ip_addresses'])} suspicious IPs",
+                }
+            )
 
         # Snapshot for forensics
-        actions.append({
-            "action": "Preserve evidence",
-            "priority": "HIGH",
-            "timeframe": "0-15 minutes",
-            "command": "Export CloudTrail logs, create EBS snapshots",
-            "details": "Preserve all logs and system state for forensic analysis"
-        })
+        actions.append(
+            {
+                "action": "Preserve evidence",
+                "priority": "HIGH",
+                "timeframe": "0-15 minutes",
+                "command": "Export CloudTrail logs, create EBS snapshots",
+                "details": "Preserve all logs and system state for forensic analysis",
+            }
+        )
 
         # Alert stakeholders
-        actions.append({
-            "action": "Notify security team and stakeholders",
-            "priority": "HIGH",
-            "timeframe": "0-10 minutes",
-            "command": "Send incident notification via PagerDuty/Slack",
-            "details": f"Severity: {session.risk_score:.1%} risk score"
-        })
+        actions.append(
+            {
+                "action": "Notify security team and stakeholders",
+                "priority": "HIGH",
+                "timeframe": "0-10 minutes",
+                "command": "Send incident notification via PagerDuty/Slack",
+                "details": f"Severity: {session.risk_score:.1%} risk score",
+            }
+        )
 
         return actions
 
     def _generate_containment_steps(
-        self,
-        session: CorrelationSession,
-        mitre_data: Dict[str, Any]
+        self, session: CorrelationSession, mitre_data: Dict[str, Any]
     ) -> List[Dict[str, str]]:
         """Generate containment steps (15 minutes - 1 hour)."""
         steps = []
@@ -204,52 +220,60 @@ class ResponsePlannerAgent:
 
         # IAM-related containment
         if any("T1136" in t or "T1548" in t for t in techniques):
-            steps.append({
-                "action": "Review and delete unauthorized IAM resources",
-                "timeframe": "15-30 minutes",
-                "details": "Delete backdoor roles, users, and access keys created during attack",
-                "commands": [
-                    "aws iam list-roles --query 'Roles[?CreateDate>`ATTACK_START`]'",
-                    "aws iam delete-role --role-name <BACKDOOR_ROLE>",
-                    "aws iam delete-access-key --access-key-id <KEY>"
-                ]
-            })
+            steps.append(
+                {
+                    "action": "Review and delete unauthorized IAM resources",
+                    "timeframe": "15-30 minutes",
+                    "details": "Delete backdoor roles, users, and access keys created during attack",
+                    "commands": [
+                        "aws iam list-roles --query 'Roles[?CreateDate>`ATTACK_START`]'",
+                        "aws iam delete-role --role-name <BACKDOOR_ROLE>",
+                        "aws iam delete-access-key --access-key-id <KEY>",
+                    ],
+                }
+            )
 
         # Container-related containment
         if "T1611" in techniques or "T1496" in techniques:
-            steps.append({
-                "action": "Isolate and terminate compromised containers",
-                "timeframe": "15-30 minutes",
-                "details": "Stop compromised containers, update security groups to isolate workloads",
-                "commands": [
-                    "docker stop <CONTAINER_ID>",
-                    "kubectl delete pod <POD_NAME>",
-                    "Update security group rules to deny all traffic"
-                ]
-            })
+            steps.append(
+                {
+                    "action": "Isolate and terminate compromised containers",
+                    "timeframe": "15-30 minutes",
+                    "details": "Stop compromised containers, update security groups to isolate workloads",
+                    "commands": [
+                        "docker stop <CONTAINER_ID>",
+                        "kubectl delete pod <POD_NAME>",
+                        "Update security group rules to deny all traffic",
+                    ],
+                }
+            )
 
         # Lambda containment
         if "T1548.005" in techniques:
-            steps.append({
-                "action": "Delete malicious Lambda functions",
-                "timeframe": "15-20 minutes",
-                "details": "Remove Lambda functions created during the attack",
-                "commands": [
-                    "aws lambda list-functions",
-                    "aws lambda delete-function --function-name <MALICIOUS_FUNCTION>"
-                ]
-            })
+            steps.append(
+                {
+                    "action": "Delete malicious Lambda functions",
+                    "timeframe": "15-20 minutes",
+                    "details": "Remove Lambda functions created during the attack",
+                    "commands": [
+                        "aws lambda list-functions",
+                        "aws lambda delete-function --function-name <MALICIOUS_FUNCTION>",
+                    ],
+                }
+            )
 
         # Network containment
-        steps.append({
-            "action": "Implement network segmentation",
-            "timeframe": "30-60 minutes",
-            "details": "Update security groups and NACLs to limit lateral movement",
-            "commands": [
-                "Review and update VPC security group rules",
-                "Implement principle of least privilege for network access"
-            ]
-        })
+        steps.append(
+            {
+                "action": "Implement network segmentation",
+                "timeframe": "30-60 minutes",
+                "details": "Update security groups and NACLs to limit lateral movement",
+                "commands": [
+                    "Review and update VPC security group rules",
+                    "Implement principle of least privilege for network access",
+                ],
+            }
+        )
 
         return steps
 
@@ -257,53 +281,58 @@ class ResponsePlannerAgent:
         self,
         session: CorrelationSession,
         mitre_data: Dict[str, Any],
-        ioc_data: Dict[str, Any]
+        ioc_data: Dict[str, Any],
     ) -> List[Dict[str, str]]:
         """Generate eradication steps (1-4 hours)."""
         steps = []
 
         # Remove all attacker access
-        steps.append({
-            "action": "Comprehensive credential rotation",
-            "timeframe": "1-2 hours",
-            "details": "Rotate all potentially compromised credentials and API keys",
-            "commands": [
-                "Rotate all IAM user access keys",
-                "Regenerate EC2 instance role credentials",
-                "Update application secrets and API keys"
-            ]
-        })
+        steps.append(
+            {
+                "action": "Comprehensive credential rotation",
+                "timeframe": "1-2 hours",
+                "details": "Rotate all potentially compromised credentials and API keys",
+                "commands": [
+                    "Rotate all IAM user access keys",
+                    "Regenerate EC2 instance role credentials",
+                    "Update application secrets and API keys",
+                ],
+            }
+        )
 
         # System hardening
-        steps.append({
-            "action": "Patch vulnerabilities",
-            "timeframe": "2-4 hours",
-            "details": "Remediate security misconfigurations that enabled the attack",
-            "commands": [
-                "Review and restrict IAM PassRole permissions",
-                "Disable privileged container mode",
-                "Implement SCPs to prevent privilege escalation"
-            ]
-        })
+        steps.append(
+            {
+                "action": "Patch vulnerabilities",
+                "timeframe": "2-4 hours",
+                "details": "Remediate security misconfigurations that enabled the attack",
+                "commands": [
+                    "Review and restrict IAM PassRole permissions",
+                    "Disable privileged container mode",
+                    "Implement SCPs to prevent privilege escalation",
+                ],
+            }
+        )
 
         # Malware removal
         if ioc_data.get("iocs", {}).get("command_lines"):
-            steps.append({
-                "action": "Remove malicious payloads",
-                "timeframe": "1-2 hours",
-                "details": "Remove cryptominers, backdoors, and malicious code",
-                "commands": [
-                    "Scan filesystems for malware",
-                    "Remove malicious processes",
-                    "Rebuild compromised systems from clean images"
-                ]
-            })
+            steps.append(
+                {
+                    "action": "Remove malicious payloads",
+                    "timeframe": "1-2 hours",
+                    "details": "Remove cryptominers, backdoors, and malicious code",
+                    "commands": [
+                        "Scan filesystems for malware",
+                        "Remove malicious processes",
+                        "Rebuild compromised systems from clean images",
+                    ],
+                }
+            )
 
         return steps
 
     def _generate_recovery_steps(
-        self,
-        session: CorrelationSession
+        self, session: CorrelationSession
     ) -> List[Dict[str, str]]:
         """Generate recovery steps (4-24 hours)."""
         steps = [
@@ -314,8 +343,8 @@ class ResponsePlannerAgent:
                 "steps": [
                     "Deploy from clean images",
                     "Restore data from verified backups",
-                    "Implement enhanced logging and monitoring"
-                ]
+                    "Implement enhanced logging and monitoring",
+                ],
             },
             {
                 "action": "Verify system integrity",
@@ -324,8 +353,8 @@ class ResponsePlannerAgent:
                 "steps": [
                     "Run security scans on all systems",
                     "Verify no backdoors remain",
-                    "Test authentication and authorization"
-                ]
+                    "Test authentication and authorization",
+                ],
             },
             {
                 "action": "Resume normal operations",
@@ -334,17 +363,15 @@ class ResponsePlannerAgent:
                 "steps": [
                     "Gradual traffic restoration",
                     "Continuous monitoring for 48-72 hours",
-                    "Document all changes made during IR"
-                ]
-            }
+                    "Document all changes made during IR",
+                ],
+            },
         ]
 
         return steps
 
     def _generate_lessons_learned(
-        self,
-        session: CorrelationSession,
-        mitre_data: Dict[str, Any]
+        self, session: CorrelationSession, mitre_data: Dict[str, Any]
     ) -> List[str]:
         """Generate lessons learned and improvements."""
         lessons = []
@@ -376,18 +403,19 @@ class ResponsePlannerAgent:
             )
 
         # General lessons
-        lessons.extend([
-            "Enhance CloudTrail logging to capture all management events",
-            "Implement automated response for high-severity alerts",
-            "Conduct tabletop exercises for similar attack scenarios",
-            "Review and update incident response playbooks",
-        ])
+        lessons.extend(
+            [
+                "Enhance CloudTrail logging to capture all management events",
+                "Implement automated response for high-severity alerts",
+                "Conduct tabletop exercises for similar attack scenarios",
+                "Review and update incident response playbooks",
+            ]
+        )
 
         return lessons
 
     def _estimate_response_timeline(
-        self,
-        session: CorrelationSession
+        self, session: CorrelationSession
     ) -> Dict[str, str]:
         """Estimate incident response timeline."""
         severity = "critical" if session.risk_score >= 0.7 else "high"
@@ -399,7 +427,7 @@ class ResponsePlannerAgent:
                 "eradication": "1-4 hours",
                 "recovery": "4-24 hours",
                 "total_estimated_time": "24-48 hours",
-                "monitoring_period": "7-14 days post-incident"
+                "monitoring_period": "7-14 days post-incident",
             }
         else:
             return {
@@ -408,5 +436,5 @@ class ResponsePlannerAgent:
                 "eradication": "2-8 hours",
                 "recovery": "8-48 hours",
                 "total_estimated_time": "48-72 hours",
-                "monitoring_period": "7 days post-incident"
+                "monitoring_period": "7 days post-incident",
             }

@@ -1,12 +1,15 @@
 """
 Tests for analysis report writing (JSON, Markdown, IOC) and the pipeline that drives it.
 """
+
 import json
 from pathlib import Path
 
 from analysis_engine.pipeline import ThreatHuntingPipeline
 from analysis_engine.reports import HTMLReportGenerator, JsonReporter, MarkdownReporter
-from generator.attack_traces.lateral_movement.generator import generate_lateral_movement_scenario
+from generator.attack_traces.lateral_movement.generator import (
+    generate_lateral_movement_scenario,
+)
 
 
 def _session(session_id, ips, principals):
@@ -46,23 +49,27 @@ class TestJsonReporter:
 
 class TestMarkdownReporter:
     def test_lists_every_session(self):
-        text = MarkdownReporter.render({
-            "total_events": 10,
-            "total_sessions": 2,
-            "suspicious_sessions": 2,
-            "sessions": [
-                _session("s1", ["1.1.1.1"], ["arn:user/a"]),
-                _session("s2", ["2.2.2.2"], ["arn:user/b"]),
-            ],
-        })
+        text = MarkdownReporter.render(
+            {
+                "total_events": 10,
+                "total_sessions": 2,
+                "suspicious_sessions": 2,
+                "sessions": [
+                    _session("s1", ["1.1.1.1"], ["arn:user/a"]),
+                    _session("s2", ["2.2.2.2"], ["arn:user/b"]),
+                ],
+            }
+        )
 
         assert "## Session 1: `s1`" in text
         assert "## Session 2: `s2`" in text
 
     def test_telemetry_values_cannot_break_out_of_code_spans(self):
-        text = MarkdownReporter.render({
-            "sessions": [_session("s1", ["1.1.1.1"], ["evil`\n# injected"])],
-        })
+        text = MarkdownReporter.render(
+            {
+                "sessions": [_session("s1", ["1.1.1.1"], ["evil`\n# injected"])],
+            }
+        )
 
         assert "# injected" not in text.splitlines()
         assert "`evil' # injected`" in text
@@ -89,7 +96,9 @@ class TestPipelineReports:
         assert report["suspicious_sessions"] == summary["suspicious_sessions"]
         assert len(report["sessions"]) == summary["suspicious_sessions"]
 
-        reported_ips = set(json.loads((out / "iocs.json").read_text())["iocs"]["ip_addresses"])
+        reported_ips = set(
+            json.loads((out / "iocs.json").read_text())["iocs"]["ip_addresses"]
+        )
         for session in summary["sessions"]:
             assert set(session["iocs"]["iocs"].get("ip_addresses", [])) <= reported_ips
 
@@ -102,7 +111,9 @@ class TestPipelineReports:
         telemetry.write_text("")
         out = tmp_path / "out"
 
-        ThreatHuntingPipeline(enable_database=False).analyze_telemetry_file(telemetry, out)
+        ThreatHuntingPipeline(enable_database=False).analyze_telemetry_file(
+            telemetry, out
+        )
 
         assert json.loads((out / "analysis_report.json").read_text())["sessions"] == []
         assert (out / "analysis_report.md").exists()
@@ -127,6 +138,10 @@ class TestHTMLReportGenerator:
     def test_sessions_detected_shows_a_count(self, temp_output_dir):
         result = {"suspicious_sessions": 2, "sessions": [{}, {}]}
 
-        page = HTMLReportGenerator().generate(result, temp_output_dir / "r.html").read_text()
+        page = (
+            HTMLReportGenerator()
+            .generate(result, temp_output_dir / "r.html")
+            .read_text()
+        )
 
         assert "<td>Sessions Detected</td><td>2</td>" in page

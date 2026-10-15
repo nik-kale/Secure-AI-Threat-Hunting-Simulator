@@ -4,6 +4,7 @@ Detection Rule Testing Framework
 Tests security detection rules (Sigma, KQL, SPL) against synthetic telemetry
 to validate effectiveness, identify false positives/negatives, and measure coverage.
 """
+
 from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass
 from datetime import datetime
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class RuleFormat(str, Enum):
     """Supported detection rule formats."""
+
     SIGMA = "sigma"
     KQL = "kql"  # Kusto Query Language (Azure Sentinel, Defender)
     SPL = "spl"  # Splunk Processing Language
@@ -27,6 +29,7 @@ class RuleFormat(str, Enum):
 
 class DetectionResult(str, Enum):
     """Detection test result."""
+
     TRUE_POSITIVE = "true_positive"  # Correctly detected attack
     FALSE_NEGATIVE = "false_negative"  # Missed attack
     FALSE_POSITIVE = "false_positive"  # Incorrectly flagged benign
@@ -36,6 +39,7 @@ class DetectionResult(str, Enum):
 @dataclass
 class RuleTestResult:
     """Result of testing a detection rule."""
+
     rule_name: str
     rule_format: RuleFormat
     events_tested: int
@@ -68,12 +72,18 @@ class RuleTestResult:
                 "precision": round(self.precision, 4),
                 "recall": round(self.recall, 4),
                 "f1_score": round(self.f1_score, 4),
-                "accuracy": round(self.accuracy, 4)
+                "accuracy": round(self.accuracy, 4),
             },
-            "matched_events": [e.get("event_id") or e.get("timestamp") for e in self.matched_events],
-            "missed_events": [e.get("event_id") or e.get("timestamp") for e in self.missed_events],
-            "false_alarms": [e.get("event_id") or e.get("timestamp") for e in self.false_alarms],
-            "test_duration_seconds": round(self.test_duration_seconds, 3)
+            "matched_events": [
+                e.get("event_id") or e.get("timestamp") for e in self.matched_events
+            ],
+            "missed_events": [
+                e.get("event_id") or e.get("timestamp") for e in self.missed_events
+            ],
+            "false_alarms": [
+                e.get("event_id") or e.get("timestamp") for e in self.false_alarms
+            ],
+            "test_duration_seconds": round(self.test_duration_seconds, 3),
         }
 
 
@@ -109,7 +119,7 @@ class SigmaRuleParser:
                 "detection": rule.get("detection", {}),
                 "falsepositives": rule.get("falsepositives", []),
                 "level": rule.get("level"),
-                "tags": rule.get("tags", [])
+                "tags": rule.get("tags", []),
             }
         except Exception as e:
             logger.error(f"Failed to parse Sigma rule: {e}")
@@ -163,7 +173,9 @@ class SigmaRuleParser:
                     return False
             elif isinstance(expected, list):
                 # Match any value in list
-                if not any(SigmaRuleParser._match_string(str(value), exp) for exp in expected):
+                if not any(
+                    SigmaRuleParser._match_string(str(value), exp) for exp in expected
+                ):
                     return False
             else:
                 if value != expected:
@@ -330,7 +342,7 @@ class DetectionRuleTester:
         self,
         rule_content: str,
         events: List[Dict[str, Any]],
-        ground_truth: Optional[Set[str]] = None
+        ground_truth: Optional[Set[str]] = None,
     ) -> RuleTestResult:
         """
         Test a Sigma rule against events.
@@ -344,6 +356,7 @@ class DetectionRuleTester:
             Test result with metrics
         """
         import time
+
         start_time = time.time()
 
         # Parse rule
@@ -357,8 +370,9 @@ class DetectionRuleTester:
 
         for event in events:
             event_id = event.get("event_id") or event.get("timestamp")
-            is_malicious = event.get("metadata", {}).get("suspicious") or \
-                          event.get("metadata", {}).get("attack_stage")
+            is_malicious = event.get("metadata", {}).get("suspicious") or event.get(
+                "metadata", {}
+            ).get("attack_stage")
 
             matches = self.sigma_parser.match_event(event, rule)
 
@@ -371,15 +385,33 @@ class DetectionRuleTester:
                     missed_events.append(event)
 
         # Calculate metrics
-        true_positives = len([e for e in matched_events if e.get("metadata", {}).get("suspicious")])
+        true_positives = len(
+            [e for e in matched_events if e.get("metadata", {}).get("suspicious")]
+        )
         false_positives = len(false_alarms)
         false_negatives = len(missed_events)
-        true_negatives = len(events) - true_positives - false_positives - false_negatives
+        true_negatives = (
+            len(events) - true_positives - false_positives - false_negatives
+        )
 
-        precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
-        recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
-        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-        accuracy = (true_positives + true_negatives) / len(events) if len(events) > 0 else 0
+        precision = (
+            true_positives / (true_positives + false_positives)
+            if (true_positives + false_positives) > 0
+            else 0
+        )
+        recall = (
+            true_positives / (true_positives + false_negatives)
+            if (true_positives + false_negatives) > 0
+            else 0
+        )
+        f1_score = (
+            2 * (precision * recall) / (precision + recall)
+            if (precision + recall) > 0
+            else 0
+        )
+        accuracy = (
+            (true_positives + true_negatives) / len(events) if len(events) > 0 else 0
+        )
 
         duration = time.time() - start_time
 
@@ -399,13 +431,11 @@ class DetectionRuleTester:
             matched_events=matched_events[:10],  # Limit for performance
             missed_events=missed_events[:10],
             false_alarms=false_alarms[:10],
-            test_duration_seconds=duration
+            test_duration_seconds=duration,
         )
 
     def test_multiple_rules(
-        self,
-        rules: List[str],
-        events: List[Dict[str, Any]]
+        self, rules: List[str], events: List[Dict[str, Any]]
     ) -> List[RuleTestResult]:
         """
         Test multiple rules against the same event set.
@@ -428,9 +458,7 @@ class DetectionRuleTester:
         return results
 
     def generate_coverage_report(
-        self,
-        results: List[RuleTestResult],
-        scenario_name: str
+        self, results: List[RuleTestResult], scenario_name: str
     ) -> Dict[str, Any]:
         """
         Generate coverage report for multiple rules.
@@ -444,22 +472,30 @@ class DetectionRuleTester:
         """
         total_rules = len(results)
         effective_rules = len([r for r in results if r.f1_score > 0.7])
-        avg_precision = sum(r.precision for r in results) / total_rules if total_rules > 0 else 0
-        avg_recall = sum(r.recall for r in results) / total_rules if total_rules > 0 else 0
-        avg_f1 = sum(r.f1_score for r in results) / total_rules if total_rules > 0 else 0
+        avg_precision = (
+            sum(r.precision for r in results) / total_rules if total_rules > 0 else 0
+        )
+        avg_recall = (
+            sum(r.recall for r in results) / total_rules if total_rules > 0 else 0
+        )
+        avg_f1 = (
+            sum(r.f1_score for r in results) / total_rules if total_rules > 0 else 0
+        )
 
         return {
             "scenario": scenario_name,
             "total_rules_tested": total_rules,
             "effective_rules": effective_rules,
-            "effectiveness_rate": effective_rules / total_rules if total_rules > 0 else 0,
+            "effectiveness_rate": (
+                effective_rules / total_rules if total_rules > 0 else 0
+            ),
             "average_metrics": {
                 "precision": round(avg_precision, 4),
                 "recall": round(avg_recall, 4),
-                "f1_score": round(avg_f1, 4)
+                "f1_score": round(avg_f1, 4),
             },
             "rule_results": [r.to_dict() for r in results],
-            "recommendations": self._generate_recommendations(results)
+            "recommendations": self._generate_recommendations(results),
         }
 
     def _generate_recommendations(self, results: List[RuleTestResult]) -> List[str]:
@@ -490,9 +526,7 @@ class DetectionRuleTester:
         return recommendations
 
     def generate_sigma_rule_from_events(
-        self,
-        scenario_name: str,
-        events: List[Dict[str, Any]]
+        self, scenario_name: str, events: List[Dict[str, Any]]
     ) -> str:
         """
         Auto-generate a Sigma detection rule from telemetry events.
@@ -556,19 +590,27 @@ class DetectionRuleTester:
             "modified": datetime.now().strftime("%Y/%m/%d"),
             "tags": [],
             "logsource": {
-                "product": "aws" if any("aws" in et.lower() for et in top_event_types) else "generic",
-                "service": "cloudtrail" if any("iam" in et.lower() or "s3" in et.lower() for et in top_event_types) else "security"
+                "product": (
+                    "aws"
+                    if any("aws" in et.lower() for et in top_event_types)
+                    else "generic"
+                ),
+                "service": (
+                    "cloudtrail"
+                    if any(
+                        "iam" in et.lower() or "s3" in et.lower()
+                        for et in top_event_types
+                    )
+                    else "security"
+                ),
             },
-            "detection": {
-                "selection": {},
-                "condition": "selection"
-            },
+            "detection": {"selection": {}, "condition": "selection"},
             "falsepositives": [
                 "Legitimate administrative activities",
                 "Automated processes",
-                "CI/CD pipelines"
+                "CI/CD pipelines",
             ],
-            "level": "high"
+            "level": "high",
         }
 
         # Add MITRE tags
@@ -595,10 +637,7 @@ class DetectionRuleTester:
 
         # Convert to YAML
         yaml_content = yaml.dump(
-            rule,
-            default_flow_style=False,
-            sort_keys=False,
-            allow_unicode=True
+            rule, default_flow_style=False, sort_keys=False, allow_unicode=True
         )
 
         return yaml_content

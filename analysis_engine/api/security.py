@@ -8,6 +8,7 @@ Implements:
 - Input sanitization
 - Rate limiting helpers
 """
+
 from fastapi import Request, Response, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -23,6 +24,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # ===== Request ID Tracking =====
+
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """
@@ -45,8 +47,8 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                 "request_id": request_id,
                 "method": request.method,
                 "url": str(request.url),
-                "client": request.client.host if request.client else "unknown"
-            }
+                "client": request.client.host if request.client else "unknown",
+            },
         )
 
         # Process request
@@ -64,8 +66,8 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                 extra={
                     "request_id": request_id,
                     "status_code": response.status_code,
-                    "duration_seconds": round(duration, 3)
-                }
+                    "duration_seconds": round(duration, 3),
+                },
             )
 
             return response
@@ -78,9 +80,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                 extra={
                     "request_id": request_id,
                     "duration_seconds": round(duration, 3),
-                    "error": str(e)
+                    "error": str(e),
                 },
-                exc_info=True
+                exc_info=True,
             )
 
             # Return error response with request ID
@@ -89,13 +91,14 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                 content={
                     "error": "Internal Server Error",
                     "detail": str(e),
-                    "request_id": request_id
+                    "request_id": request_id,
                 },
-                headers={"X-Request-ID": request_id}
+                headers={"X-Request-ID": request_id},
             )
 
 
 # ===== Security Headers Middleware =====
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
@@ -138,7 +141,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "connect-src 'self'",
             "frame-ancestors 'none'",
             "base-uri 'self'",
-            "form-action 'self'"
+            "form-action 'self'",
         ]
         response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
 
@@ -167,6 +170,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 # ===== File Upload Validation =====
+
 
 class FileValidator:
     """
@@ -200,7 +204,7 @@ class FileValidator:
         cls,
         file: UploadFile,
         max_size: Optional[int] = None,
-        allowed_extensions: Optional[set] = None
+        allowed_extensions: Optional[set] = None,
     ) -> dict:
         """
         Validate an uploaded file.
@@ -221,24 +225,20 @@ class FileValidator:
 
         # Check filename
         if not file.filename:
-            raise HTTPException(
-                status_code=400,
-                detail="Filename is required"
-            )
+            raise HTTPException(status_code=400, detail="Filename is required")
 
         # Check file extension
         file_path = Path(file.filename)
         if file_path.suffix.lower() not in allowed_extensions:
             raise HTTPException(
                 status_code=400,
-                detail=f"File extension not allowed. Allowed: {', '.join(allowed_extensions)}"
+                detail=f"File extension not allowed. Allowed: {', '.join(allowed_extensions)}",
             )
 
         # Prevent path traversal
         if ".." in file.filename or "/" in file.filename or "\\" in file.filename:
             raise HTTPException(
-                status_code=400,
-                detail="Invalid filename - path traversal detected"
+                status_code=400, detail="Invalid filename - path traversal detected"
             )
 
         # Read file content for validation
@@ -252,21 +252,20 @@ class FileValidator:
         if file_size > max_size:
             raise HTTPException(
                 status_code=413,
-                detail=f"File too large. Maximum size: {max_size / 1024 / 1024:.1f} MB"
+                detail=f"File too large. Maximum size: {max_size / 1024 / 1024:.1f} MB",
             )
 
         if file_size == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="File is empty"
-            )
+            raise HTTPException(status_code=400, detail="File is empty")
 
         # Validate MIME type using python-magic
         try:
             mime_type = magic.from_buffer(content[:2048], mime=True)
 
             # Be lenient with text files
-            if not (mime_type in cls.ALLOWED_MIME_TYPES or mime_type.startswith("text/")):
+            if not (
+                mime_type in cls.ALLOWED_MIME_TYPES or mime_type.startswith("text/")
+            ):
                 logger.warning(
                     f"Potentially invalid MIME type: {mime_type} for file {file.filename}"
                 )
@@ -290,8 +289,7 @@ class FileValidator:
                     f"Suspicious pattern detected in upload: {file.filename}"
                 )
                 raise HTTPException(
-                    status_code=400,
-                    detail="File contains suspicious content"
+                    status_code=400, detail="File contains suspicious content"
                 )
 
         # Calculate file hash for audit trail
@@ -301,13 +299,14 @@ class FileValidator:
             "filename": file.filename,
             "size_bytes": file_size,
             "content_type": file.content_type,
-            "detected_mime": mime_type if 'mime_type' in locals() else None,
+            "detected_mime": mime_type if "mime_type" in locals() else None,
             "sha256": file_hash,
-            "validated": True
+            "validated": True,
         }
 
 
 # ===== Input Sanitization =====
+
 
 def sanitize_string(value: str, max_length: int = 1000) -> str:
     """
@@ -331,8 +330,7 @@ def sanitize_string(value: str, max_length: int = 1000) -> str:
 
     # Strip control characters except newlines and tabs
     value = "".join(
-        char for char in value
-        if char.isprintable() or char in ["\n", "\t", "\r"]
+        char for char in value if char.isprintable() or char in ["\n", "\t", "\r"]
     )
 
     return value.strip()
@@ -368,9 +366,12 @@ def sanitize_path(path: str) -> str:
 
 # ===== Rate Limit Helpers =====
 
+
 def _trusted_proxies() -> set:
     """Peers allowed to set forwarding headers, from TRUSTED_PROXIES (comma-separated)."""
-    return {ip.strip() for ip in os.getenv("TRUSTED_PROXIES", "").split(",") if ip.strip()}
+    return {
+        ip.strip() for ip in os.getenv("TRUSTED_PROXIES", "").split(",") if ip.strip()
+    }
 
 
 def get_client_ip(request: Request) -> str:
@@ -410,6 +411,7 @@ def get_client_ip(request: Request) -> str:
 
 # ===== Audit Logging =====
 
+
 class AuditLogger:
     """
     Audit logger for security-sensitive operations.
@@ -423,7 +425,7 @@ class AuditLogger:
         filename: str,
         size_bytes: int,
         client_ip: str,
-        user: Optional[str] = None
+        user: Optional[str] = None,
     ):
         """Log file upload event."""
         logger.info(
@@ -434,16 +436,13 @@ class AuditLogger:
                 "filename": filename,
                 "size_bytes": size_bytes,
                 "client_ip": client_ip,
-                "user": user or "anonymous"
-            }
+                "user": user or "anonymous",
+            },
         )
 
     @staticmethod
     def log_analysis_request(
-        request_id: str,
-        event_count: int,
-        client_ip: str,
-        user: Optional[str] = None
+        request_id: str, event_count: int, client_ip: str, user: Optional[str] = None
     ):
         """Log analysis request event."""
         logger.info(
@@ -453,16 +452,13 @@ class AuditLogger:
                 "request_id": request_id,
                 "event_count": event_count,
                 "client_ip": client_ip,
-                "user": user or "anonymous"
-            }
+                "user": user or "anonymous",
+            },
         )
 
     @staticmethod
     def log_scenario_generation(
-        request_id: str,
-        scenario_name: str,
-        client_ip: str,
-        user: Optional[str] = None
+        request_id: str, scenario_name: str, client_ip: str, user: Optional[str] = None
     ):
         """Log scenario generation event."""
         logger.info(
@@ -472,8 +468,8 @@ class AuditLogger:
                 "request_id": request_id,
                 "scenario_name": scenario_name,
                 "client_ip": client_ip,
-                "user": user or "anonymous"
-            }
+                "user": user or "anonymous",
+            },
         )
 
     @staticmethod
@@ -483,7 +479,7 @@ class AuditLogger:
         description: str,
         client_ip: str,
         severity: str = "WARNING",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         """Log security event."""
         log_func = getattr(logger, severity.lower(), logger.warning)
@@ -494,6 +490,6 @@ class AuditLogger:
                 "request_id": request_id,
                 "client_ip": client_ip,
                 "severity": severity,
-                "security_metadata": metadata or {}
-            }
+                "security_metadata": metadata or {},
+            },
         )

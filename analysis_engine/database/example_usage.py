@@ -4,6 +4,7 @@ Example usage of the AI Threat Hunting Simulator database persistence layer.
 This script demonstrates how to use the database layer to persist and retrieve
 threat hunting analysis results.
 """
+
 from datetime import datetime
 from pathlib import Path
 

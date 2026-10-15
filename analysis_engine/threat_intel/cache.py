@@ -1,6 +1,7 @@
 """
 Simple file-based cache with TTL support for threat intelligence data.
 """
+
 import json
 import time
 import logging
@@ -20,7 +21,9 @@ class CacheManager:
     to reduce API calls and improve performance.
     """
 
-    def __init__(self, cache_dir: str = "./data/threat_intel_cache", default_ttl: int = 3600):
+    def __init__(
+        self, cache_dir: str = "./data/threat_intel_cache", default_ttl: int = 3600
+    ):
         """
         Initialize the cache manager.
 
@@ -34,7 +37,9 @@ class CacheManager:
         # Create cache directory if it doesn't exist
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"CacheManager initialized with cache_dir={cache_dir}, default_ttl={default_ttl}s")
+        logger.info(
+            f"CacheManager initialized with cache_dir={cache_dir}, default_ttl={default_ttl}s"
+        )
 
     def _get_cache_key(self, key: str) -> str:
         """
@@ -78,7 +83,7 @@ class CacheManager:
             return None
 
         try:
-            with open(cache_path, 'r') as f:
+            with open(cache_path, "r") as f:
                 cache_entry = json.load(f)
 
             # Check expiration
@@ -113,11 +118,11 @@ class CacheManager:
             "value": value,
             "created_at": time.time(),
             "expires_at": time.time() + ttl if ttl > 0 else None,
-            "ttl": ttl
+            "ttl": ttl,
         }
 
         try:
-            with open(cache_path, 'w') as f:
+            with open(cache_path, "w") as f:
                 json.dump(cache_entry, f, indent=2)
 
             logger.debug(f"Cache stored: {key} (TTL: {ttl}s)")
@@ -171,7 +176,7 @@ class CacheManager:
 
         for cache_file in self.cache_dir.glob("*.json"):
             try:
-                with open(cache_file, 'r') as f:
+                with open(cache_file, "r") as f:
                     cache_entry = json.load(f)
 
                 expires_at = cache_entry.get("expires_at")
@@ -204,7 +209,7 @@ class CacheManager:
             total_size_bytes += cache_file.stat().st_size
 
             try:
-                with open(cache_file, 'r') as f:
+                with open(cache_file, "r") as f:
                     cache_entry = json.load(f)
 
                 expires_at = cache_entry.get("expires_at")
@@ -221,5 +226,5 @@ class CacheManager:
             "total_size_bytes": total_size_bytes,
             "total_size_mb": round(total_size_bytes / (1024 * 1024), 2),
             "cache_dir": str(self.cache_dir),
-            "default_ttl": self.default_ttl
+            "default_ttl": self.default_ttl,
         }
