@@ -9,6 +9,7 @@ import tempfile
 import os
 
 from analysis_engine.api.server import app
+from generator.attack_traces.lateral_movement.generator import generate_lateral_movement_scenario
 
 
 # Set API key for testing
@@ -51,75 +52,69 @@ class TestHealthEndpoint:
 
 
 class TestAnalyzeEndpoint:
-    """Test analysis endpoint."""
+    """Test the upload analysis endpoint."""
 
     def test_analyze_endpoint_requires_auth(self, client):
         """Test analyze endpoint requires API key."""
-        response = client.post("/analyze", files={})
-        assert response.status_code in [401, 403]
+        response = client.post(
+            "/analyze/upload",
+            files={"file": ("telemetry.jsonl", b"{}\n", "application/json")},
+        )
+        assert response.status_code == 401
 
     def test_analyze_with_valid_file(self, client, api_headers, temp_telemetry_file):
         """Test analysis with valid telemetry file."""
         with open(temp_telemetry_file, 'rb') as f:
             response = client.post(
-                "/analyze",
+                "/analyze/upload",
                 files={"file": ("telemetry.jsonl", f, "application/json")},
                 headers=api_headers
             )
-        
-        # Should process successfully or return error
-        assert response.status_code in [200, 400, 422]
-        
-        if response.status_code == 200:
-            data = response.json()
-            # Should have analysis results
-            assert isinstance(data, dict)
+
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["total_events"] > 0
+        assert data["suspicious_sessions"] == len(data["sessions"])
+
+    def test_analyze_reports_suspicious_sessions(self, client, api_headers, tmp_path):
+        """Suspicious sessions are returned in the flat API Session shape."""
+        generate_lateral_movement_scenario(output_dir=tmp_path, add_noise=False)
+
+        with open(tmp_path / "telemetry.jsonl", 'rb') as f:
+            response = client.post(
+                "/analyze/upload",
+                files={"file": ("telemetry.jsonl", f, "application/json")},
+                headers=api_headers
+            )
+
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["suspicious_sessions"] > 0
+        session = data["sessions"][0]
+        assert session["session_id"]
+        assert 0.0 <= session["risk_score"] <= 1.0
+        assert session["event_count"] > 0
+        assert isinstance(session["iocs"]["ip_addresses"], list)
 
     def test_analyze_with_invalid_file_type(self, client, api_headers):
         """Test analysis rejects invalid file types."""
-        with tempfile.NamedTemporaryFile(suffix='.exe', mode='wb') as f:
-            f.write(b'invalid content')
-            f.flush()
-            f.seek(0)
-            
-            response = client.post(
-                "/analyze",
-                files={"file": ("malware.exe", f, "application/octet-stream")},
-                headers=api_headers
-            )
-        
-        # Should reject invalid file type
-        assert response.status_code in [400, 422]
+        response = client.post(
+            "/analyze/upload",
+            files={"file": ("malware.exe", b"invalid content", "application/octet-stream")},
+            headers=api_headers
+        )
+
+        assert response.status_code == 400
 
     def test_analyze_with_empty_file(self, client, api_headers):
-        """Test analysis with empty file."""
-        with tempfile.NamedTemporaryFile(suffix='.jsonl', mode='w') as f:
-            # Empty file
-            f.flush()
-            f.seek(0)
-            
-            response = client.post(
-                "/analyze",
-                files={"file": ("empty.jsonl", open(f.name, 'rb'), "application/json")},
-                headers=api_headers
-            )
-        
-        # May accept but return no results, or reject
-        assert response.status_code in [200, 400, 422]
+        """Test analysis rejects an empty file."""
+        response = client.post(
+            "/analyze/upload",
+            files={"file": ("empty.jsonl", b"", "application/json")},
+            headers=api_headers
+        )
 
-    def test_analyze_returns_structured_response(self, client, api_headers, temp_telemetry_file):
-        """Test analysis returns structured response."""
-        with open(temp_telemetry_file, 'rb') as f:
-            response = client.post(
-                "/analyze",
-                files={"file": ("telemetry.jsonl", f, "application/json")},
-                headers=api_headers
-            )
-        
-        if response.status_code == 200:
-            data = response.json()
-            # Should have standard response structure
-            assert isinstance(data, dict)
+        assert response.status_code == 400
 
 
 class TestMetricsEndpoint:
@@ -143,48 +138,48 @@ class TestMetricsEndpoint:
 
 
 class TestScenarioEndpoints:
-    """Test scenario generation endpoints."""
+    """Test scenario endpoints."""
 
     def test_list_scenarios_endpoint(self, client):
         """Test listing available scenarios."""
         response = client.get("/scenarios")
-        
-        # May or may not require auth
-        if response.status_code == 200:
-            data = response.json()
-            assert isinstance(data, (list, dict))
 
-    def test_generate_scenario_requires_auth(self, client):
-        """Test scenario generation requires authentication."""
-        response = client.post(
-            "/scenarios/generate",
-            json={"scenario_name": "iam_priv_escalation"}
-        )
-        
-        # Should require auth
-        assert response.status_code in [401, 403, 404]
+        assert response.status_code == 200
+        assert isinstance(response.json()["scenarios"], list)
 
-    def test_generate_scenario_with_auth(self, client, api_headers):
-        """Test scenario generation with authentication."""
-        response = client.post(
-            "/scenarios/generate",
-            json={"scenario_name": "iam_priv_escalation"},
-            headers=api_headers
-        )
-        
-        # Should process or indicate error
-        assert response.status_code in [200, 400, 404, 422]
+    def test_unknown_scenario_returns_404(self, client):
+        response = client.get("/scenarios/nonexistent_scenario_xyz")
 
-    def test_generate_scenario_invalid_name(self, client, api_headers):
-        """Test scenario generation with invalid scenario name."""
-        response = client.post(
-            "/scenarios/generate",
-            json={"scenario_name": "nonexistent_scenario_xyz"},
-            headers=api_headers
-        )
-        
-        # Should reject invalid scenario
-        assert response.status_code in [400, 404, 422]
+        assert response.status_code == 404
+
+    @pytest.mark.parametrize("name", ["%2E%2E", "....", "a%2Fb", "bad name"])
+    def test_scenario_names_are_validated(self, client, name):
+        response = client.get(f"/scenarios/{name}")
+
+        assert response.status_code in (400, 404)
+
+    def test_delete_rejects_name_that_collapses_to_scenarios_root(
+        self, client, api_headers, tmp_path, monkeypatch
+    ):
+        """`..` used to be stripped to "", making the target output/scenarios itself."""
+        monkeypatch.chdir(tmp_path)
+        keep = tmp_path / "output" / "scenarios" / "keep"
+        keep.mkdir(parents=True)
+
+        response = client.delete("/scenarios/%2E%2E", headers=api_headers)
+
+        assert response.status_code == 400
+        assert keep.exists()
+
+    def test_delete_scenario(self, client, api_headers, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        target = tmp_path / "output" / "scenarios" / "demo_1"
+        target.mkdir(parents=True)
+
+        response = client.delete("/scenarios/demo_1", headers=api_headers)
+
+        assert response.status_code == 200
+        assert not target.exists()
 
 
 class TestRateLimiting:
@@ -293,39 +288,24 @@ class TestSecurityHeaders:
 class TestFileValidation:
     """Test file upload validation."""
 
-    def test_file_size_limit(self, client, api_headers):
-        """Test file size limit is enforced."""
-        # Create a large file (if limit exists)
-        large_content = b'x' * (100 * 1024 * 1024)  # 100 MB
-        
-        with tempfile.NamedTemporaryFile(suffix='.jsonl', mode='wb') as f:
-            f.write(large_content)
-            f.flush()
-            f.seek(0)
-            
-            response = client.post(
-                "/analyze",
-                files={"file": ("large.jsonl", f, "application/json")},
-                headers=api_headers,
-                timeout=5.0
-            )
-        
-        # May enforce size limit
-        # assert response.status_code in [200, 413, 422]
+    def test_file_size_limit(self, client, api_headers, monkeypatch):
+        """Uploads above the configured limit are rejected with 413."""
+        from analysis_engine.api import server
 
-    def test_file_extension_validation(self, client, api_headers):
-        """Test file extension validation."""
-        with tempfile.NamedTemporaryFile(suffix='.txt', mode='w') as f:
-            f.write('{"test": "data"}')
-            f.flush()
-            f.seek(0)
-            
-            response = client.post(
-                "/analyze",
-                files={"file": ("data.txt", open(f.name, 'rb'), "text/plain")},
-                headers=api_headers
-            )
-        
-        # May validate extensions
-        assert response.status_code in [200, 400, 415, 422]
+        monkeypatch.setattr(server.settings, "max_upload_size_mb", 1)
+        response = client.post(
+            "/analyze/upload",
+            files={"file": ("large.jsonl", b"x" * (2 * 1024 * 1024), "application/json")},
+            headers=api_headers,
+        )
 
+        assert response.status_code == 413
+
+    def test_path_in_filename_is_rejected(self, client, api_headers):
+        response = client.post(
+            "/analyze/upload",
+            files={"file": ("../../etc/passwd.jsonl", b"{}\n", "application/json")},
+            headers=api_headers,
+        )
+
+        assert response.status_code == 400
