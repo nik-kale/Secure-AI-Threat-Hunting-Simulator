@@ -355,3 +355,60 @@ class TestClientIdentity:
         ]
 
         assert statuses[-1] == 429
+
+
+IAM_RULE = (Path(__file__).resolve().parent.parent / "detection_rules" / "sigma" / "iam_priv_escalation.yml").read_text()
+
+
+def _iam_events():
+    return [
+        {"event_id": "e1", "timestamp": "2025-01-01T00:00:00Z", "event_type": "iam.passrole",
+         "event_source": "iam", "action": "PassRole", "principal": "p", "status": "success"},
+        {"event_id": "e2", "timestamp": "2025-01-01T00:01:00Z", "event_type": "iam.getuser",
+         "event_source": "iam", "action": "GetUser", "principal": "p", "status": "success"},
+    ]
+
+
+class TestJsonBodyEndpoints:
+    """These routes take JSON bodies shaped as the README documents."""
+
+    def test_analyze_data_accepts_events_object(self, client, api_headers):
+        response = client.post("/analyze/data", json={"events": _iam_events()}, headers=api_headers)
+
+        assert response.status_code == 200, response.text
+        assert response.json()["total_events"] == 2
+
+    def test_test_rule_returns_counts(self, client, api_headers):
+        response = client.post(
+            "/detection/test-rule",
+            json={"rule_content": IAM_RULE, "events": _iam_events(), "ground_truth": ["e1"]},
+            headers=api_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["total_events"] == 2
+        assert isinstance(body["matched_events"], int)
+        assert 0.0 <= body["accuracy"] <= 1.0
+
+    def test_test_rules_batch_returns_counts(self, client, api_headers):
+        response = client.post(
+            "/detection/test-rules-batch",
+            json={"rules": [{"name": "iam", "content": IAM_RULE}], "events": _iam_events()},
+            headers=api_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        [result] = response.json()["results"]
+        assert result["status"] == "success"
+        assert isinstance(result["matched_events"], int)
+
+    def test_generate_rule_from_events(self, client, api_headers):
+        response = client.post(
+            "/detection/generate-rule",
+            json={"scenario_name": "adhoc", "events": _iam_events()},
+            headers=api_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        assert "detection" in response.json()["rule_content"]

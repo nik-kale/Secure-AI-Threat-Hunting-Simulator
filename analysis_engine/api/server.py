@@ -1,11 +1,11 @@
 """
 FastAPI server for analysis engine with security enhancements.
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, UploadFile, File, HTTPException, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 import tempfile
 import logging
 import re
@@ -562,7 +562,10 @@ async def analyze_upload(
 
 @app.post("/analyze/data", dependencies=[Depends(verify_api_key)])
 @limiter.limit("20/minute")
-async def analyze_data(request: Request, events: list) -> Dict[str, Any]:
+async def analyze_data(
+    request: Request,
+    events: List[Dict[str, Any]] = Body(..., embed=True)
+) -> Dict[str, Any]:
     """
     Analyze telemetry events provided as JSON.
 
@@ -913,9 +916,9 @@ async def start_heartbeat():
 @limiter.limit("10/minute")
 async def test_detection_rule(
     request: Request,
-    rule_content: str,
-    events: list,
-    ground_truth: list = None
+    rule_content: str = Body(...),
+    events: List[Dict[str, Any]] = Body(...),
+    ground_truth: Optional[List[str]] = Body(None)
 ) -> Dict[str, Any]:
     """
     Test a Sigma detection rule against telemetry events.
@@ -964,8 +967,8 @@ async def test_detection_rule(
         client_ip = get_client_ip(request)
         request_id = getattr(request.state, 'request_id', 'unknown')
         logger.info(
-            f"Detection rule tested: {result.total_events} events, "
-            f"{result.matched_events} matches, precision={result.precision:.3f}, "
+            f"Detection rule tested: {result.events_tested} events, "
+            f"{result.events_matched} matches, precision={result.precision:.3f}, "
             f"recall={result.recall:.3f}",
             extra={
                 "request_id": request_id,
@@ -978,8 +981,8 @@ async def test_detection_rule(
         return {
             "status": "success",
             "rule_format": result.rule_format.value,
-            "total_events": result.total_events,
-            "matched_events": result.matched_events,
+            "total_events": result.events_tested,
+            "matched_events": result.events_matched,
             "true_positives": result.true_positives,
             "false_positives": result.false_positives,
             "false_negatives": result.false_negatives,
@@ -988,8 +991,7 @@ async def test_detection_rule(
             "recall": round(result.recall, 4),
             "f1_score": round(result.f1_score, 4),
             "accuracy": round(result.accuracy, 4),
-            "test_duration_seconds": round(test_duration, 3),
-            "coverage_report": result.coverage_report
+            "test_duration_seconds": round(test_duration, 3)
         }
 
     except HTTPException:
@@ -1006,8 +1008,8 @@ async def test_detection_rule(
 @limiter.limit("5/minute")
 async def test_rules_batch(
     request: Request,
-    rules: list,
-    events: list
+    rules: List[Dict[str, Any]] = Body(...),
+    events: List[Dict[str, Any]] = Body(...)
 ) -> Dict[str, Any]:
     """
     Test multiple Sigma rules in batch against telemetry events.
@@ -1068,7 +1070,7 @@ async def test_rules_batch(
                 results.append({
                     "name": rule_def.get('name', 'unknown'),
                     "status": "success",
-                    "matched_events": result.matched_events,
+                    "matched_events": result.events_matched,
                     "precision": round(result.precision, 4),
                     "recall": round(result.recall, 4),
                     "f1_score": round(result.f1_score, 4),
@@ -1219,8 +1221,8 @@ async def get_detection_rule(request: Request, rule_name: str) -> Dict[str, Any]
 @limiter.limit("5/minute")
 async def generate_detection_rule(
     request: Request,
-    scenario_name: str,
-    events: list = None
+    scenario_name: str = Body(...),
+    events: Optional[List[Dict[str, Any]]] = Body(None)
 ) -> Dict[str, Any]:
     """
     Auto-generate a Sigma detection rule from a scenario or events.
