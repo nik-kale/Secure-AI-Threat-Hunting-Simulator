@@ -4,6 +4,7 @@ Streaming analysis for large telemetry datasets.
 This module provides memory-efficient streaming capabilities for analyzing
 large telemetry files that cannot be loaded entirely into memory.
 """
+
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Iterator, Optional, Set
@@ -32,12 +33,12 @@ class StreamingTelemetryLoader:
             chunk_size: Number of events to load per chunk (default: 1000)
         """
         self.chunk_size = chunk_size
-        logger.info(f"Initialized StreamingTelemetryLoader with chunk_size={chunk_size}")
+        logger.info(
+            f"Initialized StreamingTelemetryLoader with chunk_size={chunk_size}"
+        )
 
     def load_chunks(
-        self,
-        file_path: Path,
-        file_format: str = "jsonl"
+        self, file_path: Path, file_format: str = "jsonl"
     ) -> Iterator[List[Dict[str, Any]]]:
         """
         Load events in chunks from a file.
@@ -80,7 +81,7 @@ class StreamingTelemetryLoader:
         logger.info(f"Starting streaming load of {file_path}")
 
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 for line_num, line in enumerate(f, 1):
                     line = line.strip()
                     if not line:
@@ -144,13 +145,13 @@ class StreamingTelemetryLoader:
         logger.info(f"Loading JSON file {file_path} (less memory-efficient)")
 
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 data = json.load(f)
 
             if isinstance(data, list):
                 events = data
-            elif isinstance(data, dict) and 'events' in data:
-                events = data['events']
+            elif isinstance(data, dict) and "events" in data:
+                events = data["events"]
             else:
                 raise ValueError(
                     "JSON file must contain a list or dict with 'events' key"
@@ -160,8 +161,10 @@ class StreamingTelemetryLoader:
 
             # Yield in chunks
             for i in range(0, len(events), self.chunk_size):
-                chunk = events[i:i + self.chunk_size]
-                logger.debug(f"Yielding chunk {i // self.chunk_size + 1} of {len(chunk)} events")
+                chunk = events[i : i + self.chunk_size]
+                logger.debug(
+                    f"Yielding chunk {i // self.chunk_size + 1} of {len(chunk)} events"
+                )
                 yield chunk
 
         except json.JSONDecodeError as e:
@@ -184,21 +187,23 @@ class StreamingTelemetryLoader:
         """
         if file_format == "jsonl":
             count = 0
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 for line in f:
                     if line.strip():
                         count += 1
             return count
         elif file_format == "json":
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 data = json.load(f)
 
             if isinstance(data, list):
                 return len(data)
-            elif isinstance(data, dict) and 'events' in data:
-                return len(data['events'])
+            elif isinstance(data, dict) and "events" in data:
+                return len(data["events"])
             else:
-                raise ValueError("JSON file must contain a list or dict with 'events' key")
+                raise ValueError(
+                    "JSON file must contain a list or dict with 'events' key"
+                )
         else:
             raise ValueError(f"Unsupported file format: {file_format}")
 
@@ -224,7 +229,7 @@ class StreamingProgress:
 def merge_sessions(
     existing_sessions: List[CorrelationSession],
     new_sessions: List[CorrelationSession],
-    time_window_minutes: int = 60
+    time_window_minutes: int = 60,
 ) -> List[CorrelationSession]:
     """
     Merge new sessions with existing ones, combining overlapping sessions.
@@ -274,9 +279,7 @@ def merge_sessions(
 
 
 def _should_merge_sessions(
-    session1: CorrelationSession,
-    session2: CorrelationSession,
-    time_window: timedelta
+    session1: CorrelationSession, session2: CorrelationSession, time_window: timedelta
 ) -> bool:
     """
     Determine if two sessions should be merged.
@@ -313,8 +316,7 @@ def _should_merge_sessions(
 
 
 def _combine_sessions(
-    session1: CorrelationSession,
-    session2: CorrelationSession
+    session1: CorrelationSession, session2: CorrelationSession
 ) -> CorrelationSession:
     """
     Combine two sessions into a single merged session.

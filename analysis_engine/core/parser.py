@@ -1,7 +1,8 @@
 """
 Event parser and normalizer.
 """
-from datetime import datetime
+
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 import logging
@@ -76,7 +77,12 @@ class EventParser:
 
     @staticmethod
     def parse_timestamp(timestamp_str: str) -> datetime:
-        """Parse ISO 8601 timestamp."""
+        """
+        Parse an ISO 8601 timestamp into a naive UTC datetime.
+
+        Offsets are converted to UTC and dropped so that every parsed
+        timestamp can be compared with every other one.
+        """
         try:
             return datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")
         except ValueError:
@@ -85,7 +91,10 @@ class EventParser:
                 return datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ")
             except ValueError:
                 # Fallback to datetime.fromisoformat
-                return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                parsed = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                if parsed.tzinfo is not None:
+                    parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+                return parsed
 
     @classmethod
     def parse_event(cls, raw_event: Dict[str, Any]) -> NormalizedEvent:
@@ -151,7 +160,9 @@ class EventParser:
                 logger.error(f"Failed to parse event {raw_event.get('event_id')}: {e}")
                 continue
 
-        logger.info(f"Parsed {len(normalized_events)}/{len(raw_events)} events successfully")
+        logger.info(
+            f"Parsed {len(normalized_events)}/{len(raw_events)} events successfully"
+        )
         return normalized_events
 
     @staticmethod
@@ -192,11 +203,16 @@ class EventParser:
             filtered = [e for e in filtered if e.status == status]
 
         if min_severity:
-            severity_levels = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+            severity_levels = {
+                "info": 0,
+                "low": 1,
+                "medium": 2,
+                "high": 3,
+                "critical": 4,
+            }
             min_level = severity_levels.get(min_severity, 0)
             filtered = [
-                e for e in filtered
-                if severity_levels.get(e.severity, 0) >= min_level
+                e for e in filtered if severity_levels.get(e.severity, 0) >= min_level
             ]
 
         return filtered

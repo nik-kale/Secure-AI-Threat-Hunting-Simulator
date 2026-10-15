@@ -1,6 +1,7 @@
 """
 Tests for graph-based correlation engine.
 """
+
 import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -14,8 +15,7 @@ from analysis_engine.core import (
 
 # Skip all tests if networkx not available
 pytestmark = pytest.mark.skipif(
-    not GRAPH_CORRELATION_AVAILABLE,
-    reason="NetworkX not installed"
+    not GRAPH_CORRELATION_AVAILABLE, reason="NetworkX not installed"
 )
 
 if GRAPH_CORRELATION_AVAILABLE:
@@ -45,7 +45,7 @@ def sample_events():
             principal=f"user{i % 3}@example.com",
             source_ip=f"10.0.{i % 2}.{i}",
             resource=f"arn:aws:s3:::bucket-{i % 4}/data.csv",
-            status="success"
+            status="success",
         )
         events.append(event)
 
@@ -76,18 +76,18 @@ class TestGraphCorrelator:
 
         # Check that nodes have correct attributes
         for node, data in graph.nodes(data=True):
-            assert 'type' in data
-            assert data['type'] in ['principal', 'ip', 'resource']
-            assert 'first_seen' in data
-            assert 'last_seen' in data
-            assert 'event_count' in data
+            assert "type" in data
+            assert data["type"] in ["principal", "ip", "resource"]
+            assert "first_seen" in data
+            assert "last_seen" in data
+            assert "event_count" in data
 
         # Check that edges have correct attributes
         for u, v, data in graph.edges(data=True):
-            assert 'weight' in data
-            assert data['weight'] >= 1
-            assert 'timestamps' in data
-            assert 'event_types' in data
+            assert "weight" in data
+            assert data["weight"] >= 1
+            assert "timestamps" in data
+            assert "event_types" in data
 
     def test_extract_entities(self, correlator):
         """Test entity extraction from events."""
@@ -101,7 +101,7 @@ class TestGraphCorrelator:
             principal="user@example.com",
             source_ip="10.0.0.1",
             resource="resource-1",
-            status="success"
+            status="success",
         )
 
         entities = correlator._extract_entities(event)
@@ -116,7 +116,7 @@ class TestGraphCorrelator:
         entities = [
             ("principal:user@example.com", "principal"),
             ("ip:10.0.0.1", "ip"),
-            ("resource:resource-1", "resource")
+            ("resource:resource-1", "resource"),
         ]
 
         event = NormalizedEvent(
@@ -126,7 +126,7 @@ class TestGraphCorrelator:
             event_source="test",
             account_id="123",
             region="us-east-1",
-            status="success"
+            status="success",
         )
 
         edges = correlator._create_edges(entities, event)
@@ -142,17 +142,17 @@ class TestGraphCorrelator:
         correlator.build_attack_graph(sample_events)
         summary = correlator.generate_graph_summary()
 
-        assert 'nodes' in summary
-        assert 'edges' in summary
-        assert 'density' in summary
-        assert 'node_types' in summary
-        assert summary['nodes'] > 0
-        assert summary['edges'] > 0
+        assert "nodes" in summary
+        assert "edges" in summary
+        assert "density" in summary
+        assert "node_types" in summary
+        assert summary["nodes"] > 0
+        assert summary["edges"] > 0
 
         # Check node types breakdown
-        assert 'principal' in summary['node_types']
-        assert 'ip' in summary['node_types']
-        assert 'resource' in summary['node_types']
+        assert "principal" in summary["node_types"]
+        assert "ip" in summary["node_types"]
+        assert "resource" in summary["node_types"]
 
     def test_detect_attack_campaigns(self, correlator, sample_events):
         """Test attack campaign detection."""
@@ -166,7 +166,7 @@ class TestGraphCorrelator:
             assert isinstance(campaign, AttackCampaign)
             assert len(campaign.nodes) >= 2
             assert len(campaign.events) > 0
-            assert campaign.campaign_id.startswith('campaign-')
+            assert campaign.campaign_id.startswith("campaign-")
             assert 0.0 <= campaign.density <= 1.0
 
     def test_find_pivot_points(self, correlator, sample_events):
@@ -179,7 +179,7 @@ class TestGraphCorrelator:
         for pivot in pivots:
             assert isinstance(pivot, PivotPoint)
             assert pivot.node_id
-            assert pivot.node_type in ['principal', 'ip', 'resource']
+            assert pivot.node_type in ["principal", "ip", "resource"]
             assert 0.0 <= pivot.betweenness_centrality <= 1.0
             assert 0.0 <= pivot.degree_centrality <= 1.0
             assert pivot.total_degree >= 1
@@ -187,12 +187,17 @@ class TestGraphCorrelator:
         # Should be sorted by betweenness centrality
         if len(pivots) > 1:
             for i in range(len(pivots) - 1):
-                assert pivots[i].betweenness_centrality >= pivots[i+1].betweenness_centrality
+                assert (
+                    pivots[i].betweenness_centrality
+                    >= pivots[i + 1].betweenness_centrality
+                )
 
     def test_identify_lateral_movement(self, correlator, sample_events):
         """Test lateral movement detection."""
         correlator.build_attack_graph(sample_events)
-        movements = correlator.identify_lateral_movement(min_hops=2, time_window_minutes=60)
+        movements = correlator.identify_lateral_movement(
+            min_hops=2, time_window_minutes=60
+        )
 
         assert isinstance(movements, list)
 
@@ -201,7 +206,7 @@ class TestGraphCorrelator:
             assert movement.num_hops >= 2
             assert len(movement.hops) >= 2
             assert len(movement.events) > 0
-            assert movement.movement_id.startswith('movement-')
+            assert movement.movement_id.startswith("movement-")
 
     def test_trace_attack_path(self, correlator, sample_events):
         """Test attack path tracing."""
@@ -217,10 +222,10 @@ class TestGraphCorrelator:
         resource_node = None
 
         for node in nodes:
-            node_type = correlator.graph.nodes[node]['type']
-            if node_type == 'principal' and not principal_node:
+            node_type = correlator.graph.nodes[node]["type"]
+            if node_type == "principal" and not principal_node:
                 principal_node = node
-            elif node_type == 'resource' and not resource_node:
+            elif node_type == "resource" and not resource_node:
                 resource_node = node
 
         if not principal_node or not resource_node:
@@ -255,9 +260,9 @@ class TestGraphCorrelator:
             # Verify it's valid XML
             with open(output_path) as f:
                 content = f.read()
-                assert '<?xml' in content
-                assert '<graphml' in content
-                assert '</graphml>' in content
+                assert "<?xml" in content
+                assert "<graphml" in content
+                assert "</graphml>" in content
 
     def test_min_edge_weight_filtering(self):
         """Test that min_edge_weight filters low-weight edges."""
@@ -279,7 +284,7 @@ class TestGraphCorrelator:
                 principal="user1@example.com",
                 source_ip="10.0.0.1",
                 resource="resource-1",
-                status="success"
+                status="success",
             )
             events.append(event)
 
@@ -294,7 +299,7 @@ class TestGraphCorrelator:
             principal="user2@example.com",
             source_ip="10.0.0.2",
             resource="resource-2",
-            status="success"
+            status="success",
         )
         events.append(event)
 
@@ -302,7 +307,7 @@ class TestGraphCorrelator:
 
         # Check that only high-weight edges remain
         for u, v, data in graph.edges(data=True):
-            assert data['weight'] >= 3
+            assert data["weight"] >= 3
 
     def test_empty_events(self, correlator):
         """Test handling of empty event list."""
@@ -312,8 +317,8 @@ class TestGraphCorrelator:
         assert graph.number_of_edges() == 0
 
         summary = correlator.generate_graph_summary()
-        assert summary['nodes'] == 0
-        assert summary['edges'] == 0
+        assert summary["nodes"] == 0
+        assert summary["edges"] == 0
 
     def test_to_dict_methods(self, correlator, sample_events):
         """Test to_dict methods of data classes."""
@@ -324,25 +329,25 @@ class TestGraphCorrelator:
         if campaigns:
             campaign_dict = campaigns[0].to_dict()
             assert isinstance(campaign_dict, dict)
-            assert 'campaign_id' in campaign_dict
-            assert 'num_nodes' in campaign_dict
-            assert 'num_edges' in campaign_dict
+            assert "campaign_id" in campaign_dict
+            assert "num_nodes" in campaign_dict
+            assert "num_edges" in campaign_dict
 
         # Test PivotPoint.to_dict()
         pivots = correlator.find_pivot_points(top_n=5, min_degree=1)
         if pivots:
             pivot_dict = pivots[0].to_dict()
             assert isinstance(pivot_dict, dict)
-            assert 'node_id' in pivot_dict
-            assert 'betweenness_centrality' in pivot_dict
+            assert "node_id" in pivot_dict
+            assert "betweenness_centrality" in pivot_dict
 
         # Test LateralMovement.to_dict()
         movements = correlator.identify_lateral_movement(min_hops=2)
         if movements:
             movement_dict = movements[0].to_dict()
             assert isinstance(movement_dict, dict)
-            assert 'movement_id' in movement_dict
-            assert 'num_hops' in movement_dict
+            assert "movement_id" in movement_dict
+            assert "num_hops" in movement_dict
 
 
 class TestIntegration:
@@ -352,9 +357,7 @@ class TestIntegration:
         """Test that graph correlation integrates with pipeline."""
         from analysis_engine.pipeline import ThreatHuntingPipeline
 
-        pipeline = ThreatHuntingPipeline(
-            enable_graph_analysis=True
-        )
+        pipeline = ThreatHuntingPipeline(enable_graph_analysis=True)
 
         # Check that graph correlator is initialized
         assert pipeline.enable_graph_analysis
@@ -364,9 +367,7 @@ class TestIntegration:
         """Test pipeline works without graph analysis."""
         from analysis_engine.pipeline import ThreatHuntingPipeline
 
-        pipeline = ThreatHuntingPipeline(
-            enable_graph_analysis=False
-        )
+        pipeline = ThreatHuntingPipeline(enable_graph_analysis=False)
 
         assert not pipeline.enable_graph_analysis
         assert pipeline.graph_correlator is None

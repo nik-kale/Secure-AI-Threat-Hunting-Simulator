@@ -1,6 +1,7 @@
 """
 MITRE ATT&CK framework mapper.
 """
+
 from typing import Dict, List, Set, Any
 from dataclasses import dataclass
 import logging
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MitreTechnique:
     """MITRE ATT&CK technique."""
+
     technique_id: str
     technique_name: str
     tactic: str
@@ -26,91 +28,91 @@ MITRE_TECHNIQUES = {
         technique_id="T1078",
         technique_name="Valid Accounts",
         tactic="Defense Evasion, Persistence, Privilege Escalation, Initial Access",
-        description="Adversaries may obtain and abuse credentials of existing accounts"
+        description="Adversaries may obtain and abuse credentials of existing accounts",
     ),
     "T1078.004": MitreTechnique(
         technique_id="T1078.004",
         technique_name="Valid Accounts: Cloud Accounts",
         tactic="Defense Evasion, Persistence, Privilege Escalation, Initial Access",
-        description="Valid credentials for cloud services"
+        description="Valid credentials for cloud services",
     ),
     "T1087": MitreTechnique(
         technique_id="T1087",
         technique_name="Account Discovery",
         tactic="Discovery",
-        description="Adversaries may attempt to get a listing of accounts"
+        description="Adversaries may attempt to get a listing of accounts",
     ),
     "T1087.004": MitreTechnique(
         technique_id="T1087.004",
         technique_name="Account Discovery: Cloud Account",
         tactic="Discovery",
-        description="Enumerate cloud accounts and roles"
+        description="Enumerate cloud accounts and roles",
     ),
     "T1110.004": MitreTechnique(
         technique_id="T1110.004",
         technique_name="Brute Force: Credential Stuffing",
         tactic="Credential Access",
-        description="Adversaries use credentials obtained from breach dumps"
+        description="Adversaries use credentials obtained from breach dumps",
     ),
     "T1136.003": MitreTechnique(
         technique_id="T1136.003",
         technique_name="Create Account: Cloud Account",
         tactic="Persistence",
-        description="Create cloud accounts for persistence"
+        description="Create cloud accounts for persistence",
     ),
     "T1190": MitreTechnique(
         technique_id="T1190",
         technique_name="Exploit Public-Facing Application",
         tactic="Initial Access",
-        description="Exploit web application vulnerabilities"
+        description="Exploit web application vulnerabilities",
     ),
     "T1021": MitreTechnique(
         technique_id="T1021",
         technique_name="Remote Services",
         tactic="Lateral Movement",
-        description="Use remote services for lateral movement"
+        description="Use remote services for lateral movement",
     ),
     "T1496": MitreTechnique(
         technique_id="T1496",
         technique_name="Resource Hijacking",
         tactic="Impact",
-        description="Leverage cloud resources for unauthorized purposes"
+        description="Leverage cloud resources for unauthorized purposes",
     ),
     "T1530": MitreTechnique(
         technique_id="T1530",
         technique_name="Data from Cloud Storage Object",
         tactic="Collection",
-        description="Access data stored in cloud storage services"
+        description="Access data stored in cloud storage services",
     ),
     "T1548": MitreTechnique(
         technique_id="T1548",
         technique_name="Abuse Elevation Control Mechanism",
         tactic="Privilege Escalation, Defense Evasion",
-        description="Circumvent mechanisms to gain elevated permissions"
+        description="Circumvent mechanisms to gain elevated permissions",
     ),
     "T1548.005": MitreTechnique(
         technique_id="T1548.005",
         technique_name="Abuse Elevation Control Mechanism: Temporary Elevated Cloud Access",
         tactic="Privilege Escalation, Defense Evasion",
-        description="Abuse cloud IAM for privilege escalation"
+        description="Abuse cloud IAM for privilege escalation",
     ),
     "T1552.005": MitreTechnique(
         technique_id="T1552.005",
         technique_name="Unsecured Credentials: Cloud Instance Metadata API",
         tactic="Credential Access",
-        description="Access credentials via cloud metadata services"
+        description="Access credentials via cloud metadata services",
     ),
     "T1589.001": MitreTechnique(
         technique_id="T1589.001",
         technique_name="Gather Victim Identity Information",
         tactic="Reconnaissance",
-        description="Collect identity information for targeting"
+        description="Collect identity information for targeting",
     ),
     "T1611": MitreTechnique(
         technique_id="T1611",
         technique_name="Escape to Host",
         tactic="Privilege Escalation",
-        description="Break out of container to host system"
+        description="Break out of container to host system",
     ),
 }
 
@@ -124,27 +126,21 @@ EVENT_PATTERN_TO_TECHNIQUE = {
     "iam.get_user": ["T1087.004"],
     "iam.get_role": ["T1087.004"],
     "iam.list_attached_user_policies": ["T1087.004"],
-
     # Valid Accounts / Cloud Accounts
     "api.authenticate": ["T1078.004"],
     "api.login": ["T1078.004"],
-
     # Create Account
     "iam.create_role": ["T1136.003"],
     "iam.create_user": ["T1136.003"],
     "iam.create_access_key": ["T1136.003"],
-
     # Privilege Escalation
     "iam.attach_policy": ["T1548.005"],
     "iam.put_role_policy": ["T1548.005"],
     "lambda.create_function": ["T1548.005"],  # With PassRole
-
     # Data Access
     "s3.get_object": ["T1530"],
-
     # Container Escape
     "container.exec": ["T1611"],
-
     # Metadata API
     "api.request": ["T1552.005"],
 }
@@ -265,10 +261,7 @@ class MitreMapper:
 
         return sorted(list(tactics))
 
-    def generate_attack_matrix(
-        self,
-        session: CorrelationSession
-    ) -> Dict[str, Any]:
+    def generate_attack_matrix(self, session: CorrelationSession) -> Dict[str, Any]:
         """
         Generate a MITRE ATT&CK matrix view of the attack.
 
@@ -291,11 +284,13 @@ class MitreMapper:
                 if tactic not in tactics_matrix:
                     tactics_matrix[tactic] = []
 
-                tactics_matrix[tactic].append({
-                    "technique_id": tech_id,
-                    "technique_name": tech_info["technique_name"],
-                    "num_events": tech_info["num_events"],
-                })
+                tactics_matrix[tactic].append(
+                    {
+                        "technique_id": tech_id,
+                        "technique_name": tech_info["technique_name"],
+                        "num_events": tech_info["num_events"],
+                    }
+                )
 
         return {
             "matrix": tactics_matrix,

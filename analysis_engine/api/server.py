@@ -1,13 +1,25 @@
 """
 FastAPI server for analysis engine with security enhancements.
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, WebSocket, WebSocketDisconnect
+
+from fastapi import (
+    Body,
+    FastAPI,
+    UploadFile,
+    File,
+    HTTPException,
+    Depends,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 import tempfile
 import logging
+import re
 import json
 import os
 import time
@@ -16,20 +28,30 @@ import asyncio
 from analysis_engine.pipeline import ThreatHuntingPipeline
 from analysis_engine.api.auth import verify_api_key, verify_admin_key
 from analysis_engine.api.models import (
-    HealthResponse, AnalysisResult, GenerateScenarioRequest,
-    GenerateScenarioResponse, ScenarioListResponse, ErrorResponse,
-    AnalyzeDataRequest, ScenarioInfo, ScenarioName
+    HealthResponse,
+    AnalysisResult,
+    GenerateScenarioRequest,
+    GenerateScenarioResponse,
+    ScenarioListResponse,
+    ErrorResponse,
+    AnalyzeDataRequest,
+    ScenarioInfo,
+    ScenarioName,
+    analysis_result_from_summary,
 )
 from analysis_engine.api.security import (
-    RequestIDMiddleware, SecurityHeadersMiddleware,
-    FileValidator, AuditLogger, get_client_ip
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+    FileValidator,
+    AuditLogger,
+    get_client_ip,
 )
 from analysis_engine.detection import DetectionRuleTester, RuleTestResult, RuleFormat
 from analysis_engine.api.websocket import (
     manager as ws_manager,
     StreamingScenarioGenerator,
     StreamingAnalyzer,
-    heartbeat_task
+    heartbeat_task,
 )
 from config import get_settings
 
@@ -61,7 +83,7 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="AI Threat Hunting Simulator API",
     description="Analysis engine API for threat hunting",
-    version="3.0.0"
+    version="3.0.0",
 )
 
 app.state.limiter = limiter
@@ -71,7 +93,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 settings = get_settings()
 
 # Enable CORS with proper security
-ALLOWED_ORIGINS = settings.allowed_origins if isinstance(settings.allowed_origins, list) else settings.allowed_origins.split(",")
+ALLOWED_ORIGINS = (
+    settings.allowed_origins
+    if isinstance(settings.allowed_origins, list)
+    else settings.allowed_origins.split(",")
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -82,7 +108,10 @@ app.add_middleware(
 )
 
 # Add security middleware
-app.add_middleware(SecurityHeadersMiddleware, enable_hsts=os.getenv("ENABLE_HSTS", "false").lower() == "true")
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    enable_hsts=os.getenv("ENABLE_HSTS", "false").lower() == "true",
+)
 app.add_middleware(RequestIDMiddleware)
 
 # Initialize pipeline with LLM and threat intelligence
@@ -92,11 +121,19 @@ pipeline = ThreatHuntingPipeline(
     risk_threshold=settings.risk_score_threshold,
     enable_database=True,
     database_url=settings.db_connection_string,
-    llm_provider_type=settings.llm_provider if settings.llm_provider.lower() not in ["none", ""] else None,
-    llm_api_key=settings.openai_api_key if settings.llm_provider == "openai" else settings.anthropic_api_key,
+    llm_provider_type=(
+        settings.llm_provider
+        if settings.llm_provider.lower() not in ["none", ""]
+        else None
+    ),
+    llm_api_key=(
+        settings.openai_api_key
+        if settings.llm_provider == "openai"
+        else settings.anthropic_api_key
+    ),
     llm_model=settings.llm_model,
     enable_threat_intel=settings.enable_threat_intel,
-    threat_intel_config=settings if settings.enable_threat_intel else None
+    threat_intel_config=settings if settings.enable_threat_intel else None,
 )
 
 # Initialize detection rule tester
@@ -105,6 +142,7 @@ rule_tester = DetectionRuleTester()
 # Initialize cache if enabled
 try:
     from analysis_engine.cache import init_cache, CacheConfig, get_cache
+
     if settings.redis_enabled:
         cache_config = CacheConfig(
             enabled=True,
@@ -113,7 +151,7 @@ try:
             redis_db=settings.redis_db,
             redis_password=settings.redis_password,
             default_ttl=settings.redis_cache_ttl,
-            max_connections=settings.redis_max_connections
+            max_connections=settings.redis_max_connections,
         )
         cache = init_cache(cache_config)
         logger.info("Redis cache initialized successfully")
@@ -124,6 +162,26 @@ try:
 except Exception as e:
     logger.warning(f"Cache initialization failed: {e}. Running without cache.")
     cache = None
+
+SCENARIOS_DIR = Path("output/scenarios")
+RULES_DIR = Path("detection_rules/sigma")
+
+# Scenario and rule names map straight onto directory and file names, so
+# only plain identifiers are accepted.
+_SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}")
+
+
+def validate_resource_name(name: str, kind: str = "scenario") -> str:
+    """
+    Reject names that are not plain identifiers.
+
+    Raises:
+        HTTPException: 400 if the name could escape its directory
+    """
+    if not _SAFE_NAME.fullmatch(name or ""):
+        raise HTTPException(status_code=400, detail=f"Invalid {kind} name")
+    return name
+
 
 # Request tracking middleware
 @app.middleware("http")
@@ -141,7 +199,7 @@ async def track_requests(request: Request, call_next):
         method=request.method,
         path=request.url.path,
         client=request.client.host if request.client else "unknown",
-        correlation_id=correlation_id
+        correlation_id=correlation_id,
     )
 
     # Process request
@@ -151,9 +209,7 @@ async def track_requests(request: Request, call_next):
 
         # Track successful request
         http_requests_total.labels(
-            method=request.method,
-            endpoint=request.url.path,
-            status_code=status_code
+            method=request.method, endpoint=request.url.path, status_code=status_code
         ).inc()
 
         return response
@@ -161,16 +217,14 @@ async def track_requests(request: Request, call_next):
     except Exception as e:
         # Track failed request
         http_requests_total.labels(
-            method=request.method,
-            endpoint=request.url.path,
-            status_code=500
+            method=request.method, endpoint=request.url.path, status_code=500
         ).inc()
 
         api_logger.error(
             f"Request failed: {request.method} {request.url.path}",
             error=str(e),
             error_type=type(e).__name__,
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
         )
         raise
 
@@ -178,8 +232,7 @@ async def track_requests(request: Request, call_next):
         # Record duration
         duration = time.time() - start_time
         http_request_duration_seconds.labels(
-            method=request.method,
-            endpoint=request.url.path
+            method=request.method, endpoint=request.url.path
         ).observe(duration)
 
         api_logger.performance(
@@ -187,7 +240,7 @@ async def track_requests(request: Request, call_next):
             duration=duration,
             operation="http_request",
             method=request.method,
-            path=request.url.path
+            path=request.url.path,
         )
 
 
@@ -198,7 +251,7 @@ async def root():
         "service": "AI Threat Hunting Simulator API",
         "version": "3.0.0",
         "status": "operational",
-        "documentation": "/docs"
+        "documentation": "/docs",
     }
 
 
@@ -213,7 +266,7 @@ async def health():
         "status": "healthy",
         "version": "3.0.0",
         "timestamp": time.time(),
-        "components": {}
+        "components": {},
     }
 
     # Check pipeline
@@ -223,14 +276,14 @@ async def health():
         pipeline_healthy = pipeline is not None
         health_status["components"]["pipeline"] = {
             "status": "healthy" if pipeline_healthy else "unhealthy",
-            "check_duration": time.time() - start_time
+            "check_duration": time.time() - start_time,
         }
         record_health_check("pipeline", pipeline_healthy, time.time() - start_time)
     except Exception as e:
         health_status["components"]["pipeline"] = {
             "status": "unhealthy",
             "error": str(e),
-            "check_duration": time.time() - start_time
+            "check_duration": time.time() - start_time,
         }
         record_health_check("pipeline", False, time.time() - start_time)
         health_status["status"] = "degraded"
@@ -239,15 +292,16 @@ async def health():
     start_time = time.time()
     try:
         import psutil
+
         mem = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
 
         system_healthy = mem.percent < 90 and disk.percent < 90
         health_status["components"]["system"] = {
             "status": "healthy" if system_healthy else "degraded",
             "memory_percent": mem.percent,
             "disk_percent": disk.percent,
-            "check_duration": time.time() - start_time
+            "check_duration": time.time() - start_time,
         }
         record_health_check("system", system_healthy, time.time() - start_time)
 
@@ -257,13 +311,10 @@ async def health():
     except ImportError:
         health_status["components"]["system"] = {
             "status": "unknown",
-            "message": "psutil not available"
+            "message": "psutil not available",
         }
     except Exception as e:
-        health_status["components"]["system"] = {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+        health_status["components"]["system"] = {"status": "unhealthy", "error": str(e)}
         health_status["status"] = "degraded"
 
     # Update system metrics
@@ -283,10 +334,7 @@ async def metrics():
     collect_system_metrics()
 
     # Return metrics in Prometheus format
-    return Response(
-        content=get_metrics(),
-        media_type=get_content_type()
-    )
+    return Response(content=get_metrics(), media_type=get_content_type())
 
 
 @app.get("/stats")
@@ -298,11 +346,7 @@ async def stats():
     """
     from prometheus_client import REGISTRY
 
-    stats_data = {
-        "timestamp": time.time(),
-        "version": "3.0.0",
-        "metrics": {}
-    }
+    stats_data = {"timestamp": time.time(), "version": "3.0.0", "metrics": {}}
 
     # Collect current metrics from Prometheus registry
     for metric in REGISTRY.collect():
@@ -315,15 +359,13 @@ async def stats():
         metric_data = {
             "type": metric.type,
             "documentation": metric.documentation,
-            "samples": []
+            "samples": [],
         }
 
         for sample in metric.samples:
-            metric_data["samples"].append({
-                "name": sample.name,
-                "labels": sample.labels,
-                "value": sample.value
-            })
+            metric_data["samples"].append(
+                {"name": sample.name, "labels": sample.labels, "value": sample.value}
+            )
 
         stats_data["metrics"][metric_name] = metric_data
 
@@ -352,7 +394,7 @@ async def cache_stats(request: Request) -> Dict[str, Any]:
         return {
             "enabled": False,
             "connected": False,
-            "message": "Cache not initialized"
+            "message": "Cache not initialized",
         }
 
 
@@ -386,7 +428,11 @@ def _generate_stats_summary(metrics: Dict[str, Any]) -> Dict[str, Any]:
                 "total_requests": total_requests,
                 "success_requests": success_requests,
                 "failed_requests": failed_requests,
-                "success_rate": (success_requests / total_requests * 100) if total_requests > 0 else 0
+                "success_rate": (
+                    (success_requests / total_requests * 100)
+                    if total_requests > 0
+                    else 0
+                ),
             }
 
         # Events processed
@@ -395,9 +441,7 @@ def _generate_stats_summary(metrics: Dict[str, Any]) -> Dict[str, Any]:
                 sample["value"]
                 for sample in metrics["events_processed_total"]["samples"]
             )
-            summary["events"] = {
-                "total_processed": total_events
-            }
+            summary["events"] = {"total_processed": total_events}
 
         # Sessions detected
         if "sessions_detected_total" in metrics:
@@ -412,33 +456,35 @@ def _generate_stats_summary(metrics: Dict[str, Any]) -> Dict[str, Any]:
             summary["sessions"] = {
                 "total_detected": total_sessions,
                 "malicious_detected": malicious_sessions,
-                "malicious_rate": (malicious_sessions / total_sessions * 100) if total_sessions > 0 else 0
+                "malicious_rate": (
+                    (malicious_sessions / total_sessions * 100)
+                    if total_sessions > 0
+                    else 0
+                ),
             }
 
         # Current jobs
         if "current_analysis_jobs" in metrics:
-            current_jobs = metrics["current_analysis_jobs"]["samples"][0]["value"] if metrics["current_analysis_jobs"]["samples"] else 0
+            current_jobs = (
+                metrics["current_analysis_jobs"]["samples"][0]["value"]
+                if metrics["current_analysis_jobs"]["samples"]
+                else 0
+            )
             summary["current_jobs"] = current_jobs
 
         # HTTP requests
         if "http_requests_total" in metrics:
             total_http = sum(
-                sample["value"]
-                for sample in metrics["http_requests_total"]["samples"]
+                sample["value"] for sample in metrics["http_requests_total"]["samples"]
             )
-            summary["http"] = {
-                "total_requests": total_http
-            }
+            summary["http"] = {"total_requests": total_http}
 
         # Errors
         if "errors_total" in metrics:
             total_errors = sum(
-                sample["value"]
-                for sample in metrics["errors_total"]["samples"]
+                sample["value"] for sample in metrics["errors_total"]["samples"]
             )
-            summary["errors"] = {
-                "total_errors": total_errors
-            }
+            summary["errors"] = {"total_errors": total_errors}
 
     except Exception as e:
         logger.error(f"Error generating stats summary: {e}")
@@ -446,11 +492,14 @@ def _generate_stats_summary(metrics: Dict[str, Any]) -> Dict[str, Any]:
     return summary
 
 
-@app.post("/analyze/upload", dependencies=[Depends(verify_api_key)], response_model=AnalysisResult)
+@app.post(
+    "/analyze/upload",
+    dependencies=[Depends(verify_api_key)],
+    response_model=AnalysisResult,
+)
 @limiter.limit("10/minute")
 async def analyze_upload(
-    request: Request,
-    file: UploadFile = File(...)
+    request: Request, file: UploadFile = File(...)
 ) -> AnalysisResult:
     """
     Analyze uploaded telemetry file with comprehensive security validation.
@@ -472,17 +521,17 @@ async def analyze_upload(
         validation_result = await FileValidator.validate_upload(
             file,
             max_size=settings.max_upload_size_mb * 1024 * 1024,
-            allowed_extensions={'.jsonl', '.json', '.txt', '.log'}
+            allowed_extensions={".jsonl", ".json", ".txt", ".log"},
         )
 
         # Audit log the file upload
         client_ip = get_client_ip(request)
-        request_id = getattr(request.state, 'request_id', 'unknown')
+        request_id = getattr(request.state, "request_id", "unknown")
         AuditLogger.log_file_upload(
             request_id=request_id,
-            filename=validation_result['filename'],
-            size_bytes=validation_result['size_bytes'],
-            client_ip=client_ip
+            filename=validation_result["filename"],
+            size_bytes=validation_result["size_bytes"],
+            client_ip=client_ip,
         )
 
         logger.info(
@@ -493,17 +542,17 @@ async def analyze_upload(
 
         # Save uploaded file to secure temp location
         with tempfile.NamedTemporaryFile(
-            mode='wb',
+            mode="wb",
             suffix=Path(file.filename).suffix.lower(),
             delete=False,
-            dir=tempfile.gettempdir()
+            dir=tempfile.gettempdir(),
         ) as tmp_file:
             content = await file.read()
             tmp_file.write(content)
             tmp_path = Path(tmp_file.name)
 
         # Record file upload metric
-        record_file_upload(validation_result['size_bytes'])
+        record_file_upload(validation_result["size_bytes"])
 
         # Analyze with error handling
         start_time = time.time()
@@ -511,13 +560,13 @@ async def analyze_upload(
         analysis_duration = time.time() - start_time
 
         # Add duration to results
-        results['analysis_duration_seconds'] = round(analysis_duration, 2)
+        results["analysis_duration_seconds"] = round(analysis_duration, 2)
 
         # Record events processed
         if "total_events" in results:
             record_event_processed("upload", results["total_events"])
 
-        return AnalysisResult(**results)
+        return analysis_result_from_summary(results)
 
     except HTTPException:
         raise
@@ -526,7 +575,7 @@ async def analyze_upload(
         raise HTTPException(
             status_code=500,
             detail=f"Analysis failed: {str(e)}",
-            headers={"X-Request-ID": getattr(request.state, 'request_id', 'unknown')}
+            headers={"X-Request-ID": getattr(request.state, "request_id", "unknown")},
         )
 
     finally:
@@ -541,7 +590,9 @@ async def analyze_upload(
 
 @app.post("/analyze/data", dependencies=[Depends(verify_api_key)])
 @limiter.limit("20/minute")
-async def analyze_data(request: Request, events: list) -> Dict[str, Any]:
+async def analyze_data(
+    request: Request, events: List[Dict[str, Any]] = Body(..., embed=True)
+) -> Dict[str, Any]:
     """
     Analyze telemetry events provided as JSON.
 
@@ -569,8 +620,7 @@ async def analyze_data(request: Request, events: list) -> Dict[str, Any]:
         max_events = int(os.getenv("MAX_EVENTS_PER_REQUEST", "10000"))
         if len(events) > max_events:
             raise HTTPException(
-                status_code=400,
-                detail=f"Too many events. Maximum: {max_events}"
+                status_code=400, detail=f"Too many events. Maximum: {max_events}"
             )
 
         logger.info(f"Analyzing {len(events)} events from API request")
@@ -580,12 +630,10 @@ async def analyze_data(request: Request, events: list) -> Dict[str, Any]:
 
         # Write events to temp file
         with tempfile.NamedTemporaryFile(
-            mode='w',
-            suffix='.jsonl',
-            delete=False
+            mode="w", suffix=".jsonl", delete=False
         ) as tmp_file:
             for event in events:
-                tmp_file.write(json.dumps(event) + '\n')
+                tmp_file.write(json.dumps(event) + "\n")
             tmp_path = Path(tmp_file.name)
 
         # Analyze
@@ -634,10 +682,7 @@ async def list_scenarios(request: Request) -> Dict[str, Any]:
             if metadata_file.exists():
                 with open(metadata_file) as f:
                     metadata = json.load(f)
-                    scenarios.append({
-                        "name": scenario_path.name,
-                        **metadata
-                    })
+                    scenarios.append({"name": scenario_path.name, **metadata})
 
     return {"scenarios": scenarios}
 
@@ -658,10 +703,7 @@ async def get_scenario(request: Request, scenario_name: str) -> Dict[str, Any]:
     Raises:
         HTTPException: If scenario not found
     """
-    # Sanitize scenario name to prevent path traversal
-    scenario_name = scenario_name.replace("..", "").replace("/", "").replace("\\", "")
-
-    scenario_path = Path("output/scenarios") / scenario_name
+    scenario_path = SCENARIOS_DIR / validate_resource_name(scenario_name)
 
     if not scenario_path.exists():
         raise HTTPException(status_code=404, detail="Scenario not found")
@@ -678,8 +720,7 @@ async def get_scenario(request: Request, scenario_name: str) -> Dict[str, Any]:
 
     if not telemetry_file.exists():
         raise HTTPException(
-            status_code=404,
-            detail="Telemetry file not found for scenario"
+            status_code=404, detail="Telemetry file not found for scenario"
         )
 
     results = pipeline.analyze_telemetry_file(telemetry_file, scenario_path)
@@ -702,10 +743,7 @@ async def delete_scenario(scenario_name: str) -> Dict[str, str]:
     """
     import shutil
 
-    # Sanitize scenario name
-    scenario_name = scenario_name.replace("..", "").replace("/", "").replace("\\", "")
-
-    scenario_path = Path("output/scenarios") / scenario_name
+    scenario_path = SCENARIOS_DIR / validate_resource_name(scenario_name)
 
     if not scenario_path.exists():
         raise HTTPException(status_code=404, detail="Scenario not found")
@@ -716,10 +754,13 @@ async def delete_scenario(scenario_name: str) -> Dict[str, str]:
         return {"status": "success", "message": f"Scenario '{scenario_name}' deleted"}
     except Exception as e:
         logger.error(f"Failed to delete scenario {scenario_name}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete scenario: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete scenario: {str(e)}"
+        )
 
 
 # WebSocket Endpoints
+
 
 @app.websocket("/ws/scenario/{scenario_name}")
 async def websocket_scenario_stream(websocket: WebSocket, scenario_name: str):
@@ -761,10 +802,7 @@ async def websocket_scenario_stream(websocket: WebSocket, scenario_name: str):
         logger.info(f"WebSocket disconnected: scenario_{scenario_name}")
     except Exception as e:
         logger.error(f"WebSocket error: {e}", exc_info=True)
-        await websocket.send_json({
-            "type": "error",
-            "error": str(e)
-        })
+        await websocket.send_json({"type": "error", "error": str(e)})
     finally:
         ws_manager.disconnect(websocket)
 
@@ -789,10 +827,9 @@ async def websocket_analysis_stream(websocket: WebSocket):
         data = await websocket.receive_json()
 
         if "telemetry_path" not in data:
-            await websocket.send_json({
-                "type": "error",
-                "error": "telemetry_path required"
-            })
+            await websocket.send_json(
+                {"type": "error", "error": "telemetry_path required"}
+            )
             return
 
         telemetry_path = data["telemetry_path"]
@@ -816,10 +853,7 @@ async def websocket_analysis_stream(websocket: WebSocket):
         logger.info("WebSocket disconnected: analysis")
     except Exception as e:
         logger.error(f"WebSocket error: {e}", exc_info=True)
-        await websocket.send_json({
-            "type": "error",
-            "error": str(e)
-        })
+        await websocket.send_json({"type": "error", "error": str(e)})
     finally:
         ws_manager.disconnect(websocket)
 
@@ -838,10 +872,9 @@ async def websocket_live_feed(websocket: WebSocket):
         await ws_manager.subscribe(websocket, "live_feed")
 
         # Send connection confirmation
-        await websocket.send_json({
-            "type": "connected",
-            "message": "Connected to live feed"
-        })
+        await websocket.send_json(
+            {"type": "connected", "message": "Connected to live feed"}
+        )
 
         # Keep connection alive
         while True:
@@ -853,10 +886,7 @@ async def websocket_live_feed(websocket: WebSocket):
                     await websocket.send_json({"type": "pong"})
                 elif data == "stats":
                     stats = ws_manager.get_stats()
-                    await websocket.send_json({
-                        "type": "stats",
-                        "data": stats
-                    })
+                    await websocket.send_json({"type": "stats", "data": stats})
 
             except WebSocketDisconnect:
                 break
@@ -894,13 +924,14 @@ async def start_heartbeat():
 
 # Detection Rule Testing Endpoints
 
+
 @app.post("/detection/test-rule", dependencies=[Depends(verify_api_key)])
 @limiter.limit("10/minute")
 async def test_detection_rule(
     request: Request,
-    rule_content: str,
-    events: list,
-    ground_truth: list = None
+    rule_content: str = Body(...),
+    events: List[Dict[str, Any]] = Body(...),
+    ground_truth: Optional[List[str]] = Body(None),
 ) -> Dict[str, Any]:
     """
     Test a Sigma detection rule against telemetry events.
@@ -929,8 +960,7 @@ async def test_detection_rule(
         max_events = 10000
         if len(events) > max_events:
             raise HTTPException(
-                status_code=400,
-                detail=f"Too many events. Maximum: {max_events}"
+                status_code=400, detail=f"Too many events. Maximum: {max_events}"
             )
 
         # Convert ground_truth to set if provided
@@ -939,32 +969,30 @@ async def test_detection_rule(
         # Test the rule
         start_time = time.time()
         result = rule_tester.test_sigma_rule(
-            rule_content=rule_content,
-            events=events,
-            ground_truth=ground_truth_set
+            rule_content=rule_content, events=events, ground_truth=ground_truth_set
         )
         test_duration = time.time() - start_time
 
         # Log the test
         client_ip = get_client_ip(request)
-        request_id = getattr(request.state, 'request_id', 'unknown')
+        request_id = getattr(request.state, "request_id", "unknown")
         logger.info(
-            f"Detection rule tested: {result.total_events} events, "
-            f"{result.matched_events} matches, precision={result.precision:.3f}, "
+            f"Detection rule tested: {result.events_tested} events, "
+            f"{result.events_matched} matches, precision={result.precision:.3f}, "
             f"recall={result.recall:.3f}",
             extra={
                 "request_id": request_id,
                 "client_ip": client_ip,
-                "test_duration": test_duration
-            }
+                "test_duration": test_duration,
+            },
         )
 
         # Return results
         return {
             "status": "success",
             "rule_format": result.rule_format.value,
-            "total_events": result.total_events,
-            "matched_events": result.matched_events,
+            "total_events": result.events_tested,
+            "matched_events": result.events_matched,
             "true_positives": result.true_positives,
             "false_positives": result.false_positives,
             "false_negatives": result.false_negatives,
@@ -974,25 +1002,21 @@ async def test_detection_rule(
             "f1_score": round(result.f1_score, 4),
             "accuracy": round(result.accuracy, 4),
             "test_duration_seconds": round(test_duration, 3),
-            "coverage_report": result.coverage_report
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Rule testing failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Rule testing failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Rule testing failed: {str(e)}")
 
 
 @app.post("/detection/test-rules-batch", dependencies=[Depends(verify_api_key)])
 @limiter.limit("5/minute")
 async def test_rules_batch(
     request: Request,
-    rules: list,
-    events: list
+    rules: List[Dict[str, Any]] = Body(...),
+    events: List[Dict[str, Any]] = Body(...),
 ) -> Dict[str, Any]:
     """
     Test multiple Sigma rules in batch against telemetry events.
@@ -1020,15 +1044,13 @@ async def test_rules_batch(
         max_rules = 50
         if len(rules) > max_rules:
             raise HTTPException(
-                status_code=400,
-                detail=f"Too many rules. Maximum: {max_rules}"
+                status_code=400, detail=f"Too many rules. Maximum: {max_rules}"
             )
 
         max_events = 10000
         if len(events) > max_events:
             raise HTTPException(
-                status_code=400,
-                detail=f"Too many events. Maximum: {max_events}"
+                status_code=400, detail=f"Too many events. Maximum: {max_events}"
             )
 
         # Test all rules
@@ -1036,49 +1058,54 @@ async def test_rules_batch(
         results = []
 
         for rule_def in rules:
-            if not isinstance(rule_def, dict) or 'content' not in rule_def:
-                results.append({
-                    "name": rule_def.get('name', 'unknown'),
-                    "status": "error",
-                    "error": "Invalid rule format - 'content' field required"
-                })
+            if not isinstance(rule_def, dict) or "content" not in rule_def:
+                results.append(
+                    {
+                        "name": rule_def.get("name", "unknown"),
+                        "status": "error",
+                        "error": "Invalid rule format - 'content' field required",
+                    }
+                )
                 continue
 
             try:
                 result = rule_tester.test_sigma_rule(
-                    rule_content=rule_def['content'],
-                    events=events
+                    rule_content=rule_def["content"], events=events
                 )
 
-                results.append({
-                    "name": rule_def.get('name', 'unknown'),
-                    "status": "success",
-                    "matched_events": result.matched_events,
-                    "precision": round(result.precision, 4),
-                    "recall": round(result.recall, 4),
-                    "f1_score": round(result.f1_score, 4),
-                    "accuracy": round(result.accuracy, 4)
-                })
+                results.append(
+                    {
+                        "name": rule_def.get("name", "unknown"),
+                        "status": "success",
+                        "matched_events": result.events_matched,
+                        "precision": round(result.precision, 4),
+                        "recall": round(result.recall, 4),
+                        "f1_score": round(result.f1_score, 4),
+                        "accuracy": round(result.accuracy, 4),
+                    }
+                )
 
             except Exception as e:
-                results.append({
-                    "name": rule_def.get('name', 'unknown'),
-                    "status": "error",
-                    "error": str(e)
-                })
+                results.append(
+                    {
+                        "name": rule_def.get("name", "unknown"),
+                        "status": "error",
+                        "error": str(e),
+                    }
+                )
 
         test_duration = time.time() - start_time
 
         # Log batch test
         client_ip = get_client_ip(request)
-        request_id = getattr(request.state, 'request_id', 'unknown')
+        request_id = getattr(request.state, "request_id", "unknown")
         logger.info(
             f"Batch rule test: {len(rules)} rules against {len(events)} events",
             extra={
                 "request_id": request_id,
                 "client_ip": client_ip,
-                "test_duration": test_duration
-            }
+                "test_duration": test_duration,
+            },
         )
 
         return {
@@ -1086,7 +1113,7 @@ async def test_rules_batch(
             "total_rules": len(rules),
             "total_events": len(events),
             "test_duration_seconds": round(test_duration, 3),
-            "results": results
+            "results": results,
         }
 
     except HTTPException:
@@ -1094,8 +1121,7 @@ async def test_rules_batch(
     except Exception as e:
         logger.error(f"Batch rule testing failed: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail=f"Batch rule testing failed: {str(e)}"
+            status_code=500, detail=f"Batch rule testing failed: {str(e)}"
         )
 
 
@@ -1120,32 +1146,32 @@ async def list_detection_rules(request: Request) -> Dict[str, Any]:
 
     for rule_file in rules_dir.glob("*.yml"):
         try:
-            with open(rule_file, 'r') as f:
+            with open(rule_file, "r") as f:
                 content = f.read()
 
                 # Parse basic metadata from YAML
                 import yaml
+
                 rule_data = yaml.safe_load(content)
 
-                rules.append({
-                    "name": rule_file.stem,
-                    "file": rule_file.name,
-                    "title": rule_data.get('title', 'Unknown'),
-                    "description": rule_data.get('description', ''),
-                    "level": rule_data.get('level', 'medium'),
-                    "tags": rule_data.get('tags', []),
-                    "author": rule_data.get('author', ''),
-                    "status": rule_data.get('status', 'experimental')
-                })
+                rules.append(
+                    {
+                        "name": rule_file.stem,
+                        "file": rule_file.name,
+                        "title": rule_data.get("title", "Unknown"),
+                        "description": rule_data.get("description", ""),
+                        "level": rule_data.get("level", "medium"),
+                        "tags": rule_data.get("tags", []),
+                        "author": rule_data.get("author", ""),
+                        "status": rule_data.get("status", "experimental"),
+                    }
+                )
 
         except Exception as e:
             logger.warning(f"Failed to parse rule {rule_file}: {e}")
             continue
 
-    return {
-        "total_rules": len(rules),
-        "rules": sorted(rules, key=lambda x: x['name'])
-    }
+    return {"total_rules": len(rules), "rules": sorted(rules, key=lambda x: x["name"])}
 
 
 @app.get("/detection/rules/{rule_name}")
@@ -1164,20 +1190,18 @@ async def get_detection_rule(request: Request, rule_name: str) -> Dict[str, Any]
     Raises:
         HTTPException: If rule not found
     """
-    # Sanitize rule name
-    rule_name = rule_name.replace("..", "").replace("/", "").replace("\\", "")
-
-    rule_file = Path("detection_rules/sigma") / f"{rule_name}.yml"
+    rule_file = RULES_DIR / f"{validate_resource_name(rule_name, 'rule')}.yml"
 
     if not rule_file.exists():
         raise HTTPException(status_code=404, detail="Detection rule not found")
 
     try:
-        with open(rule_file, 'r') as f:
+        with open(rule_file, "r") as f:
             content = f.read()
 
             # Parse metadata
             import yaml
+
             rule_data = yaml.safe_load(content)
 
             return {
@@ -1185,30 +1209,27 @@ async def get_detection_rule(request: Request, rule_name: str) -> Dict[str, Any]
                 "file": rule_file.name,
                 "content": content,
                 "metadata": {
-                    "title": rule_data.get('title', 'Unknown'),
-                    "description": rule_data.get('description', ''),
-                    "level": rule_data.get('level', 'medium'),
-                    "tags": rule_data.get('tags', []),
-                    "author": rule_data.get('author', ''),
-                    "status": rule_data.get('status', 'experimental'),
-                    "references": rule_data.get('references', [])
-                }
+                    "title": rule_data.get("title", "Unknown"),
+                    "description": rule_data.get("description", ""),
+                    "level": rule_data.get("level", "medium"),
+                    "tags": rule_data.get("tags", []),
+                    "author": rule_data.get("author", ""),
+                    "status": rule_data.get("status", "experimental"),
+                    "references": rule_data.get("references", []),
+                },
             }
 
     except Exception as e:
         logger.error(f"Failed to read rule {rule_name}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to read rule: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to read rule: {str(e)}")
 
 
 @app.post("/detection/generate-rule", dependencies=[Depends(verify_api_key)])
 @limiter.limit("5/minute")
 async def generate_detection_rule(
     request: Request,
-    scenario_name: str,
-    events: list = None
+    scenario_name: str = Body(...),
+    events: Optional[List[Dict[str, Any]]] = Body(None),
 ) -> Dict[str, Any]:
     """
     Auto-generate a Sigma detection rule from a scenario or events.
@@ -1227,16 +1248,19 @@ async def generate_detection_rule(
     try:
         # If events not provided, load from scenario
         if not events:
-            scenario_path = Path("output/scenarios") / scenario_name / "telemetry.jsonl"
+            scenario_path = (
+                SCENARIOS_DIR
+                / validate_resource_name(scenario_name)
+                / "telemetry.jsonl"
+            )
 
             if not scenario_path.exists():
                 raise HTTPException(
-                    status_code=404,
-                    detail=f"Scenario '{scenario_name}' not found"
+                    status_code=404, detail=f"Scenario '{scenario_name}' not found"
                 )
 
             events = []
-            with open(scenario_path, 'r') as f:
+            with open(scenario_path, "r") as f:
                 for line in f:
                     if line.strip():
                         events.append(json.loads(line))
@@ -1246,37 +1270,33 @@ async def generate_detection_rule(
 
         # Generate rule from events
         generated_rule = rule_tester.generate_sigma_rule_from_events(
-            scenario_name=scenario_name,
-            events=events
+            scenario_name=scenario_name, events=events
         )
 
         # Log generation
         client_ip = get_client_ip(request)
-        request_id = getattr(request.state, 'request_id', 'unknown')
+        request_id = getattr(request.state, "request_id", "unknown")
         logger.info(
             f"Generated detection rule for scenario: {scenario_name}",
             extra={
                 "request_id": request_id,
                 "client_ip": client_ip,
-                "event_count": len(events)
-            }
+                "event_count": len(events),
+            },
         )
 
         return {
             "status": "success",
             "scenario_name": scenario_name,
             "event_count": len(events),
-            "rule_content": generated_rule
+            "rule_content": generated_rule,
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Rule generation failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Rule generation failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Rule generation failed: {str(e)}")
 
 
 # Database endpoints (if database is available)
@@ -1286,8 +1306,9 @@ try:
         DatabaseManager,
         AnalysisRepository,
         SessionRepository,
-        IOCRepository
+        IOCRepository,
     )
+
     DATABASE_AVAILABLE = True
 
     # Initialize database if configured
@@ -1299,9 +1320,7 @@ try:
         @app.get("/database/analyses")
         @limiter.limit("30/minute")
         async def list_analyses(
-            request: Request,
-            limit: int = 50,
-            offset: int = 0
+            request: Request, limit: int = 50, offset: int = 0
         ) -> Dict[str, Any]:
             """
             List all analysis runs from database.
@@ -1332,10 +1351,10 @@ try:
                                 "num_sessions": run.num_sessions,
                                 "num_suspicious_sessions": run.num_suspicious_sessions,
                                 "created_at": run.created_at.isoformat(),
-                                "risk_threshold": run.risk_threshold
+                                "risk_threshold": run.risk_threshold,
                             }
                             for run in runs
-                        ]
+                        ],
                     }
             except Exception as e:
                 logger.error(f"Database query failed: {e}")
@@ -1363,7 +1382,9 @@ try:
                     run = repo.get_analysis_run(run_id, include_sessions=True)
 
                     if not run:
-                        raise HTTPException(status_code=404, detail="Analysis run not found")
+                        raise HTTPException(
+                            status_code=404, detail="Analysis run not found"
+                        )
 
                     return {
                         "id": run.id,
@@ -1385,10 +1406,10 @@ try:
                                 "principal": s.principal,
                                 "risk_score": s.risk_score,
                                 "is_malicious": s.is_malicious,
-                                "event_count": s.event_count
+                                "event_count": s.event_count,
                             }
                             for s in run.detected_sessions
-                        ]
+                        ],
                     }
             except HTTPException:
                 raise
@@ -1427,10 +1448,10 @@ try:
                                 "value": ioc.value,
                                 "severity": ioc.severity,
                                 "description": ioc.description,
-                                "first_seen": ioc.first_seen.isoformat()
+                                "first_seen": ioc.first_seen.isoformat(),
                             }
                             for ioc in iocs
-                        ]
+                        ],
                     }
             except Exception as e:
                 logger.error(f"Database query failed: {e}")
@@ -1445,4 +1466,5 @@ except ImportError:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

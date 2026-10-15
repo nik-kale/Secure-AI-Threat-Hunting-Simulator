@@ -1,6 +1,7 @@
 """
 Tests for telemetry synthesizer.
 """
+
 import sys
 from pathlib import Path
 import json
@@ -22,7 +23,7 @@ class TestTelemetrySynthesizer:
         event = synth.create_base_event(
             event_type="test.event",
             event_source="test",
-            timestamp="2025-01-01T00:00:00Z"
+            timestamp="2025-01-01T00:00:00Z",
         )
 
         assert event["event_type"] == "test.event"
@@ -39,7 +40,7 @@ class TestTelemetrySynthesizer:
             action="ListRoles",
             principal="arn:aws:iam::123456789012:user/test",
             timestamp="2025-01-01T00:00:00Z",
-            status="success"
+            status="success",
         )
 
         assert event["event_type"] == "iam.listroles"
@@ -58,7 +59,7 @@ class TestTelemetrySynthesizer:
             principal="arn:aws:iam::123456789012:user/test",
             bucket="test-bucket",
             key="test.txt",
-            timestamp="2025-01-01T00:00:00Z"
+            timestamp="2025-01-01T00:00:00Z",
         )
 
         assert event["event_type"] == "s3.getobject"
@@ -75,7 +76,7 @@ class TestTelemetrySynthesizer:
             synth.create_iam_event(
                 action="ListRoles",
                 principal="arn:aws:iam::123456789012:user/attacker",
-                timestamp="2025-01-01T00:00:00Z"
+                timestamp="2025-01-01T00:00:00Z",
             )
             for _ in range(10)
         ]
@@ -126,11 +127,7 @@ class TestIdUtils:
         """Test ARN generation."""
         from generator.utils.id_utils import generate_arn
 
-        arn = generate_arn(
-            service="iam",
-            resource_type="role",
-            resource_id="TestRole"
-        )
+        arn = generate_arn(service="iam", resource_type="role", resource_id="TestRole")
 
         assert arn.startswith("arn:aws:iam::")
         assert "role/TestRole" in arn
@@ -138,3 +135,49 @@ class TestIdUtils:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestTimestampConsistency:
+    """Generated telemetry must use one timestamp format and be time-ordered."""
+
+    def test_benign_noise_uses_generator_timestamp_format(self):
+        synth = TelemetrySynthesizer()
+        attack_events = [
+            synth.create_iam_event(
+                action="ListRoles",
+                principal="arn:aws:iam::123456789012:user/attacker",
+                timestamp=f"2025-01-01T00:{minute:02d}:00Z",
+            )
+            for minute in range(20)
+        ]
+
+        all_events = synth.add_benign_noise(attack_events, noise_ratio=1.0)
+
+        for event in all_events:
+            assert len(event["timestamp"]) == 20 and event["timestamp"].endswith(
+                "Z"
+            ), event["timestamp"]
+
+    def test_written_telemetry_is_chronological(self, tmp_path):
+        synth = TelemetrySynthesizer()
+        events = [
+            synth.create_iam_event(action="GetUser", principal="p", timestamp=ts)
+            for ts in (
+                "2025-01-01T00:02:00Z",
+                "2025-01-01T00:00:00Z",
+                "2025-01-01T00:01:00Z",
+            )
+        ]
+
+        synth.write_events_jsonl(events, tmp_path / "t.jsonl")
+        synth.write_events_json(events, tmp_path / "t.json")
+
+        jsonl = [json.loads(line)["timestamp"] for line in open(tmp_path / "t.jsonl")]
+        as_json = [e["timestamp"] for e in json.load(open(tmp_path / "t.json"))]
+        expected = [
+            "2025-01-01T00:00:00Z",
+            "2025-01-01T00:01:00Z",
+            "2025-01-01T00:02:00Z",
+        ]
+        assert jsonl == expected
+        assert as_json == expected

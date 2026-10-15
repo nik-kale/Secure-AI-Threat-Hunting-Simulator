@@ -1,20 +1,25 @@
 """Detection rule conversion for different SIEM platforms."""
+
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 import re
 
+
 class QueryLanguage(str, Enum):
     """Supported SIEM query languages."""
+
     SPL = "spl"  # Splunk
     KQL = "kql"  # Elastic/Sentinel
     YARAL = "yaral"  # Chronicle YARA-L
     AQL = "aql"  # QRadar
     SIGMA = "sigma"  # Universal Sigma format
 
+
 @dataclass
 class DetectionRule:
     """Universal detection rule format."""
+
     name: str
     description: str
     severity: str
@@ -24,6 +29,7 @@ class DetectionRule:
     time_window: Optional[str] = None
     threshold: Optional[int] = None
 
+
 class RuleConverter:
     """Convert detection rules between SIEM query languages."""
 
@@ -32,7 +38,7 @@ class RuleConverter:
             QueryLanguage.SPL: self._to_splunk_spl,
             QueryLanguage.KQL: self._to_kql,
             QueryLanguage.YARAL: self._to_yaral,
-            QueryLanguage.AQL: self._to_qradar_aql
+            QueryLanguage.AQL: self._to_qradar_aql,
         }
 
     def convert_rule(self, rule: DetectionRule, target_language: QueryLanguage) -> str:
@@ -92,7 +98,11 @@ class RuleConverter:
 | eval mitre_techniques="{','.join(rule.mitre_techniques)}"
 | eval detection_name="{rule.name}\""""
         else:
-            fields_list = ", ".join(rule.fields[:10]) if rule.fields else "principal, resource, action"
+            fields_list = (
+                ", ".join(rule.fields[:10])
+                if rule.fields
+                else "principal, resource, action"
+            )
             query = f"""index=security {base_search}
 | table _time, {fields_list}
 | eval severity="{rule.severity}"
@@ -141,7 +151,11 @@ class RuleConverter:
 | extend MitreTechniques = "{','.join(rule.mitre_techniques)}"
 | extend DetectionName = "{rule.name}\""""
         else:
-            project_fields = ", ".join(rule.fields[:10]) if rule.fields else "TimeGenerated, principal, resource, action"
+            project_fields = (
+                ", ".join(rule.fields[:10])
+                if rule.fields
+                else "TimeGenerated, principal, resource, action"
+            )
             query = f"""SecurityEvent
 | where {where_clause}
 | project {project_fields}
@@ -160,23 +174,29 @@ class RuleConverter:
         Returns:
             YARA-L rule string
         """
-        rule_name = re.sub(r'[^a-zA-Z0-9_]', '_', rule.name.lower())
+        rule_name = re.sub(r"[^a-zA-Z0-9_]", "_", rule.name.lower())
 
         # Build events section
         conditions_list = []
         for field, value in rule.conditions.items():
             if isinstance(value, list):
                 values_str = ", ".join(f'"{v}"' for v in value)
-                conditions_list.append(f'        $e.{field} in [{values_str}]')
+                conditions_list.append(f"        $e.{field} in [{values_str}]")
             elif isinstance(value, dict):
                 if "regex" in value:
-                    conditions_list.append(f'        re.regex($e.{field}, `{value["regex"]}`)')
+                    conditions_list.append(
+                        f'        re.regex($e.{field}, `{value["regex"]}`)'
+                    )
                 elif "contains" in value:
-                    conditions_list.append(f'        strings.contains($e.{field}, "{value["contains"]}")')
+                    conditions_list.append(
+                        f'        strings.contains($e.{field}, "{value["contains"]}")'
+                    )
             else:
                 conditions_list.append(f'        $e.{field} = "{value}"')
 
-        conditions_str = " and\n".join(conditions_list) if conditions_list else "        true"
+        conditions_str = (
+            " and\n".join(conditions_list) if conditions_list else "        true"
+        )
 
         # Build match section
         if rule.threshold and rule.time_window:
@@ -242,7 +262,11 @@ class RuleConverter:
         where_clause = " AND ".join(conditions) if conditions else "TRUE"
 
         if rule.threshold and rule.time_window:
-            group_by_fields = ", ".join(self._map_field_to_qradar(f) for f in rule.fields[:5]) if rule.fields else "username"
+            group_by_fields = (
+                ", ".join(self._map_field_to_qradar(f) for f in rule.fields[:5])
+                if rule.fields
+                else "username"
+            )
             query = f"""SELECT {group_by_fields}, COUNT(*) as event_count
 FROM events
 WHERE {where_clause}
@@ -250,7 +274,11 @@ GROUP BY {group_by_fields}
 HAVING COUNT(*) > {rule.threshold}
 LAST 1 HOURS"""
         else:
-            select_fields = ", ".join(self._map_field_to_qradar(f) for f in rule.fields[:10]) if rule.fields else "DATEFORMAT(starttime, 'YYYY-MM-dd HH:mm:ss'), username, sourceip"
+            select_fields = (
+                ", ".join(self._map_field_to_qradar(f) for f in rule.fields[:10])
+                if rule.fields
+                else "DATEFORMAT(starttime, 'YYYY-MM-dd HH:mm:ss'), username, sourceip"
+            )
             query = f"""SELECT {select_fields}
 FROM events
 WHERE {where_clause}
@@ -274,7 +302,7 @@ LAST 24 HOURS"""
             "action": "eventname",
             "status": "outcome",
             "timestamp": "starttime",
-            "event_type": "category"
+            "event_type": "category",
         }
         return field_mapping.get(field, field)
 
@@ -293,11 +321,11 @@ LAST 24 HOURS"""
                 conditions={
                     "event_type": ["iam.assume_role", "iam.get_role"],
                     "action": ["AssumeRole", "PassRole"],
-                    "status": "success"
+                    "status": "success",
                 },
                 fields=["principal", "resource", "action", "timestamp"],
                 threshold=5,
-                time_window="5m"
+                time_window="5m",
             ),
             DetectionRule(
                 name="Data Exfiltration from Cloud Storage",
@@ -306,11 +334,11 @@ LAST 24 HOURS"""
                 mitre_techniques=["T1530", "T1537"],
                 conditions={
                     "event_type": ["s3.get_object", "storage.objects.get"],
-                    "status": "success"
+                    "status": "success",
                 },
                 fields=["principal", "resource", "source_ip", "timestamp"],
                 threshold=100,
-                time_window="10m"
+                time_window="10m",
             ),
             DetectionRule(
                 name="Lateral Movement Cross-Account",
@@ -320,11 +348,11 @@ LAST 24 HOURS"""
                 conditions={
                     "event_type": "iam.assume_role",
                     "cross_account": "true",
-                    "status": "success"
+                    "status": "success",
                 },
                 fields=["principal", "target_account", "resource", "timestamp"],
                 threshold=3,
-                time_window="15m"
+                time_window="15m",
             ),
             DetectionRule(
                 name="Credential Access via Secret Enumeration",
@@ -333,11 +361,11 @@ LAST 24 HOURS"""
                 mitre_techniques=["T1552", "T1555"],
                 conditions={
                     "event_type": ["secretsmanager.get_secret", "ssm.get_parameter"],
-                    "action": {"regex": ".*(Get|List|Describe).*"}
+                    "action": {"regex": ".*(Get|List|Describe).*"},
                 },
                 fields=["principal", "resource", "action", "timestamp"],
                 threshold=10,
-                time_window="5m"
+                time_window="5m",
             ),
             DetectionRule(
                 name="Defense Evasion via CloudTrail Modification",
@@ -346,32 +374,26 @@ LAST 24 HOURS"""
                 mitre_techniques=["T1562.008"],
                 conditions={
                     "event_type": "cloudtrail.update_trail",
-                    "action": ["StopLogging", "DeleteTrail", "UpdateTrail"]
+                    "action": ["StopLogging", "DeleteTrail", "UpdateTrail"],
                 },
-                fields=["principal", "resource", "action", "timestamp"]
+                fields=["principal", "resource", "action", "timestamp"],
             ),
             DetectionRule(
                 name="Persistence via IAM User Creation",
                 description="Detects creation of new IAM users for persistence",
                 severity="medium",
                 mitre_techniques=["T1136.003"],
-                conditions={
-                    "event_type": "iam.create_user",
-                    "status": "success"
-                },
-                fields=["principal", "new_user", "timestamp"]
+                conditions={"event_type": "iam.create_user", "status": "success"},
+                fields=["principal", "new_user", "timestamp"],
             ),
             DetectionRule(
                 name="Execution via Lambda Function Invocation",
                 description="Detects unusual Lambda function execution patterns",
                 severity="medium",
                 mitre_techniques=["T1059", "T1609"],
-                conditions={
-                    "event_type": "lambda.invoke",
-                    "status": "success"
-                },
+                conditions={"event_type": "lambda.invoke", "status": "success"},
                 fields=["principal", "function_name", "source_ip", "timestamp"],
                 threshold=20,
-                time_window="5m"
-            )
+                time_window="5m",
+            ),
         ]

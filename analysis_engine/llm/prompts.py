@@ -352,7 +352,7 @@ PROMPTS = {
     },
     "mitre_identification": {
         "detailed": MITRE_IDENTIFICATION_PROMPT,
-    }
+    },
 }
 
 

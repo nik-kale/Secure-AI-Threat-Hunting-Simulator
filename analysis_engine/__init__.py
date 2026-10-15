@@ -1,4 +1,5 @@
 """AI Threat Hunting Simulator - Analysis Engine."""
+
 from .pipeline import ThreatHuntingPipeline, analyze_scenario
 
 # Database module is available as analysis_engine.database

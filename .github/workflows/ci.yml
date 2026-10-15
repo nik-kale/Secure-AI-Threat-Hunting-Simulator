@@ -137,13 +137,13 @@ jobs:
 
     - name: Test analysis pipeline on IAM escalation
       run: |
-        python cli/analyze.py ./output/iam_priv_escalation/telemetry.jsonl -o ./output/iam_analysis
+        python cli/analyze.py analyze ./output/iam_priv_escalation/telemetry.jsonl -o ./output/iam_analysis
         [ -f "./output/iam_analysis/analysis_report.json" ] || exit 1
         [ -f "./output/iam_analysis/analysis_report.md" ] || exit 1
 
     - name: Test analysis pipeline on container escape
       run: |
-        python cli/analyze.py ./output/container_escape/telemetry.jsonl -o ./output/container_analysis
+        python cli/analyze.py analyze ./output/container_escape/telemetry.jsonl -o ./output/container_analysis
         [ -f "./output/container_analysis/analysis_report.json" ] || exit 1
 
     - name: Upload analysis reports
@@ -175,7 +175,12 @@ jobs:
     - name: Start API server
       run: |
         python -m uvicorn analysis_engine.api.server:app --host 0.0.0.0 --port 8000 &
-        sleep 5
+        for _ in $(seq 1 30); do
+          curl -sf http://localhost:8000/health > /dev/null && exit 0
+          sleep 1
+        done
+        echo "API server did not become healthy within 30s"
+        exit 1
       env:
         LLM_PROVIDER: none
         ENABLE_THREAT_INTEL: false
@@ -207,16 +212,6 @@ jobs:
         file: ./analysis_engine/Dockerfile
         push: false
         tags: ai-threat-hunting-simulator/analysis-engine:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-    - name: Build Generator image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./generator/Dockerfile
-        push: false
-        tags: ai-threat-hunting-simulator/generator:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
 

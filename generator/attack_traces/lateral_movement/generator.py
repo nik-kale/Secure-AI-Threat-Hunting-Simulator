@@ -2,6 +2,7 @@
 Lateral Movement scenario generator.
 Multi-account AssumeRole chain attack.
 """
+
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -25,7 +26,7 @@ def generate_lateral_movement_scenario(
     account_id: str = "123456789012",
     region: str = "us-east-1",
     duration_hours: float = 1.5,  # 90 minutes
-    add_noise: bool = True
+    add_noise: bool = True,
 ) -> Dict[str, Any]:
     """
     Generate lateral movement attack scenario with cross-account role chaining.
@@ -65,7 +66,9 @@ def generate_lateral_movement_scenario(
     elevated_session = generate_session_id()
 
     # Time setup
-    start_time, end_time = get_scenario_timeframe(duration_hours=duration_hours, days_ago=1)
+    start_time, end_time = get_scenario_timeframe(
+        duration_hours=duration_hours, days_ago=1
+    )
 
     events: List[Dict[str, Any]] = []
 
@@ -116,25 +119,27 @@ def generate_lateral_movement_scenario(
             resource_type="role",
             status="success",
             session_id=dev_session,
-            request_parameters={
-                "roleName": "CrossAccountDeployRole"
-            },
+            request_parameters={"roleName": "CrossAccountDeployRole"},
             response_elements={
                 "role": {
                     "arn": staging_role,
                     "assumeRolePolicyDocument": {
                         "Version": "2012-10-17",
-                        "Statement": [{
-                            "Effect": "Allow",
-                            "Principal": {"AWS": f"arn:aws:iam::{dev_account_id}:root"},
-                            "Action": "sts:AssumeRole"
-                        }]
-                    }
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Principal": {
+                                    "AWS": f"arn:aws:iam::{dev_account_id}:root"
+                                },
+                                "Action": "sts:AssumeRole",
+                            }
+                        ],
+                    },
                 }
             },
             metadata={
                 "attack_stage": "reconnaissance",
-                "discovery": "cross_account_trust_found"
+                "discovery": "cross_account_trust_found",
             },
         )
     )
@@ -158,12 +163,12 @@ def generate_lateral_movement_scenario(
             request_parameters={
                 "roleArn": staging_role,
                 "roleSessionName": "jenkins-deploy-session",
-                "durationSeconds": 3600
+                "durationSeconds": 3600,
             },
             metadata={
                 "attack_stage": "lateral_movement",
                 "hop": "dev_to_staging",
-                "suspicious": "cross_account_assume_role"
+                "suspicious": "cross_account_assume_role",
             },
         )
     )
@@ -207,25 +212,27 @@ def generate_lateral_movement_scenario(
             resource_type="role",
             status="success",
             session_id=staging_session,
-            request_parameters={
-                "roleName": "ProductionAccessRole"
-            },
+            request_parameters={"roleName": "ProductionAccessRole"},
             response_elements={
                 "role": {
                     "arn": prod_role,
                     "assumeRolePolicyDocument": {
                         "Version": "2012-10-17",
-                        "Statement": [{
-                            "Effect": "Allow",
-                            "Principal": {"AWS": f"arn:aws:iam::{staging_account_id}:root"},
-                            "Action": "sts:AssumeRole"
-                        }]
-                    }
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Principal": {
+                                    "AWS": f"arn:aws:iam::{staging_account_id}:root"
+                                },
+                                "Action": "sts:AssumeRole",
+                            }
+                        ],
+                    },
                 }
             },
             metadata={
                 "attack_stage": "lateral_movement",
-                "discovery": "production_access_path_found"
+                "discovery": "production_access_path_found",
             },
         )
     )
@@ -249,13 +256,13 @@ def generate_lateral_movement_scenario(
             request_parameters={
                 "roleArn": prod_role,
                 "roleSessionName": "staging-to-prod-deploy",
-                "durationSeconds": 3600
+                "durationSeconds": 3600,
             },
             metadata={
                 "attack_stage": "lateral_movement",
                 "hop": "staging_to_production",
                 "suspicious": "cross_account_production_access",
-                "critical": True
+                "critical": True,
             },
         )
     )
@@ -283,7 +290,7 @@ def generate_lateral_movement_scenario(
                 metadata={
                     "attack_stage": "reconnaissance",
                     "account": prod_account_id,
-                    "environment": "production"
+                    "environment": "production",
                 },
             )
         )
@@ -300,12 +307,10 @@ def generate_lateral_movement_scenario(
             resource_type="role",
             status="success",
             session_id=prod_session,
-            request_parameters={
-                "roleName": "DataAdminRole"
-            },
+            request_parameters={"roleName": "DataAdminRole"},
             metadata={
                 "attack_stage": "privilege_escalation",
-                "discovery": "high_privilege_role_found"
+                "discovery": "high_privilege_role_found",
             },
         )
     )
@@ -324,12 +329,12 @@ def generate_lateral_movement_scenario(
             request_parameters={
                 "roleArn": high_priv_prod_role,
                 "roleSessionName": "data-admin-session",
-                "durationSeconds": 3600
+                "durationSeconds": 3600,
             },
             metadata={
                 "attack_stage": "privilege_escalation",
                 "hop": "escalation_in_production",
-                "critical": True
+                "critical": True,
             },
         )
     )
@@ -358,21 +363,25 @@ def generate_lateral_movement_scenario(
                     "Statement": [
                         {
                             "Effect": "Allow",
-                            "Principal": {"AWS": f"arn:aws:iam::{prod_account_id}:root"},
-                            "Action": "sts:AssumeRole"
+                            "Principal": {
+                                "AWS": f"arn:aws:iam::{prod_account_id}:root"
+                            },
+                            "Action": "sts:AssumeRole",
                         },
                         {
                             "Effect": "Allow",
-                            "Principal": {"AWS": f"arn:aws:iam::{dev_account_id}:user/developer-jenkins"},
-                            "Action": "sts:AssumeRole"
-                        }
-                    ]
-                }
+                            "Principal": {
+                                "AWS": f"arn:aws:iam::{dev_account_id}:user/developer-jenkins"
+                            },
+                            "Action": "sts:AssumeRole",
+                        },
+                    ],
+                },
             },
             metadata={
                 "attack_stage": "persistence",
                 "technique": "trust_policy_modification",
-                "suspicious": "external_account_added_to_trust"
+                "suspicious": "external_account_added_to_trust",
             },
         )
     )
@@ -394,17 +403,16 @@ def generate_lateral_movement_scenario(
                 "policyName": "BackupAdminPolicy",
                 "policyDocument": {
                     "Version": "2012-10-17",
-                    "Statement": [{
-                        "Effect": "Allow",
-                        "Action": ["s3:*", "rds:*", "secretsmanager:*"],
-                        "Resource": "*"
-                    }]
-                }
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": ["s3:*", "rds:*", "secretsmanager:*"],
+                            "Resource": "*",
+                        }
+                    ],
+                },
             },
-            metadata={
-                "attack_stage": "persistence",
-                "overly_permissive": True
-            },
+            metadata={"attack_stage": "persistence", "overly_permissive": True},
         )
     )
 
@@ -418,7 +426,7 @@ def generate_lateral_movement_scenario(
         "prod-customer-data",
         "prod-financial-records",
         "prod-analytics-exports",
-        "prod-backup-archives"
+        "prod-backup-archives",
     ]
 
     for i, bucket in enumerate(sensitive_buckets):
@@ -437,10 +445,7 @@ def generate_lateral_movement_scenario(
                 user_agent=attacker_user_agent,
                 status="success",
                 session_id=elevated_session,
-                metadata={
-                    "attack_stage": "impact",
-                    "data_access": True
-                },
+                metadata={"attack_stage": "impact", "data_access": True},
             )
         )
 
@@ -459,7 +464,7 @@ def generate_lateral_movement_scenario(
                 metadata={
                     "attack_stage": "impact",
                     "data_exfiltration": True,
-                    "critical": True
+                    "critical": True,
                 },
             )
         )
@@ -475,10 +480,7 @@ def generate_lateral_movement_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=elevated_session,
-            metadata={
-                "attack_stage": "impact",
-                "database": "production"
-            },
+            metadata={"attack_stage": "impact", "database": "production"},
         )
     )
 
@@ -494,7 +496,7 @@ def generate_lateral_movement_scenario(
             session_id=elevated_session,
             metadata={
                 "attack_stage": "impact",
-                "suspicious": "database_snapshot_enumeration"
+                "suspicious": "database_snapshot_enumeration",
             },
         )
     )
@@ -510,9 +512,7 @@ def generate_lateral_movement_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=elevated_session,
-            metadata={
-                "attack_stage": "impact"
-            },
+            metadata={"attack_stage": "impact"},
         )
     )
 
@@ -533,7 +533,7 @@ def generate_lateral_movement_scenario(
                 metadata={
                     "attack_stage": "impact",
                     "credential_theft": True,
-                    "critical": True
+                    "critical": True,
                 },
             )
         )
@@ -560,28 +560,24 @@ def generate_lateral_movement_scenario(
             f"Dev Account ({dev_account_id})",
             f"Staging Account ({staging_account_id})",
             f"Production Account ({prod_account_id})",
-            "Elevated Production Access"
+            "Elevated Production Access",
         ],
-        "compromised_roles": [
-            staging_role,
-            prod_role,
-            high_priv_prod_role
-        ],
+        "compromised_roles": [staging_role, prod_role, high_priv_prod_role],
         "backdoor_created": backdoor_role,
         "attack_stages": [
             "reconnaissance",
             "lateral_movement",
             "privilege_escalation",
             "persistence",
-            "impact"
+            "impact",
         ],
         "mitre_techniques": [
-            "T1021",       # Remote Services
-            "T1550.001",   # Use Alternate Authentication Material
-            "T1098",       # Account Manipulation
-            "T1580",       # Cloud Infrastructure Discovery
-            "T1087.004",   # Account Discovery: Cloud Account
-            "T1530",       # Data from Cloud Storage Object
+            "T1021",  # Remote Services
+            "T1550.001",  # Use Alternate Authentication Material
+            "T1098",  # Account Manipulation
+            "T1580",  # Cloud Infrastructure Discovery
+            "T1087.004",  # Account Discovery: Cloud Account
+            "T1530",  # Data from Cloud Storage Object
         ],
     }
 
@@ -590,13 +586,11 @@ def generate_lateral_movement_scenario(
 
 if __name__ == "__main__":
     # Example usage
-    output_dir = Path(__file__).parent / "output"
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("output") / "lateral_movement"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = generate_lateral_movement_scenario(
-        output_dir=output_dir,
-        duration_hours=1.5,
-        add_noise=True
+        output_dir=output_dir, duration_hours=1.5, add_noise=True
     )
 
     print(f"Generated {metadata['num_events']} events")

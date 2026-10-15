@@ -8,6 +8,7 @@ Provides:
 - IOC enrichment caching
 - Cache invalidation strategies
 """
+
 import redis
 import json
 import hashlib
@@ -15,7 +16,6 @@ import logging
 from typing import Any, Optional, Dict, List
 from datetime import timedelta
 from functools import wraps
-import pickle
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class CacheConfig:
         redis_db: int = 0,
         redis_password: Optional[str] = None,
         default_ttl: int = 3600,  # 1 hour
-        max_connections: int = 50
+        max_connections: int = 50,
     ):
         """
         Initialize cache configuration.
@@ -59,7 +59,7 @@ class RedisCache:
     Redis-based caching layer with automatic serialization.
 
     Features:
-    - Automatic JSON/pickle serialization
+    - Automatic JSON serialization
     - TTL support
     - Key namespacing
     - Cache statistics
@@ -76,13 +76,7 @@ class RedisCache:
         self.config = config
         self.enabled = config.enabled
         self.client: Optional[redis.Redis] = None
-        self.stats = {
-            "hits": 0,
-            "misses": 0,
-            "sets": 0,
-            "deletes": 0,
-            "errors": 0
-        }
+        self.stats = {"hits": 0, "misses": 0, "sets": 0, "deletes": 0, "errors": 0}
 
         if self.enabled:
             try:
@@ -94,7 +88,7 @@ class RedisCache:
                     decode_responses=False,  # We handle encoding
                     max_connections=config.max_connections,
                     socket_connect_timeout=5,
-                    socket_timeout=5
+                    socket_timeout=5,
                 )
                 # Test connection
                 self.client.ping()
@@ -129,12 +123,10 @@ class RedisCache:
         Returns:
             Serialized bytes
         """
-        try:
-            # Try JSON first (faster, human-readable in Redis)
-            return json.dumps(value).encode('utf-8')
-        except (TypeError, ValueError):
-            # Fall back to pickle for complex objects
-            return pickle.dumps(value)
+        # JSON only: values read back from Redis are deserialised, and
+        # unpickling data from a shared store would execute whatever it holds.
+        # Values that are not JSON-serialisable raise TypeError and are not cached.
+        return json.dumps(value).encode("utf-8")
 
     def _deserialize(self, data: bytes) -> Any:
         """
@@ -146,12 +138,7 @@ class RedisCache:
         Returns:
             Deserialized value
         """
-        try:
-            # Try JSON first
-            return json.loads(data.decode('utf-8'))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            # Fall back to pickle
-            return pickle.loads(data)
+        return json.loads(data.decode("utf-8"))
 
     def get(self, namespace: str, key: str) -> Optional[Any]:
         """
@@ -184,11 +171,7 @@ class RedisCache:
             return None
 
     def set(
-        self,
-        namespace: str,
-        key: str,
-        value: Any,
-        ttl: Optional[int] = None
+        self, namespace: str, key: str, value: Any, ttl: Optional[int] = None
     ) -> bool:
         """
         Set value in cache.
@@ -305,10 +288,7 @@ class RedisCache:
             return {}
 
     def set_many(
-        self,
-        namespace: str,
-        items: Dict[str, Any],
-        ttl: Optional[int] = None
+        self, namespace: str, items: Dict[str, Any], ttl: Optional[int] = None
     ) -> int:
         """
         Set multiple values in cache.
@@ -351,9 +331,7 @@ class RedisCache:
         """
         total_operations = self.stats["hits"] + self.stats["misses"]
         hit_rate = (
-            self.stats["hits"] / total_operations * 100
-            if total_operations > 0
-            else 0
+            self.stats["hits"] / total_operations * 100 if total_operations > 0 else 0
         )
 
         return {
@@ -362,8 +340,8 @@ class RedisCache:
             "stats": {
                 **self.stats,
                 "total_operations": total_operations,
-                "hit_rate_percent": round(hit_rate, 2)
-            }
+                "hit_rate_percent": round(hit_rate, 2),
+            },
         }
 
     def clear_all(self) -> bool:
@@ -426,6 +404,7 @@ def cached(namespace: str, key_func=None, ttl: Optional[int] = None):
     Returns:
         Decorator function
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -460,12 +439,14 @@ def cached(namespace: str, key_func=None, ttl: Optional[int] = None):
             return result
 
         return wrapper
+
     return decorator
 
 
 # Predefined cache namespaces
 class CacheNamespace:
     """Cache namespace constants."""
+
     ANALYSIS = "analysis"
     SCENARIO = "scenario"
     DETECTION_RULES = "detection_rules"

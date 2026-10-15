@@ -1,6 +1,7 @@
 """
 AI Threat Hunting Simulator - Setup Configuration
 """
+
 from setuptools import setup, find_packages
 from pathlib import Path
 
@@ -14,7 +15,7 @@ requirements = []
 with open(requirements_file) as f:
     for line in f:
         line = line.strip()
-        if line and not line.startswith('#'):
+        if line and not line.startswith("#"):
             requirements.append(line)
 
 setup(
@@ -27,6 +28,8 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/ai-threat-hunting-simulator",
     packages=find_packages(exclude=["tests", "tests.*", "docs", "scripts"]),
+    # config.py is a top-level module imported by the CLI and the API server
+    py_modules=["config"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",

@@ -8,6 +8,7 @@ v3.0 Features:
 - Risk score ML enhancement
 - User Behavior Analytics (UBA)
 """
+
 from .anomaly_detector import AnomalyDetector, AnomalyResult
 from .behavioral_baseline import BehavioralBaseline, BaselineProfile
 from .event_classifier import EventClassifier, ClassificationResult
@@ -15,13 +16,13 @@ from .risk_scorer import MLRiskScorer
 from .uba_engine import UBAEngine, UserBehaviorProfile
 
 __all__ = [
-    'AnomalyDetector',
-    'AnomalyResult',
-    'BehavioralBaseline',
-    'BaselineProfile',
-    'EventClassifier',
-    'ClassificationResult',
-    'MLRiskScorer',
-    'UBAEngine',
-    'UserBehaviorProfile',
+    "AnomalyDetector",
+    "AnomalyResult",
+    "BehavioralBaseline",
+    "BaselineProfile",
+    "EventClassifier",
+    "ClassificationResult",
+    "MLRiskScorer",
+    "UBAEngine",
+    "UserBehaviorProfile",
 ]

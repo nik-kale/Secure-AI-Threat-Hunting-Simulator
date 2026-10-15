@@ -1,6 +1,7 @@
 """
 IOC (Indicator of Compromise) extraction agent.
 """
+
 from typing import Dict, List, Set, Any, Optional
 import re
 import logging
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 # Optional LLM integration
 try:
     from analysis_engine.llm import LLMProvider, get_prompt
+
     LLM_AVAILABLE = True
 except ImportError:
     LLM_AVAILABLE = False
@@ -22,6 +24,7 @@ except ImportError:
 # Optional threat intelligence integration
 try:
     from analysis_engine.threat_intel import IOCEnricher
+
     THREAT_INTEL_AVAILABLE = True
 except ImportError:
     THREAT_INTEL_AVAILABLE = False
@@ -38,10 +41,10 @@ class IocExtractorAgent:
 
     def __init__(
         self,
-        llm_provider: Optional['LLMProvider'] = None,
+        llm_provider: Optional["LLMProvider"] = None,
         use_llm: bool = True,
-        threat_intel_enricher: Optional['IOCEnricher'] = None,
-        enable_enrichment: bool = True
+        threat_intel_enricher: Optional["IOCEnricher"] = None,
+        enable_enrichment: bool = True,
     ):
         """
         Initialize the IOC extractor.
@@ -53,16 +56,24 @@ class IocExtractorAgent:
             enable_enrichment: Whether to enrich IOCs with threat intel (default: True)
         """
         self.ioc_patterns = {
-            "ipv4": re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b'),
-            "domain": re.compile(r'\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b', re.I),
-            "api_key": re.compile(r'AKIA[0-9A-Z]{16}'),
-            "arn": re.compile(r'arn:aws:[a-z0-9-]+:[a-z0-9-]*:\d{12}:[a-zA-Z0-9:/_-]+'),
+            "ipv4": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
+            "domain": re.compile(
+                r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b", re.I
+            ),
+            "api_key": re.compile(r"AKIA[0-9A-Z]{16}"),
+            "arn": re.compile(r"arn:aws:[a-z0-9-]+:[a-z0-9-]*:\d{12}:[a-zA-Z0-9:/_-]+"),
         }
         self.llm_provider = llm_provider if LLM_AVAILABLE else None
         self.use_llm = use_llm and LLM_AVAILABLE and llm_provider is not None
 
-        self.threat_intel_enricher = threat_intel_enricher if THREAT_INTEL_AVAILABLE else None
-        self.enable_enrichment = enable_enrichment and THREAT_INTEL_AVAILABLE and threat_intel_enricher is not None
+        self.threat_intel_enricher = (
+            threat_intel_enricher if THREAT_INTEL_AVAILABLE else None
+        )
+        self.enable_enrichment = (
+            enable_enrichment
+            and THREAT_INTEL_AVAILABLE
+            and threat_intel_enricher is not None
+        )
 
         if self.use_llm:
             logger.info("IocExtractorAgent initialized with LLM support")
@@ -70,9 +81,13 @@ class IocExtractorAgent:
             logger.info("IocExtractorAgent using template-based extraction")
 
         if self.enable_enrichment:
-            logger.info("IocExtractorAgent initialized with threat intelligence enrichment")
+            logger.info(
+                "IocExtractorAgent initialized with threat intelligence enrichment"
+            )
         else:
-            logger.info("IocExtractorAgent running without threat intelligence enrichment")
+            logger.info(
+                "IocExtractorAgent running without threat intelligence enrichment"
+            )
 
     def extract_from_event(self, event: NormalizedEvent) -> Dict[str, Set[str]]:
         """
@@ -147,7 +162,9 @@ class IocExtractorAgent:
                 # Try LLM-based extraction
                 return asyncio.run(self._extract_from_session_llm(session))
             except Exception as e:
-                logger.warning(f"LLM IOC extraction failed: {e}. Falling back to template-based.")
+                logger.warning(
+                    f"LLM IOC extraction failed: {e}. Falling back to template-based."
+                )
                 # Fall through to template-based extraction
 
         # Template-based extraction (fallback or default)
@@ -163,30 +180,33 @@ class IocExtractorAgent:
 
         return ioc_report
 
-    async def _extract_from_session_llm(self, session: CorrelationSession) -> Dict[str, Any]:
+    async def _extract_from_session_llm(
+        self, session: CorrelationSession
+    ) -> Dict[str, Any]:
         """Extract IOCs using LLM."""
         # Convert events to dict format for LLM
         events_data = []
         for event in session.events:
-            events_data.append({
-                "timestamp": str(event.timestamp),
-                "event_type": event.event_type,
-                "principal": event.principal,
-                "action": event.action,
-                "resource": event.resource,
-                "status": event.status,
-                "source_ip": event.source_ip,
-                "user_agent": event.user_agent,
-                "metadata": event.metadata,
-            })
+            events_data.append(
+                {
+                    "timestamp": str(event.timestamp),
+                    "event_type": event.event_type,
+                    "principal": event.principal,
+                    "action": event.action,
+                    "resource": event.resource,
+                    "status": event.status,
+                    "source_ip": event.source_ip,
+                    "user_agent": event.user_agent,
+                    "metadata": event.metadata,
+                }
+            )
 
         # Get prompt template
         prompt = get_prompt("ioc_extraction", mode="detailed")
 
         # Call LLM
         ioc_data = await self.llm_provider.extract_iocs(
-            events=events_data,
-            prompt_template=prompt
+            events=events_data, prompt_template=prompt
         )
 
         # Also run template-based extraction to supplement LLM results
@@ -199,7 +219,7 @@ class IocExtractorAgent:
             "summary": ioc_data.get("raw_analysis", template_iocs.get("summary", "")),
             "generation_method": "llm",
             "llm_provider": self.llm_provider.__class__.__name__,
-            "llm_analysis": ioc_data.get("raw_analysis", "")
+            "llm_analysis": ioc_data.get("raw_analysis", ""),
         }
 
         # Enrich with threat intelligence if enabled
@@ -229,7 +249,9 @@ class IocExtractorAgent:
         logger.info("Enriching IOC report with threat intelligence")
 
         try:
-            enriched_report = await self.threat_intel_enricher.enrich_ioc_report(ioc_report)
+            enriched_report = await self.threat_intel_enricher.enrich_ioc_report(
+                ioc_report
+            )
             logger.info("IOC report enrichment completed successfully")
             return enriched_report
         except Exception as e:
@@ -238,7 +260,9 @@ class IocExtractorAgent:
             ioc_report["enrichment_error"] = str(e)
             return ioc_report
 
-    def _extract_from_session_template(self, session: CorrelationSession) -> Dict[str, Any]:
+    def _extract_from_session_template(
+        self, session: CorrelationSession
+    ) -> Dict[str, Any]:
         """Extract IOCs using templates (original implementation)."""
         aggregated_iocs: Dict[str, Set[str]] = {
             "ip_addresses": set(),
@@ -268,10 +292,12 @@ class IocExtractorAgent:
             },
             "severity_classified": severity_classified,
             "summary": self._generate_ioc_summary(aggregated_iocs, session),
-            "generation_method": "template"
+            "generation_method": "template",
         }
 
-        logger.info(f"Extracted {sum(len(v) for v in aggregated_iocs.values())} IOCs from session")
+        logger.info(
+            f"Extracted {sum(len(v) for v in aggregated_iocs.values())} IOCs from session"
+        )
         return ioc_report
 
     def _is_suspicious(self, event: NormalizedEvent) -> bool:
@@ -293,9 +319,7 @@ class IocExtractorAgent:
         return False
 
     def _classify_ioc_severity(
-        self,
-        iocs: Dict[str, Set[str]],
-        session: CorrelationSession
+        self, iocs: Dict[str, Set[str]], session: CorrelationSession
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Classify IOCs by severity."""
         classified = {
@@ -307,11 +331,13 @@ class IocExtractorAgent:
 
         # API keys are always critical if found
         for api_key in iocs.get("api_keys", []):
-            classified["critical"].append({
-                "type": "api_key",
-                "value": api_key[:10] + "...",  # Redacted
-                "reason": "Exposed AWS API key"
-            })
+            classified["critical"].append(
+                {
+                    "type": "api_key",
+                    "value": api_key[:10] + "...",  # Redacted
+                    "reason": "Exposed AWS API key",
+                }
+            )
 
         # Compromised principals
         for principal in iocs.get("principals", []):
@@ -322,42 +348,37 @@ class IocExtractorAgent:
                 severity = "high"
                 reason = "Compromised user account"
 
-            classified[severity].append({
-                "type": "principal",
-                "value": principal,
-                "reason": reason
-            })
+            classified[severity].append(
+                {"type": "principal", "value": principal, "reason": reason}
+            )
 
         # Suspicious IPs
         for ip in iocs.get("ip_addresses", []):
             # In real implementation, check against threat intel feeds
-            classified["medium"].append({
-                "type": "ip_address",
-                "value": ip,
-                "reason": "Suspicious source IP"
-            })
+            classified["medium"].append(
+                {"type": "ip_address", "value": ip, "reason": "Suspicious source IP"}
+            )
 
         # Malicious commands
         for cmd in iocs.get("command_lines", []):
-            if any(keyword in cmd for keyword in ["xmrig", "cryptominer", "chroot", "nsenter"]):
+            if any(
+                keyword in cmd
+                for keyword in ["xmrig", "cryptominer", "chroot", "nsenter"]
+            ):
                 severity = "critical"
                 reason = "Malicious command execution"
             else:
                 severity = "medium"
                 reason = "Suspicious command"
 
-            classified[severity].append({
-                "type": "command",
-                "value": cmd,
-                "reason": reason
-            })
+            classified[severity].append(
+                {"type": "command", "value": cmd, "reason": reason}
+            )
 
         return classified
 
     def _generate_ioc_summary(
-        self,
-        iocs: Dict[str, Set[str]],
-        session: CorrelationSession
+        self, iocs: Dict[str, Set[str]], session: CorrelationSession
     ) -> str:
         """Generate human-readable IOC summary."""
         lines = []

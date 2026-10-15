@@ -1,6 +1,7 @@
 """
 Telemetry and configuration loader.
 """
+
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -28,7 +29,7 @@ class TelemetryLoader:
         if not file_path.exists():
             raise FileNotFoundError(f"Telemetry file not found: {file_path}")
 
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 if not line:
@@ -58,13 +59,13 @@ class TelemetryLoader:
         if not file_path.exists():
             raise FileNotFoundError(f"Telemetry file not found: {file_path}")
 
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             data = json.load(f)
 
         if isinstance(data, list):
             events = data
-        elif isinstance(data, dict) and 'events' in data:
-            events = data['events']
+        elif isinstance(data, dict) and "events" in data:
+            events = data["events"]
         else:
             raise ValueError("JSON file must contain a list or dict with 'events' key")
 
@@ -85,7 +86,7 @@ class TelemetryLoader:
         if not file_path.exists():
             raise FileNotFoundError(f"Topology file not found: {file_path}")
 
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             topology = json.load(f)
 
         logger.info(f"Loaded topology: {topology.get('name', 'unknown')}")
@@ -107,16 +108,14 @@ class TelemetryLoader:
         if not metadata_path.exists():
             return None
 
-        with open(metadata_path, 'r') as f:
+        with open(metadata_path, "r") as f:
             metadata = json.load(f)
 
         return metadata
 
     @classmethod
     def load_scenario(
-        cls,
-        scenario_dir: Path,
-        telemetry_filename: str = "telemetry.jsonl"
+        cls, scenario_dir: Path, telemetry_filename: str = "telemetry.jsonl"
     ) -> Dict[str, Any]:
         """
         Load a complete scenario including telemetry and metadata.

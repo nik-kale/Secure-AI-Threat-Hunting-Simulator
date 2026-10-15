@@ -1,16 +1,22 @@
 """
 Unit tests for the database persistence layer.
 
-Run with: pytest analysis_engine/database/test_database.py
+Run with: pytest tests/test_database.py
 """
+
 import pytest
 from datetime import datetime
 from pathlib import Path
 import tempfile
 
-from .database import DatabaseConfig, DatabaseManager
-from .models import AnalysisRun, DetectedSession, IOC, ThreatIntelligence
-from .repository import (
+from analysis_engine.database.database import DatabaseConfig, DatabaseManager
+from analysis_engine.database.models import (
+    AnalysisRun,
+    DetectedSession,
+    IOC,
+    ThreatIntelligence,
+)
+from analysis_engine.database.repository import (
     AnalysisRepository,
     SessionRepository,
     IOCRepository,
@@ -488,18 +494,14 @@ class TestThreatIntelligenceRepository:
         )
 
         # Create IOCs with different threat levels
-        ioc1 = ioc_repo.save_ioc(
-            detected_session.id, "ip", "203.0.113.50", "critical"
-        )
-        ioc2 = ioc_repo.save_ioc(
-            detected_session.id, "ip", "198.51.100.1", "low"
-        )
+        ioc1 = ioc_repo.save_ioc(detected_session.id, "ip", "203.0.113.50", "critical")
+        ioc2 = ioc_repo.save_ioc(detected_session.id, "ip", "198.51.100.1", "low")
 
         intel_repo.save_threat_intelligence(
-            ioc1.id, "virustotal", True, 0.95, {"positives": 45}
+            ioc1.id, "virustotal", True, {"positives": 45}, reputation_score=0.95
         )
         intel_repo.save_threat_intelligence(
-            ioc2.id, "virustotal", False, 0.05, {"positives": 1}
+            ioc2.id, "virustotal", False, {"positives": 1}, reputation_score=0.05
         )
 
         # Query malicious IOCs

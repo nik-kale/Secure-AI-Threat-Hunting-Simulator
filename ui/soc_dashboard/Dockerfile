@@ -17,12 +17,10 @@ RUN npm run build
 # Install serve to run the build
 RUN npm install -g serve
 
-# Create non-root user
-RUN adduser -D -u 1000 appuser && \
-    chown -R appuser:appuser /app
+# Run as the image's built-in non-root user (node, UID 1000)
+RUN chown -R node:node /app
 
-# Switch to non-root user
-USER appuser
+USER node
 
 # Expose port
 EXPOSE 3000

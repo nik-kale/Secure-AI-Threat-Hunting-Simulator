@@ -2,6 +2,7 @@
 Data Exfiltration scenario generator.
 S3 enumeration, data copy to external bucket, CloudTrail deletion.
 """
+
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -24,7 +25,7 @@ def generate_data_exfiltration_scenario(
     account_id: str = "123456789012",
     region: str = "us-east-1",
     duration_hours: float = 0.67,  # 40 minutes
-    add_noise: bool = True
+    add_noise: bool = True,
 ) -> Dict[str, Any]:
     """
     Generate data exfiltration attack scenario via S3.
@@ -50,7 +51,9 @@ def generate_data_exfiltration_scenario(
     session_id = generate_session_id()
 
     # Time setup
-    start_time, end_time = get_scenario_timeframe(duration_hours=duration_hours, days_ago=1)
+    start_time, end_time = get_scenario_timeframe(
+        duration_hours=duration_hours, days_ago=1
+    )
 
     events: List[Dict[str, Any]] = []
 
@@ -103,10 +106,7 @@ def generate_data_exfiltration_scenario(
             user_agent=attacker_user_agent,
             status="success",
             session_id=session_id,
-            metadata={
-                "attack_stage": "discovery",
-                "suspicious": "bucket_enumeration"
-            },
+            metadata={"attack_stage": "discovery", "suspicious": "bucket_enumeration"},
         )
     )
 
@@ -117,7 +117,7 @@ def generate_data_exfiltration_scenario(
         "employee-pii-data",
         "product-source-code",
         "security-audit-logs",
-        "backup-databases"
+        "backup-databases",
     ]
 
     for i, bucket in enumerate(sensitive_buckets):
@@ -155,7 +155,7 @@ def generate_data_exfiltration_scenario(
                     session_id=session_id,
                     metadata={
                         "attack_stage": "discovery",
-                        "suspicious": "policy_enumeration"
+                        "suspicious": "policy_enumeration",
                     },
                 )
             )
@@ -185,11 +185,11 @@ def generate_data_exfiltration_scenario(
                 request_parameters={
                     "bucketName": bucket,
                     "prefix": "",
-                    "maxKeys": 1000
+                    "maxKeys": 1000,
                 },
                 metadata={
                     "attack_stage": "collection",
-                    "suspicious": "bulk_enumeration"
+                    "suspicious": "bulk_enumeration",
                 },
             )
         )
@@ -198,7 +198,7 @@ def generate_data_exfiltration_scenario(
         sensitive_files = [
             f"customers/2024/customer_records.csv",
             f"exports/financial_data.parquet",
-            f"sensitive/user_credentials.json"
+            f"sensitive/user_credentials.json",
         ]
 
         for j, key in enumerate(sensitive_files):
@@ -216,19 +216,16 @@ def generate_data_exfiltration_scenario(
                     user_agent=attacker_user_agent,
                     status="success",
                     session_id=session_id,
-                    request_parameters={
-                        "bucketName": bucket,
-                        "key": key
-                    },
+                    request_parameters={"bucketName": bucket, "key": key},
                     response_elements={
                         "x-amz-request-id": generate_session_id()[:16],
-                        "contentLength": 1024 * 1024 * (j + 1) * 10  # 10-30 MB files
+                        "contentLength": 1024 * 1024 * (j + 1) * 10,  # 10-30 MB files
                     },
                     metadata={
                         "attack_stage": "collection",
                         "data_accessed": True,
                         "file_size_mb": (j + 1) * 10,
-                        "suspicious": "sensitive_data_access"
+                        "suspicious": "sensitive_data_access",
                     },
                 )
             )
@@ -253,7 +250,7 @@ def generate_data_exfiltration_scenario(
             metadata={
                 "attack_stage": "exfiltration",
                 "external_bucket": True,
-                "suspicious": "cross_account_access"
+                "suspicious": "cross_account_access",
             },
         )
     )
@@ -288,14 +285,14 @@ def generate_data_exfiltration_scenario(
                     "destinationKey": f"exfil/{source_bucket}/{key}",
                     "sourceArn": f"arn:aws:s3:::{source_bucket}/{key}",
                     "sourceBucket": source_bucket,
-                    "sourceKey": key
+                    "sourceKey": key,
                 },
                 metadata={
                     "attack_stage": "exfiltration",
                     "cross_account_copy": True,
                     "external_account": attacker_account_id,
                     "critical": True,
-                    "data_exfiltration": True
+                    "data_exfiltration": True,
                 },
             )
         )
@@ -315,13 +312,13 @@ def generate_data_exfiltration_scenario(
             request_parameters={
                 "bucketName": attacker_bucket,
                 "key": "exfil/archive/complete_dump.tar.gz",
-                "contentLength": 1024 * 1024 * 500  # 500 MB
+                "contentLength": 1024 * 1024 * 500,  # 500 MB
             },
             metadata={
                 "attack_stage": "exfiltration",
                 "external_bucket": True,
                 "critical": True,
-                "large_upload": True
+                "large_upload": True,
             },
         )
     )
@@ -346,7 +343,7 @@ def generate_data_exfiltration_scenario(
                 "attack_stage": "defense_evasion",
                 "anti_forensics": True,
                 "critical": True,
-                "suspicious": "cloudtrail_disabled"
+                "suspicious": "cloudtrail_disabled",
             },
         )
     )
@@ -356,7 +353,7 @@ def generate_data_exfiltration_scenario(
     log_files = [
         "AWSLogs/123456789012/CloudTrail/us-east-1/2024/11/16/log1.json.gz",
         "AWSLogs/123456789012/CloudTrail/us-east-1/2024/11/16/log2.json.gz",
-        "AWSLogs/123456789012/CloudTrail/us-east-1/2024/11/16/log3.json.gz"
+        "AWSLogs/123456789012/CloudTrail/us-east-1/2024/11/16/log3.json.gz",
     ]
 
     for i, log_file in enumerate(log_files):
@@ -378,7 +375,7 @@ def generate_data_exfiltration_scenario(
                     "attack_stage": "defense_evasion",
                     "anti_forensics": True,
                     "critical": True,
-                    "log_deletion": True
+                    "log_deletion": True,
                 },
             )
         )
@@ -397,12 +394,12 @@ def generate_data_exfiltration_scenario(
             session_id=session_id,
             request_parameters={
                 "bucketName": "company-customer-data",
-                "loggingEnabled": False
+                "loggingEnabled": False,
             },
             metadata={
                 "attack_stage": "defense_evasion",
                 "anti_forensics": True,
-                "logging_disabled": True
+                "logging_disabled": True,
             },
         )
     )
@@ -423,7 +420,7 @@ def generate_data_exfiltration_scenario(
                 "attack_stage": "defense_evasion",
                 "anti_forensics": True,
                 "critical": True,
-                "failed_attempt": True
+                "failed_attempt": True,
             },
         )
     )
@@ -455,15 +452,15 @@ def generate_data_exfiltration_scenario(
             "discovery",
             "collection",
             "exfiltration",
-            "defense_evasion"
+            "defense_evasion",
         ],
         "mitre_techniques": [
-            "T1530",       # Data from Cloud Storage Object
-            "T1537",       # Transfer Data to Cloud Account
-            "T1485",       # Data Destruction
-            "T1070.001",   # Indicator Removal: Clear Logs
-            "T1580",       # Cloud Infrastructure Discovery
-            "T1619",       # Cloud Storage Object Discovery
+            "T1530",  # Data from Cloud Storage Object
+            "T1537",  # Transfer Data to Cloud Account
+            "T1485",  # Data Destruction
+            "T1070.001",  # Indicator Removal: Clear Logs
+            "T1580",  # Cloud Infrastructure Discovery
+            "T1619",  # Cloud Storage Object Discovery
         ],
     }
 
@@ -472,13 +469,11 @@ def generate_data_exfiltration_scenario(
 
 if __name__ == "__main__":
     # Example usage
-    output_dir = Path(__file__).parent / "output"
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("output") / "data_exfiltration"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = generate_data_exfiltration_scenario(
-        output_dir=output_dir,
-        duration_hours=0.67,
-        add_noise=True
+        output_dir=output_dir, duration_hours=0.67, add_noise=True
     )
 
     print(f"Generated {metadata['num_events']} events")

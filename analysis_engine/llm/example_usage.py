@@ -12,7 +12,7 @@ from analysis_engine.llm import get_llm_provider, get_prompt
 from analysis_engine.agents import (
     ThreatNarrativeAgent,
     IocExtractorAgent,
-    ResponsePlannerAgent
+    ResponsePlannerAgent,
 )
 
 
@@ -49,8 +49,7 @@ def example_anthropic():
     try:
         # Initialize with specific model
         llm_provider = get_llm_provider(
-            provider_type="anthropic",
-            model="claude-3-5-sonnet-20241022"
+            provider_type="anthropic", model="claude-3-5-sonnet-20241022"
         )
         print(f"✓ Initialized Anthropic provider with Claude 3.5 Sonnet")
 
@@ -123,7 +122,7 @@ async def example_direct_provider():
             "num_events": 25,
             "risk_score": 0.85,
             "start_time": "2024-01-01T10:00:00Z",
-            "end_time": "2024-01-01T10:05:00Z"
+            "end_time": "2024-01-01T10:05:00Z",
         }
 
         kill_chain_data = {
@@ -132,21 +131,21 @@ async def example_direct_provider():
                 "reconnaissance": {"num_events": 5},
                 "exploitation": {"num_events": 8},
                 "installation": {"num_events": 7},
-                "actions_on_objectives": {"num_events": 5}
-            }
+                "actions_on_objectives": {"num_events": 5},
+            },
         }
 
         mitre_data = {
             "num_techniques": 3,
             "technique_ids": ["T1078.004", "T1548.005", "T1110.004"],
-            "tactics": ["Initial Access", "Privilege Escalation", "Credential Access"]
+            "tactics": ["Initial Access", "Privilege Escalation", "Credential Access"],
         }
 
         ioc_data = {
             "iocs": {
                 "ip_addresses": ["203.0.113.42"],
                 "principals": ["compromised-user@example.com"],
-                "resources": ["arn:aws:iam::123456789012:role/AdminRole"]
+                "resources": ["arn:aws:iam::123456789012:role/AdminRole"],
             }
         }
 
@@ -186,7 +185,12 @@ def example_prompt_modes():
     print(f"  Use for: Routine analysis, batch processing")
 
     # All available prompt types
-    prompt_types = ["narrative", "ioc_extraction", "response_planning", "mitre_identification"]
+    prompt_types = [
+        "narrative",
+        "ioc_extraction",
+        "response_planning",
+        "mitre_identification",
+    ]
     print(f"\n✓ Available prompt types:")
     for ptype in prompt_types:
         prompt = get_prompt(ptype)
@@ -269,10 +273,10 @@ def main():
     example_complete_workflow()
 
     # Run async example
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     asyncio.run(example_direct_provider())
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("\n✓ All examples completed!")
     print("\nNext steps:")
     print("  1. Set your API key: export OPENAI_API_KEY='sk-...'")

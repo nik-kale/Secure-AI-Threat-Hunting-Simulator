@@ -2,6 +2,7 @@
 """
 CLI tool to analyze telemetry files for threat hunting.
 """
+
 import sys
 import json
 from pathlib import Path
@@ -16,8 +17,7 @@ from analysis_engine.pipeline import ThreatHuntingPipeline
 from config import get_settings
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -30,69 +30,64 @@ def cli():
 
 @cli.command()
 @click.argument(
-    'telemetry_file',
+    "telemetry_file",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
 )
 @click.option(
-    '--output',
-    '-o',
+    "--output",
+    "-o",
     type=click.Path(path_type=Path),
-    help='Output directory for analysis reports (default: same as input file)'
+    help="Output directory for analysis reports (default: same as input file)",
 )
 @click.option(
-    '--time-window',
-    '-w',
+    "--time-window",
+    "-w",
     type=int,
     default=60,
-    help='Time window for event correlation in minutes (default: 60)'
+    help="Time window for event correlation in minutes (default: 60)",
 )
 @click.option(
-    '--min-events',
-    '-m',
+    "--min-events",
+    "-m",
     type=int,
     default=3,
-    help='Minimum events required to flag a session (default: 3)'
+    help="Minimum events required to flag a session (default: 3)",
 )
 @click.option(
-    '--risk-threshold',
-    '-r',
+    "--risk-threshold",
+    "-r",
     type=float,
     default=0.5,
-    help='Risk score threshold for suspicious sessions (default: 0.5)'
+    help="Risk score threshold for suspicious sessions (default: 0.5)",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(["json", "markdown", "both"]),
+    default="both",
+    help="Output format (default: both)",
 )
 @click.option(
-    '--verbose',
-    '-v',
+    "--llm-provider",
+    type=click.Choice(["openai", "anthropic", "none"]),
+    default="none",
+    help="LLM provider for AI-powered analysis (default: none, uses templates)",
+)
+@click.option(
+    "--llm-api-key",
+    envvar="OPENAI_API_KEY",
+    help="API key for LLM provider (can also use OPENAI_API_KEY or ANTHROPIC_API_KEY env vars)",
+)
+@click.option(
+    "--llm-model",
+    help="Model name to use (e.g., gpt-4-turbo-preview, claude-3-5-sonnet-20241022)",
+)
+@click.option(
+    "--enable-threat-intel",
     is_flag=True,
-    help='Enable verbose output'
-)
-@click.option(
-    '--format',
-    '-f',
-    type=click.Choice(['json', 'markdown', 'both']),
-    default='both',
-    help='Output format (default: both)'
-)
-@click.option(
-    '--llm-provider',
-    type=click.Choice(['openai', 'anthropic', 'none']),
-    default='none',
-    help='LLM provider for AI-powered analysis (default: none, uses templates)'
-)
-@click.option(
-    '--llm-api-key',
-    envvar='OPENAI_API_KEY',
-    help='API key for LLM provider (can also use OPENAI_API_KEY or ANTHROPIC_API_KEY env vars)'
-)
-@click.option(
-    '--llm-model',
-    help='Model name to use (e.g., gpt-4-turbo-preview, claude-3-5-sonnet-20241022)'
-)
-@click.option(
-    '--enable-threat-intel',
-    is_flag=True,
-    help='Enable threat intelligence enrichment (requires API keys in environment)'
+    help="Enable threat intelligence enrichment (requires API keys in environment)",
 )
 def analyze(
     telemetry_file: Path,
@@ -105,7 +100,7 @@ def analyze(
     llm_provider: str,
     llm_api_key: Optional[str],
     llm_model: Optional[str],
-    enable_threat_intel: bool
+    enable_threat_intel: bool,
 ) -> None:
     """
     Analyze telemetry file for threats and generate reports.
@@ -157,16 +152,17 @@ def analyze(
             settings = get_settings()
 
         # Determine LLM provider type and API key
-        provider_type = llm_provider if llm_provider != 'none' else None
+        provider_type = llm_provider if llm_provider != "none" else None
         api_key = llm_api_key
 
         # If no explicit API key provided, try environment variables
         if provider_type and not api_key:
             import os
-            if llm_provider == 'openai':
-                api_key = os.getenv('OPENAI_API_KEY')
-            elif llm_provider == 'anthropic':
-                api_key = os.getenv('ANTHROPIC_API_KEY')
+
+            if llm_provider == "openai":
+                api_key = os.getenv("OPENAI_API_KEY")
+            elif llm_provider == "anthropic":
+                api_key = os.getenv("ANTHROPIC_API_KEY")
 
         pipeline = ThreatHuntingPipeline(
             time_window_minutes=time_window,
@@ -176,12 +172,14 @@ def analyze(
             llm_api_key=api_key,
             llm_model=llm_model,
             enable_threat_intel=enable_threat_intel,
-            threat_intel_config=settings if enable_threat_intel else None
+            threat_intel_config=settings if enable_threat_intel else None,
         )
 
         # Display configuration
         if provider_type:
-            click.echo(f"LLM provider:     {llm_provider} (model: {llm_model or 'default'})")
+            click.echo(
+                f"LLM provider:     {llm_provider} (model: {llm_model or 'default'})"
+            )
         if enable_threat_intel:
             click.echo(f"Threat intel:     Enabled")
 
@@ -189,8 +187,7 @@ def analyze(
         click.echo(f"\nAnalyzing telemetry from: {telemetry_file.name}")
 
         results = pipeline.analyze_telemetry_file(
-            telemetry_file=telemetry_file,
-            output_dir=output
+            telemetry_path=telemetry_file, output_dir=output
         )
 
         # Display results
@@ -200,27 +197,30 @@ def analyze(
 
         click.echo(f"✓ Total events analyzed:     {results.get('total_events', 0)}")
         click.echo(f"✓ Sessions identified:       {results.get('total_sessions', 0)}")
-        click.echo(f"✓ Suspicious sessions:       {results.get('suspicious_sessions', 0)}")
+        click.echo(
+            f"✓ Suspicious sessions:       {results.get('suspicious_sessions', 0)}"
+        )
 
-        if 'sessions' in results and results['sessions']:
+        if "sessions" in results and results["sessions"]:
             click.echo(f"\nTop Suspicious Sessions:")
-            for i, session in enumerate(results['sessions'][:5], 1):
-                click.echo(f"\n  {i}. Session ID: {session.get('session_id', 'N/A')}")
-                click.echo(f"     Risk Score:  {session.get('risk_score', 0):.2f}")
-                click.echo(f"     Event Count: {session.get('event_count', 0)}")
-                click.echo(f"     Principal:   {session.get('principal', 'N/A')}")
+            for i, session in enumerate(results["sessions"][:5], 1):
+                info = session.get("session_info", {})
+                principals = info.get("principals") or ["N/A"]
+                click.echo(f"\n  {i}. Session ID: {info.get('session_id', 'N/A')}")
+                click.echo(f"     Risk Score:  {info.get('risk_score', 0):.2f}")
+                click.echo(f"     Event Count: {info.get('num_events', 0)}")
+                click.echo(f"     Principal:   {', '.join(principals)}")
 
-                if 'mitre_techniques' in session:
-                    techniques = session['mitre_techniques']
-                    if techniques:
-                        click.echo(f"     MITRE:       {', '.join(techniques[:3])}")
+                techniques = session.get("mitre", {}).get("technique_ids", [])
+                if techniques:
+                    click.echo(f"     MITRE:       {', '.join(techniques[:3])}")
 
         # Report file paths
         click.echo(f"\n{'='*70}")
         click.echo("Generated Reports")
         click.echo(f"{'='*70}\n")
 
-        if format in ['json', 'both']:
+        if format in ["json", "both"]:
             json_report = output / "analysis_report.json"
             if json_report.exists():
                 click.echo(f"✓ JSON report:     {json_report}")
@@ -229,7 +229,7 @@ def analyze(
             if iocs_file.exists():
                 click.echo(f"✓ IOCs:            {iocs_file}")
 
-        if format in ['markdown', 'both']:
+        if format in ["markdown", "both"]:
             md_report = output / "analysis_report.md"
             if md_report.exists():
                 click.echo(f"✓ Markdown report: {md_report}")
@@ -253,7 +253,7 @@ def analyze(
 
 @cli.command()
 @click.argument(
-    'telemetry_file',
+    "telemetry_file",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
 )
@@ -276,23 +276,23 @@ def stats(telemetry_file: Path) -> None:
         principals = set()
         total_events = 0
 
-        with open(telemetry_file, 'r') as f:
+        with open(telemetry_file, "r") as f:
             for line in f:
                 try:
                     event = json.loads(line.strip())
                     total_events += 1
 
                     # Count event types
-                    event_type = event.get('event_type', 'unknown')
+                    event_type = event.get("event_type", "unknown")
                     event_types[event_type] = event_types.get(event_type, 0) + 1
 
                     # Count sources
-                    source = event.get('event_source', 'unknown')
+                    source = event.get("event_source", "unknown")
                     sources[source] = sources.get(source, 0) + 1
 
                     # Collect principals
-                    if 'principal' in event:
-                        principals.add(event['principal'])
+                    if "principal" in event:
+                        principals.add(event["principal"])
 
                 except json.JSONDecodeError:
                     continue
@@ -305,7 +305,9 @@ def stats(telemetry_file: Path) -> None:
             click.echo(f"  {source:20s} {count:6d} ({count/total_events*100:.1f}%)")
 
         click.echo(f"\nTop Event Types:")
-        for event_type, count in sorted(event_types.items(), key=lambda x: x[1], reverse=True)[:10]:
+        for event_type, count in sorted(
+            event_types.items(), key=lambda x: x[1], reverse=True
+        )[:10]:
             click.echo(f"  {event_type:30s} {count:6d} ({count/total_events*100:.1f}%)")
 
         click.echo()
@@ -317,32 +319,24 @@ def stats(telemetry_file: Path) -> None:
 
 @cli.command()
 @click.argument(
-    'telemetry_file',
+    "telemetry_file",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
 )
 @click.option(
-    '--limit',
-    '-n',
+    "--limit",
+    "-n",
     type=int,
     default=10,
-    help='Number of events to display (default: 10)'
+    help="Number of events to display (default: 10)",
 )
-@click.option(
-    '--filter-type',
-    '-t',
-    help='Filter by event type'
-)
-@click.option(
-    '--filter-source',
-    '-s',
-    help='Filter by event source'
-)
+@click.option("--filter-type", "-t", help="Filter by event type")
+@click.option("--filter-source", "-s", help="Filter by event source")
 def show(
     telemetry_file: Path,
     limit: int,
     filter_type: Optional[str],
-    filter_source: Optional[str]
+    filter_source: Optional[str],
 ) -> None:
     """
     Display events from a telemetry file.
@@ -365,7 +359,7 @@ def show(
         count = 0
         click.echo(f"\nShowing events from: {telemetry_file}\n")
 
-        with open(telemetry_file, 'r') as f:
+        with open(telemetry_file, "r") as f:
             for line in f:
                 if count >= limit:
                     break
@@ -374,9 +368,9 @@ def show(
                     event = json.loads(line.strip())
 
                     # Apply filters
-                    if filter_type and event.get('event_type') != filter_type:
+                    if filter_type and event.get("event_type") != filter_type:
                         continue
-                    if filter_source and event.get('event_source') != filter_source:
+                    if filter_source and event.get("event_source") != filter_source:
                         continue
 
                     count += 1
@@ -408,5 +402,5 @@ def main():
     cli()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

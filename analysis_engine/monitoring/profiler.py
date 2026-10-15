@@ -3,6 +3,7 @@ Performance profiling utilities.
 
 Provides detailed timing and memory profiling for analysis components.
 """
+
 from functools import wraps
 from typing import Callable, Any, Dict, Optional, List
 from dataclasses import dataclass, field
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TimingEntry:
     """Single timing measurement."""
+
     name: str
     start_time: float
     end_time: Optional[float] = None
@@ -40,13 +42,14 @@ class TimingEntry:
             "start_time": self.start_time,
             "end_time": self.end_time,
             "parent": self.parent,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
 @dataclass
 class MemorySnapshot:
     """Memory usage snapshot."""
+
     timestamp: float
     current_bytes: int
     peak_bytes: int
@@ -60,13 +63,14 @@ class MemorySnapshot:
             "current_mb": self.current_bytes / 1024 / 1024,
             "peak_mb": self.peak_bytes / 1024 / 1024,
             "label": self.label,
-            "traceback": self.traceback
+            "traceback": self.traceback,
         }
 
 
 @dataclass
 class ProfileReport:
     """Complete profiling report."""
+
     name: str
     start_time: datetime
     end_time: Optional[datetime] = None
@@ -92,7 +96,7 @@ class ProfileReport:
             "timings": [t.to_dict() for t in self.timings if t.duration is not None],
             "memory_snapshots": [m.to_dict() for m in self.memory_snapshots],
             "metadata": self.metadata,
-            "summary": self._generate_summary()
+            "summary": self._generate_summary(),
         }
 
     def _generate_summary(self) -> Dict[str, Any]:
@@ -115,16 +119,21 @@ class ProfileReport:
         # Slowest operations
         slowest = sorted(completed_timings, key=lambda t: t.duration, reverse=True)[:5]
         summary["slowest_operations"] = [
-            {"name": t.name, "duration_seconds": t.duration}
-            for t in slowest
+            {"name": t.name, "duration_seconds": t.duration} for t in slowest
         ]
 
         # Memory summary
         if self.memory_snapshots:
             summary["memory"] = {
-                "peak_mb": max(m.peak_bytes for m in self.memory_snapshots) / 1024 / 1024,
-                "final_mb": self.memory_snapshots[-1].current_bytes / 1024 / 1024 if self.memory_snapshots else 0,
-                "snapshots": len(self.memory_snapshots)
+                "peak_mb": max(m.peak_bytes for m in self.memory_snapshots)
+                / 1024
+                / 1024,
+                "final_mb": (
+                    self.memory_snapshots[-1].current_bytes / 1024 / 1024
+                    if self.memory_snapshots
+                    else 0
+                ),
+                "snapshots": len(self.memory_snapshots),
             }
 
         return summary
@@ -190,7 +199,7 @@ class Profiler:
 
         self.report.finish()
 
-    def time(self, name: str, **metadata) -> 'TimingContext':
+    def time(self, name: str, **metadata) -> "TimingContext":
         """
         Create a timing context.
 
@@ -222,7 +231,7 @@ class Profiler:
             end_time=time.time(),
             duration=duration,
             parent=self._timing_stack[-1] if self._timing_stack else None,
-            metadata=metadata
+            metadata=metadata,
         )
         self.report.timings.append(entry)
 
@@ -241,7 +250,7 @@ class Profiler:
 
             # Get top memory allocations
             snapshot = tracemalloc.take_snapshot()
-            top_stats = snapshot.statistics('lineno')[:3]
+            top_stats = snapshot.statistics("lineno")[:3]
 
             traceback_lines = None
             if top_stats:
@@ -252,7 +261,7 @@ class Profiler:
                 current_bytes=current,
                 peak_bytes=peak,
                 label=label,
-                traceback=traceback_lines
+                traceback=traceback_lines,
             )
             self.report.memory_snapshots.append(memory_snapshot)
 
@@ -287,7 +296,7 @@ class Profiler:
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(self.report.to_dict(), f, indent=2)
 
         logger.info(f"Profiling report saved to {output_path}")
@@ -337,13 +346,15 @@ class TimingContext:
 
     def __enter__(self):
         """Enter timing context."""
-        parent = self.profiler._timing_stack[-1] if self.profiler._timing_stack else None
+        parent = (
+            self.profiler._timing_stack[-1] if self.profiler._timing_stack else None
+        )
 
         self.entry = TimingEntry(
             name=self.name,
             start_time=time.time(),
             parent=parent,
-            metadata=self.metadata
+            metadata=self.metadata,
         )
 
         self.profiler._timing_stack.append(self.name)
@@ -371,11 +382,12 @@ class TimingContext:
 # Decorator
 # ============================================================================
 
+
 def profile(
     name: Optional[str] = None,
     track_memory: bool = True,
     save_report: bool = False,
-    report_dir: Optional[Path] = None
+    report_dir: Optional[Path] = None,
 ):
     """
     Decorator to profile a function.
@@ -392,6 +404,7 @@ def profile(
             # Processing logic
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -421,12 +434,14 @@ def profile(
                 return result
 
         return wrapper
+
     return decorator
 
 
 # ============================================================================
 # Simple Timing Decorator
 # ============================================================================
+
 
 def timed(func: Callable) -> Callable:
     """
@@ -437,6 +452,7 @@ def timed(func: Callable) -> Callable:
         def slow_operation():
             time.sleep(1)
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs) -> Any:
         start_time = time.time()

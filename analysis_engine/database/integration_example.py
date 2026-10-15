@@ -5,6 +5,7 @@ This module demonstrates how to integrate the database persistence layer
 with the existing threat hunting analysis pipeline to automatically save
 results to the database.
 """
+
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -171,8 +172,12 @@ class DatabasePersistentPipeline:
                     start_time=start_time,
                     end_time=end_time,
                     duration_seconds=session_info.get("duration_seconds"),
-                    kill_chain_stages=session_result.get("kill_chain", {}).get("stages", []),
-                    mitre_techniques=session_result.get("mitre", {}).get("techniques", []),
+                    kill_chain_stages=session_result.get("kill_chain", {}).get(
+                        "stages", []
+                    ),
+                    mitre_techniques=session_result.get("mitre", {}).get(
+                        "techniques", []
+                    ),
                     principals=session_info.get("principals", []),
                     source_ips=session_info.get("source_ips", []),
                     resources=session_info.get("resources", []),
@@ -200,7 +205,9 @@ class DatabasePersistentPipeline:
                 "scenario_name": scenario_name,
             }
 
-    def get_latest_analysis(self, scenario_name: Optional[str] = None) -> Optional[Dict]:
+    def get_latest_analysis(
+        self, scenario_name: Optional[str] = None
+    ) -> Optional[Dict]:
         """
         Retrieve the most recent analysis results.
 

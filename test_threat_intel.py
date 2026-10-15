@@ -3,6 +3,7 @@ Simple test script for threat intelligence integration.
 
 Tests basic functionality without requiring API keys or external dependencies.
 """
+
 import sys
 import os
 import json
@@ -48,6 +49,7 @@ try:
 except Exception as e:
     print(f"✗ CacheManager test failed: {e}")
     import traceback
+
     traceback.print_exc()
 
 # Test 2: Check providers module syntax
@@ -88,7 +90,7 @@ required_files = [
     "analysis_engine/threat_intel/providers.py",
     "analysis_engine/threat_intel/enricher.py",
     "analysis_engine/threat_intel/example_usage.py",
-    "analysis_engine/threat_intel/README.md"
+    "analysis_engine/threat_intel/README.md",
 ]
 
 all_exist = True
@@ -108,13 +110,14 @@ else:
 print("\n[Test 6] Checking config.py for threat intel settings...")
 try:
     from config import get_settings
+
     settings = get_settings()
 
     required_settings = [
         "enable_threat_intel",
         "abuseipdb_api_key",
         "virustotal_api_key",
-        "threat_intel_cache_ttl"
+        "threat_intel_cache_ttl",
     ]
 
     all_present = True
@@ -143,7 +146,7 @@ try:
         ("threat_intel_enricher" in code, "threat_intel_enricher parameter"),
         ("enable_enrichment" in code, "enable_enrichment parameter"),
         ("_enrich_ioc_report" in code, "_enrich_ioc_report method"),
-        ("THREAT_INTEL_AVAILABLE" in code, "THREAT_INTEL_AVAILABLE flag")
+        ("THREAT_INTEL_AVAILABLE" in code, "THREAT_INTEL_AVAILABLE flag"),
     ]
 
     all_updated = True
@@ -181,6 +184,7 @@ except Exception as e:
 # Cleanup
 print("\n[Cleanup] Removing test cache...")
 import shutil
+
 shutil.rmtree("./test_cache", ignore_errors=True)
 print("✓ Cleanup complete")
 

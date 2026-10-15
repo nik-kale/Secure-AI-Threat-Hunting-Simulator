@@ -582,19 +582,19 @@ LLM_MODEL=gpt-4-turbo-preview  # Optional: specific model
 
 ```bash
 # AI-powered analysis with OpenAI
-python cli/analyze.py ./output/telemetry.jsonl \
+python cli/analyze.py analyze ./output/telemetry.jsonl \
   --llm-provider openai \
   --llm-api-key sk-... \
   --llm-model gpt-4-turbo-preview
 
 # AI-powered analysis with Anthropic Claude
-python cli/analyze.py ./output/telemetry.jsonl \
+python cli/analyze.py analyze ./output/telemetry.jsonl \
   --llm-provider anthropic \
   --llm-api-key sk-ant-... \
   --llm-model claude-3-5-sonnet-20241022
 
 # Template-based (no API key needed)
-python cli/analyze.py ./output/telemetry.jsonl
+python cli/analyze.py analyze ./output/telemetry.jsonl
 ```
 
 **3. API Server automatically picks up LLM config from environment**
@@ -624,7 +624,7 @@ VIRUSTOTAL_API_KEY=your-key-here
 **3. Use with CLI:**
 
 ```bash
-python cli/analyze.py ./output/telemetry.jsonl --enable-threat-intel
+python cli/analyze.py analyze ./output/telemetry.jsonl --enable-threat-intel
 ```
 
 **What gets enriched:**
@@ -690,7 +690,7 @@ The Analysis Engine API (v3.0.0) provides comprehensive RESTful and WebSocket en
 # Upload and analyze telemetry file
 POST /analyze/upload
 Content-Type: multipart/form-data
-Authorization: Bearer <API_KEY>
+X-API-Key: <API_KEY>
 
 # Analyze JSON events directly
 POST /analyze/data
@@ -871,7 +871,7 @@ GET /scenarios/{scenario_name}
 
 # Delete scenario (admin only)
 DELETE /scenarios/{scenario_name}
-Authorization: Bearer <ADMIN_API_KEY>
+X-API-Key: <ADMIN_API_KEY>
 ```
 
 #### Database Endpoints (Optional)
@@ -1276,7 +1276,7 @@ response = requests.post(
         'rule_content': rule_content,
         'events': events
     },
-    headers={'Authorization': 'Bearer your-api-key'}
+    headers={'X-API-Key': 'your-api-key'}
 )
 
 result = response.json()

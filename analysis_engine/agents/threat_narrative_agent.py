@@ -1,6 +1,7 @@
 """
 Threat narrative generation agent.
 """
+
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import logging
@@ -15,10 +16,13 @@ logger = logging.getLogger(__name__)
 # Optional LLM integration
 try:
     from analysis_engine.llm import LLMProvider, get_prompt
+
     LLM_AVAILABLE = True
 except ImportError:
     LLM_AVAILABLE = False
-    logger.info("LLM integration not available. Using template-based narrative generation.")
+    logger.info(
+        "LLM integration not available. Using template-based narrative generation."
+    )
 
 
 class ThreatNarrativeAgent:
@@ -29,7 +33,9 @@ class ThreatNarrativeAgent:
     automatic fallback to templates if LLM is unavailable.
     """
 
-    def __init__(self, llm_provider: Optional['LLMProvider'] = None, use_llm: bool = True):
+    def __init__(
+        self, llm_provider: Optional["LLMProvider"] = None, use_llm: bool = True
+    ):
         """
         Initialize the narrative agent.
 
@@ -52,7 +58,7 @@ class ThreatNarrativeAgent:
         session: CorrelationSession,
         kill_chain_data: Dict[str, Any],
         mitre_data: Dict[str, Any],
-        ioc_data: Dict[str, Any]
+        ioc_data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
         Generate a comprehensive threat narrative.
@@ -71,11 +77,15 @@ class ThreatNarrativeAgent:
         if self.use_llm:
             try:
                 # Try LLM-based generation
-                return asyncio.run(self._generate_narrative_llm(
-                    session, kill_chain_data, mitre_data, ioc_data
-                ))
+                return asyncio.run(
+                    self._generate_narrative_llm(
+                        session, kill_chain_data, mitre_data, ioc_data
+                    )
+                )
             except Exception as e:
-                logger.warning(f"LLM narrative generation failed: {e}. Falling back to template-based.")
+                logger.warning(
+                    f"LLM narrative generation failed: {e}. Falling back to template-based."
+                )
                 # Fall through to template-based generation
 
         # Template-based generation (fallback or default)
@@ -88,7 +98,7 @@ class ThreatNarrativeAgent:
         session: CorrelationSession,
         kill_chain_data: Dict[str, Any],
         mitre_data: Dict[str, Any],
-        ioc_data: Dict[str, Any]
+        ioc_data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Generate narrative using LLM."""
         # Prepare session data for LLM
@@ -110,7 +120,7 @@ class ThreatNarrativeAgent:
             kill_chain_data=kill_chain_data,
             mitre_data=mitre_data,
             ioc_data=ioc_data,
-            prompt_template=prompt
+            prompt_template=prompt,
         )
 
         # Add metadata
@@ -125,7 +135,7 @@ class ThreatNarrativeAgent:
         session: CorrelationSession,
         kill_chain_data: Dict[str, Any],
         mitre_data: Dict[str, Any],
-        ioc_data: Dict[str, Any]
+        ioc_data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Generate narrative using templates (original implementation)."""
         narrative = {
@@ -137,8 +147,10 @@ class ThreatNarrativeAgent:
                 session, kill_chain_data, mitre_data, ioc_data
             ),
             "impact_assessment": self._generate_impact_assessment(session, ioc_data),
-            "recommended_actions": self._generate_recommended_actions(session, mitre_data),
-            "generation_method": "template"
+            "recommended_actions": self._generate_recommended_actions(
+                session, mitre_data
+            ),
+            "generation_method": "template",
         }
 
         return narrative
@@ -147,7 +159,7 @@ class ThreatNarrativeAgent:
         self,
         session: CorrelationSession,
         kill_chain_data: Dict[str, Any],
-        mitre_data: Dict[str, Any]
+        mitre_data: Dict[str, Any],
     ) -> str:
         """Generate executive summary."""
         lines = []
@@ -184,9 +196,7 @@ class ThreatNarrativeAgent:
         return "\n".join(lines)
 
     def _generate_attack_timeline(
-        self,
-        session: CorrelationSession,
-        kill_chain_data: Dict[str, Any]
+        self, session: CorrelationSession, kill_chain_data: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Generate chronological attack timeline."""
         timeline = self.kill_chain_mapper.generate_timeline(session)
@@ -195,10 +205,12 @@ class ThreatNarrativeAgent:
         timeline_with_context = []
 
         for entry in timeline:
-            timeline_with_context.append({
-                **entry,
-                "narrative": self._generate_event_narrative(entry),
-            })
+            timeline_with_context.append(
+                {
+                    **entry,
+                    "narrative": self._generate_event_narrative(entry),
+                }
+            )
 
         return timeline_with_context
 
@@ -207,7 +219,7 @@ class ThreatNarrativeAgent:
         session: CorrelationSession,
         kill_chain_data: Dict[str, Any],
         mitre_data: Dict[str, Any],
-        ioc_data: Dict[str, Any]
+        ioc_data: Dict[str, Any],
     ) -> str:
         """Generate detailed analysis section."""
         lines = []
@@ -242,9 +254,7 @@ class ThreatNarrativeAgent:
         return "\n".join(lines)
 
     def _generate_impact_assessment(
-        self,
-        session: CorrelationSession,
-        ioc_data: Dict[str, Any]
+        self, session: CorrelationSession, ioc_data: Dict[str, Any]
     ) -> str:
         """Generate impact assessment."""
         lines = []
@@ -273,19 +283,18 @@ class ThreatNarrativeAgent:
 
         # Data exfiltration
         exfil_events = [
-            e for e in session.events
-            if e.metadata.get("data_exfiltration")
+            e for e in session.events if e.metadata.get("data_exfiltration")
         ]
         if exfil_events:
-            lines.append(f"**Data Exfiltration:** {len(exfil_events)} potential exfiltration events detected")
+            lines.append(
+                f"**Data Exfiltration:** {len(exfil_events)} potential exfiltration events detected"
+            )
             lines.append("")
 
         return "\n".join(lines)
 
     def _generate_recommended_actions(
-        self,
-        session: CorrelationSession,
-        mitre_data: Dict[str, Any]
+        self, session: CorrelationSession, mitre_data: Dict[str, Any]
     ) -> List[str]:
         """Generate recommended response actions."""
         actions = []
@@ -294,58 +303,70 @@ class ThreatNarrativeAgent:
         techniques = mitre_data.get("technique_ids", [])
 
         if "T1078.004" in techniques or any("T1136" in t for t in techniques):
-            actions.append({
-                "priority": "CRITICAL",
-                "action": "Revoke credentials for all compromised accounts immediately",
-                "details": "Identified compromised or unauthorized cloud accounts"
-            })
+            actions.append(
+                {
+                    "priority": "CRITICAL",
+                    "action": "Revoke credentials for all compromised accounts immediately",
+                    "details": "Identified compromised or unauthorized cloud accounts",
+                }
+            )
 
         if "T1110.004" in techniques:
-            actions.append({
-                "priority": "HIGH",
-                "action": "Implement rate limiting and account lockout policies",
-                "details": "Credential stuffing attack detected"
-            })
+            actions.append(
+                {
+                    "priority": "HIGH",
+                    "action": "Implement rate limiting and account lockout policies",
+                    "details": "Credential stuffing attack detected",
+                }
+            )
 
         if "T1548" in techniques or "T1548.005" in techniques:
-            actions.append({
-                "priority": "CRITICAL",
-                "action": "Review and restrict IAM PassRole permissions",
-                "details": "Privilege escalation via PassRole detected"
-            })
+            actions.append(
+                {
+                    "priority": "CRITICAL",
+                    "action": "Review and restrict IAM PassRole permissions",
+                    "details": "Privilege escalation via PassRole detected",
+                }
+            )
 
         if "T1611" in techniques:
-            actions.append({
-                "priority": "CRITICAL",
-                "action": "Isolate and terminate compromised containers",
-                "details": "Container escape detected"
-            })
+            actions.append(
+                {
+                    "priority": "CRITICAL",
+                    "action": "Isolate and terminate compromised containers",
+                    "details": "Container escape detected",
+                }
+            )
 
         if "T1496" in techniques:
-            actions.append({
-                "priority": "HIGH",
-                "action": "Identify and terminate unauthorized workloads",
-                "details": "Resource hijacking (cryptomining) detected"
-            })
+            actions.append(
+                {
+                    "priority": "HIGH",
+                    "action": "Identify and terminate unauthorized workloads",
+                    "details": "Resource hijacking (cryptomining) detected",
+                }
+            )
 
         # General actions
-        actions.extend([
-            {
-                "priority": "HIGH",
-                "action": "Conduct forensic analysis of all session events",
-                "details": "Preserve logs and analyze full attack timeline"
-            },
-            {
-                "priority": "MEDIUM",
-                "action": "Review and update detection rules",
-                "details": "Improve monitoring for similar attack patterns"
-            },
-            {
-                "priority": "MEDIUM",
-                "action": "Conduct security posture review",
-                "details": "Identify and remediate similar vulnerabilities"
-            },
-        ])
+        actions.extend(
+            [
+                {
+                    "priority": "HIGH",
+                    "action": "Conduct forensic analysis of all session events",
+                    "details": "Preserve logs and analyze full attack timeline",
+                },
+                {
+                    "priority": "MEDIUM",
+                    "action": "Review and update detection rules",
+                    "details": "Improve monitoring for similar attack patterns",
+                },
+                {
+                    "priority": "MEDIUM",
+                    "action": "Conduct security posture review",
+                    "details": "Identify and remediate similar vulnerabilities",
+                },
+            ]
+        )
 
         return actions
 
@@ -384,7 +405,9 @@ class ThreatNarrativeAgent:
         else:
             return "low"
 
-    def _describe_kill_chain_stage(self, stage: str, session: CorrelationSession) -> str:
+    def _describe_kill_chain_stage(
+        self, stage: str, session: CorrelationSession
+    ) -> str:
         """Generate description for a kill chain stage."""
         descriptions = {
             "reconnaissance": "Attacker enumerated cloud resources and permissions to identify attack paths",

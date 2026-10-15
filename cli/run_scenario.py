@@ -2,6 +2,7 @@
 """
 CLI tool to run attack scenarios and generate analysis.
 """
+
 import sys
 import json
 from pathlib import Path
@@ -13,28 +14,27 @@ import logging
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from generator.attack_traces.iam_priv_escalation.generator import (
-    generate_iam_privilege_escalation_scenario
+    generate_iam_privilege_escalation_scenario,
 )
 from generator.attack_traces.container_escape.generator import (
-    generate_container_escape_scenario
+    generate_container_escape_scenario,
 )
 from generator.attack_traces.cred_stuffing.generator import (
-    generate_credential_stuffing_scenario
+    generate_credential_stuffing_scenario,
 )
 from generator.attack_traces.lateral_movement.generator import (
-    generate_lateral_movement_scenario
+    generate_lateral_movement_scenario,
 )
 from generator.attack_traces.data_exfiltration.generator import (
-    generate_data_exfiltration_scenario
+    generate_data_exfiltration_scenario,
 )
 from generator.attack_traces.supply_chain.generator import (
-    generate_supply_chain_scenario
+    generate_supply_chain_scenario,
 )
 from analysis_engine.pipeline import analyze_scenario
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -75,36 +75,22 @@ SCENARIOS = {
 
 @click.command()
 @click.option(
-    '--scenario',
+    "--scenario",
     type=click.Choice(list(SCENARIOS.keys())),
     required=True,
-    help='Scenario to run'
+    help="Scenario to run",
 )
 @click.option(
-    '--output',
+    "--output",
     type=click.Path(),
     required=True,
-    help='Output directory for telemetry and reports'
+    help="Output directory for telemetry and reports",
 )
+@click.option("--account-id", default="123456789012", help="AWS account ID to use")
+@click.option("--region", default="us-east-1", help="AWS region to use")
+@click.option("--no-noise", is_flag=True, help="Disable benign background events")
 @click.option(
-    '--account-id',
-    default='123456789012',
-    help='AWS account ID to use'
-)
-@click.option(
-    '--region',
-    default='us-east-1',
-    help='AWS region to use'
-)
-@click.option(
-    '--no-noise',
-    is_flag=True,
-    help='Disable benign background events'
-)
-@click.option(
-    '--analyze/--no-analyze',
-    default=True,
-    help='Run analysis after generation'
+    "--analyze/--no-analyze", default=True, help="Run analysis after generation"
 )
 def run_scenario(
     scenario: str,
@@ -112,7 +98,7 @@ def run_scenario(
     account_id: str,
     region: str,
     no_noise: bool,
-    analyze: bool
+    analyze: bool,
 ) -> None:
     """
     Run an attack scenario and optionally analyze it.
@@ -150,12 +136,12 @@ def run_scenario(
             account_id=account_id,
             region=region,
             duration_hours=scenario_config["duration"],
-            add_noise=not no_noise
+            add_noise=not no_noise,
         )
 
         # Save metadata
         metadata_path = output_path / "metadata.json"
-        with open(metadata_path, 'w') as f:
+        with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
         click.echo(f"✓ Generated {metadata['num_events']} events")
@@ -177,7 +163,7 @@ def run_scenario(
                 telemetry_path=telemetry_path,
                 output_dir=output_path,
                 time_window=60,
-                min_events=3
+                min_events=3,
             )
 
             click.echo(f"✓ Analysis complete")
@@ -216,5 +202,5 @@ def main():
     run_scenario()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

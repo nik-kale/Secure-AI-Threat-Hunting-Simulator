@@ -1,6 +1,7 @@
 """
 Container escape/breakout scenario generator.
 """
+
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -23,7 +24,7 @@ def generate_container_escape_scenario(
     account_id: str = "123456789012",
     region: str = "us-east-1",
     duration_hours: float = 0.67,  # ~40 minutes
-    add_noise: bool = True
+    add_noise: bool = True,
 ) -> Dict[str, Any]:
     """Generate container escape attack scenario."""
     synthesizer = TelemetrySynthesizer(account_id=account_id, region=region)
@@ -36,7 +37,9 @@ def generate_container_escape_scenario(
     host_role = f"arn:aws:iam::{account_id}:role/EC2InstanceRole"
     session_id = generate_session_id()
 
-    start_time, end_time = get_scenario_timeframe(duration_hours=duration_hours, days_ago=1)
+    start_time, end_time = get_scenario_timeframe(
+        duration_hours=duration_hours, days_ago=1
+    )
 
     events: List[Dict[str, Any]] = []
 
@@ -53,10 +56,7 @@ def generate_container_escape_scenario(
                 source_ip=attacker_ip,
                 status_code=500 if i < 2 else 200,  # Failed attempts then success
                 user_agent="python-requests/2.28.1",
-                metadata={
-                    "attack_stage": "initial_access",
-                    "exploit_attempt": True
-                }
+                metadata={"attack_stage": "initial_access", "exploit_attempt": True},
             )
         )
 
@@ -72,15 +72,13 @@ def generate_container_escape_scenario(
             metadata={
                 "attack_stage": "initial_access",
                 "command": "/bin/bash",
-                "suspicious": "unexpected_exec"
-            }
+                "suspicious": "unexpected_exec",
+            },
         )
     )
 
     # Stage 2: Container escape attempts (T+5 to T+10 minutes)
-    escape_timestamps = generate_time_sequence(
-        start_time, 0.17, 10, jitter_seconds=20
-    )
+    escape_timestamps = generate_time_sequence(start_time, 0.17, 10, jitter_seconds=20)
 
     # Reconnaissance within container
     recon_commands = [
@@ -88,7 +86,7 @@ def generate_container_escape_scenario(
         "ls -la /dev",
         "mount | grep docker",
         "cat /etc/passwd",
-        "ps aux"
+        "ps aux",
     ]
 
     for i, cmd in enumerate(recon_commands):
@@ -104,8 +102,8 @@ def generate_container_escape_scenario(
                 metadata={
                     "attack_stage": "container_escape",
                     "command": cmd,
-                    "suspicious": "recon_command"
-                }
+                    "suspicious": "recon_command",
+                },
             )
         )
 
@@ -121,8 +119,8 @@ def generate_container_escape_scenario(
                 "attack_stage": "container_escape",
                 "command": "mount /dev/xvda1 /mnt/host",
                 "suspicious": "host_filesystem_mount",
-                "privileged": True
-            }
+                "privileged": True,
+            },
         )
     )
 
@@ -138,15 +136,13 @@ def generate_container_escape_scenario(
                 "attack_stage": "container_escape",
                 "command": "chroot /mnt/host /bin/bash",
                 "suspicious": "container_breakout",
-                "severity": "critical"
-            }
+                "severity": "critical",
+            },
         )
     )
 
     # Stage 3: Credential access via metadata service (T+10 to T+15 minutes)
-    cred_timestamps = generate_time_sequence(
-        start_time, 0.33, 8, jitter_seconds=15
-    )
+    cred_timestamps = generate_time_sequence(start_time, 0.33, 8, jitter_seconds=15)
 
     # Query metadata service
     metadata_paths = [
@@ -167,8 +163,8 @@ def generate_container_escape_scenario(
                 metadata={
                     "attack_stage": "credential_access",
                     "metadata_service": True,
-                    "suspicious": "metadata_access_from_container"
-                }
+                    "suspicious": "metadata_access_from_container",
+                },
             )
         )
 
@@ -182,17 +178,12 @@ def generate_container_escape_scenario(
             user_agent="Boto3/1.26.137 Python/3.9.16",
             status="success",
             session_id=generate_session_id(),
-            metadata={
-                "attack_stage": "credential_access",
-                "stolen_credentials": True
-            }
+            metadata={"attack_stage": "credential_access", "stolen_credentials": True},
         )
     )
 
     # Stage 4: Lateral movement (T+20 to T+25 minutes)
-    lateral_timestamps = generate_time_sequence(
-        start_time, 0.58, 10, jitter_seconds=20
-    )
+    lateral_timestamps = generate_time_sequence(start_time, 0.58, 10, jitter_seconds=20)
 
     # Enumerate other containers
     events.append(
@@ -203,8 +194,8 @@ def generate_container_escape_scenario(
             principal=host_role,
             metadata={
                 "attack_stage": "lateral_movement",
-                "docker_api_call": "containers/json"
-            }
+                "docker_api_call": "containers/json",
+            },
         )
     )
 
@@ -218,7 +209,7 @@ def generate_container_escape_scenario(
             user_agent="Boto3/1.26.137 Python/3.9.16",
             status="success",
             session_id=generate_session_id(),
-            metadata={"attack_stage": "lateral_movement"}
+            metadata={"attack_stage": "lateral_movement"},
         )
     )
 
@@ -233,17 +224,12 @@ def generate_container_escape_scenario(
                 protocol="TCP",
                 timestamp=lateral_timestamps[i + 2],
                 accepted=False,  # Blocked by security groups
-                metadata={
-                    "attack_stage": "lateral_movement",
-                    "port_scan": True
-                }
+                metadata={"attack_stage": "lateral_movement", "port_scan": True},
             )
         )
 
     # Stage 5: Impact - cryptominer deployment (T+25 to T+40 minutes)
-    impact_timestamps = generate_time_sequence(
-        start_time, 0.75, 8, jitter_seconds=30
-    )
+    impact_timestamps = generate_time_sequence(start_time, 0.75, 8, jitter_seconds=30)
 
     # Download cryptominer
     events.append(
@@ -258,8 +244,8 @@ def generate_container_escape_scenario(
             metadata={
                 "attack_stage": "impact",
                 "cryptominer_download": True,
-                "external_connection": True
-            }
+                "external_connection": True,
+            },
         )
     )
 
@@ -275,8 +261,8 @@ def generate_container_escape_scenario(
                 "attack_stage": "impact",
                 "command": "./xmrig --donate-level 1 -o pool.minexmr.com:4444",
                 "cryptominer": True,
-                "severity": "critical"
-            }
+                "severity": "critical",
+            },
         )
     )
 
@@ -291,8 +277,8 @@ def generate_container_escape_scenario(
                 metadata={
                     "attack_stage": "impact",
                     "cpu_usage_percent": 95.0 + i,
-                    "anomalous": "high_cpu"
-                }
+                    "anomalous": "high_cpu",
+                },
             )
         )
 
@@ -310,8 +296,8 @@ def generate_container_escape_scenario(
             metadata={
                 "attack_stage": "impact",
                 "mining_pool_connection": True,
-                "destination": "pool.minexmr.com"
-            }
+                "destination": "pool.minexmr.com",
+            },
         )
     )
 
@@ -336,7 +322,7 @@ def generate_container_escape_scenario(
             "container_escape",
             "credential_access",
             "lateral_movement",
-            "impact"
+            "impact",
         ],
         "mitre_techniques": [
             "T1190",  # Exploit Public-Facing Application
@@ -351,13 +337,10 @@ def generate_container_escape_scenario(
 
 
 if __name__ == "__main__":
-    output_dir = Path(__file__).parent / "output"
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("output") / "container_escape"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    metadata = generate_container_escape_scenario(
-        output_dir=output_dir,
-        add_noise=True
-    )
+    metadata = generate_container_escape_scenario(output_dir=output_dir, add_noise=True)
 
     print(f"Generated {metadata['num_events']} events")
     print(f"Output: {output_dir / 'telemetry.jsonl'}")

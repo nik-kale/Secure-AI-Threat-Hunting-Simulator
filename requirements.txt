@@ -11,7 +11,7 @@ pandas>=2.1.0
 numpy>=1.24.0
 
 # Database
-sqlalchemy>=2.0.0
+sqlalchemy[asyncio]>=2.0.0  # asyncio extra pulls in greenlet, required since SQLAlchemy 2.1
 alembic>=1.13.0  # For database migrations
 asyncpg>=0.29.0  # PostgreSQL async driver (optional)
 psycopg2-binary>=2.9.9  # PostgreSQL sync driver (optional)

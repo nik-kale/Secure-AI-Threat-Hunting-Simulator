@@ -1,6 +1,7 @@
 """
 Centralized configuration management using Pydantic settings.
 """
+
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
 from typing import List, Optional
@@ -20,15 +21,17 @@ class Settings(BaseSettings):
     allowed_origins: str = Field(
         "http://localhost:3000",
         env="ALLOWED_ORIGINS",
-        description="Comma-separated list of allowed origins"
+        description="Comma-separated list of allowed origins",
     )
     api_key: Optional[str] = Field(None, env="API_KEY")
     admin_api_key: Optional[str] = Field(None, env="ADMIN_API_KEY")
     max_upload_size_mb: int = Field(100, env="MAX_UPLOAD_SIZE_MB")
     max_events_per_request: int = Field(10000, env="MAX_EVENTS_PER_REQUEST")
-    
+
     # Brute Force Protection
-    enable_brute_force_protection: bool = Field(True, env="ENABLE_BRUTE_FORCE_PROTECTION")
+    enable_brute_force_protection: bool = Field(
+        True, env="ENABLE_BRUTE_FORCE_PROTECTION"
+    )
     api_key_lockout_threshold: int = Field(10, env="API_KEY_LOCKOUT_THRESHOLD")
     api_key_lockout_duration: int = Field(900, env="API_KEY_LOCKOUT_DURATION")
     api_key_attempt_window: int = Field(300, env="API_KEY_ATTEMPT_WINDOW")
@@ -42,7 +45,9 @@ class Settings(BaseSettings):
         return v
 
     # ===== Analysis Configuration =====
-    correlation_time_window_minutes: int = Field(60, env="CORRELATION_TIME_WINDOW_MINUTES")
+    correlation_time_window_minutes: int = Field(
+        60, env="CORRELATION_TIME_WINDOW_MINUTES"
+    )
     min_events_for_alert: int = Field(3, env="MIN_EVENTS_FOR_ALERT")
     risk_score_threshold: float = Field(0.5, env="RISK_SCORE_THRESHOLD")
 
@@ -66,8 +71,7 @@ class Settings(BaseSettings):
 
     # ===== Database =====
     db_connection_string: str = Field(
-        "sqlite:///./data/threat_hunting.db",
-        env="DB_CONNECTION_STRING"
+        "sqlite:///./data/threat_hunting.db", env="DB_CONNECTION_STRING"
     )
     db_pool_size: int = Field(5, env="DB_POOL_SIZE")
     db_max_overflow: int = Field(10, env="DB_MAX_OVERFLOW")
@@ -92,7 +96,7 @@ class Settings(BaseSettings):
     metrics_port: int = Field(9090, env="METRICS_PORT")
     sentry_dsn: Optional[str] = Field(None, env="SENTRY_DSN")
     enable_profiling: bool = Field(False, env="ENABLE_PROFILING")
-    
+
     # ===== OpenTelemetry Tracing =====
     otel_enabled: bool = Field(False, env="OTEL_ENABLED")
     otel_service_name: str = Field("threat-hunting-simulator", env="OTEL_SERVICE_NAME")
@@ -104,12 +108,16 @@ class Settings(BaseSettings):
     # ===== Streaming & Performance =====
     streaming_chunk_size: int = Field(1000, env="STREAMING_CHUNK_SIZE")
     max_concurrent_analyses: int = Field(5, env="MAX_CONCURRENT_ANALYSES")
-    
+
     # ===== Resilience & Fault Tolerance =====
     api_timeout_seconds: int = Field(300, env="API_TIMEOUT_SECONDS")
     circuit_breaker_enabled: bool = Field(True, env="CIRCUIT_BREAKER_ENABLED")
-    circuit_breaker_failure_threshold: int = Field(5, env="CIRCUIT_BREAKER_FAILURE_THRESHOLD")
-    circuit_breaker_recovery_timeout: int = Field(60, env="CIRCUIT_BREAKER_RECOVERY_TIMEOUT")
+    circuit_breaker_failure_threshold: int = Field(
+        5, env="CIRCUIT_BREAKER_FAILURE_THRESHOLD"
+    )
+    circuit_breaker_recovery_timeout: int = Field(
+        60, env="CIRCUIT_BREAKER_RECOVERY_TIMEOUT"
+    )
 
     # ===== Redis Caching =====
     redis_enabled: bool = Field(False, env="REDIS_ENABLED")

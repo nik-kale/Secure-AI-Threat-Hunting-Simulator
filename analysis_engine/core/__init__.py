@@ -1,4 +1,5 @@
 """Analysis engine core modules."""
+
 from .loader import TelemetryLoader
 from .parser import EventParser, NormalizedEvent
 from .correlation import EventCorrelator, CorrelationSession
@@ -19,6 +20,7 @@ try:
         AttackPath,
         LateralMovement,
     )
+
     GRAPH_CORRELATION_AVAILABLE = True
 except ImportError:
     GraphCorrelator = None

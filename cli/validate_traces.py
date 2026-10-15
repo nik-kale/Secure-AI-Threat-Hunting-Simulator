@@ -2,6 +2,7 @@
 """
 CLI tool to validate telemetry traces against schema.
 """
+
 import sys
 import json
 from pathlib import Path
@@ -16,23 +17,15 @@ logger = logging.getLogger(__name__)
 
 
 @click.command()
-@click.argument('telemetry_file', type=click.Path(exists=True))
+@click.argument("telemetry_file", type=click.Path(exists=True))
 @click.option(
-    '--schema',
+    "--schema",
     type=click.Path(exists=True),
     default=None,
-    help='Path to JSON schema file (default: auto-detect)'
+    help="Path to JSON schema file (default: auto-detect)",
 )
-@click.option(
-    '--verbose',
-    is_flag=True,
-    help='Show detailed validation errors'
-)
-def validate_traces(
-    telemetry_file: str,
-    schema: str,
-    verbose: bool
-) -> None:
+@click.option("--verbose", is_flag=True, help="Show detailed validation errors")
+def validate_traces(telemetry_file: str, schema: str, verbose: bool) -> None:
     """
     Validate telemetry traces against schema.
 
@@ -119,5 +112,5 @@ def validate_traces(
         sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     validate_traces()

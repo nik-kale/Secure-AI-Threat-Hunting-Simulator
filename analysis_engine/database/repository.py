@@ -4,6 +4,7 @@ Data access layer for AI Threat Hunting Simulator.
 This module provides repository classes for accessing and manipulating
 threat hunting data in the database.
 """
+
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -80,9 +81,7 @@ class AnalysisRepository:
         return analysis_run
 
     def get_analysis_run(
-        self,
-        run_id: int,
-        include_sessions: bool = False
+        self, run_id: int, include_sessions: bool = False
     ) -> Optional[AnalysisRun]:
         """
         Retrieve an analysis run by ID.
@@ -137,8 +136,7 @@ class AnalysisRepository:
         return list(result.scalars().all())
 
     def get_latest_analysis_run(
-        self,
-        scenario_name: Optional[str] = None
+        self, scenario_name: Optional[str] = None
     ) -> Optional[AnalysisRun]:
         """
         Get the most recent analysis run.
@@ -150,9 +148,7 @@ class AnalysisRepository:
             Most recent AnalysisRun or None
         """
         runs = self.list_analysis_runs(
-            scenario_name=scenario_name,
-            limit=1,
-            order_by_recent=True
+            scenario_name=scenario_name, limit=1, order_by_recent=True
         )
         return runs[0] if runs else None
 
@@ -263,9 +259,7 @@ class SessionRepository:
         return detected_session
 
     def get_session(
-        self,
-        session_db_id: int,
-        include_iocs: bool = False
+        self, session_db_id: int, include_iocs: bool = False
     ) -> Optional[DetectedSession]:
         """
         Retrieve a detected session by database ID.
@@ -285,10 +279,7 @@ class SessionRepository:
         result = self.session.execute(query)
         return result.scalar_one_or_none()
 
-    def get_session_by_session_id(
-        self,
-        session_id: str
-    ) -> Optional[DetectedSession]:
+    def get_session_by_session_id(self, session_id: str) -> Optional[DetectedSession]:
         """
         Retrieve a detected session by session ID string.
 
@@ -298,16 +289,12 @@ class SessionRepository:
         Returns:
             DetectedSession instance or None
         """
-        query = select(DetectedSession).where(
-            DetectedSession.session_id == session_id
-        )
+        query = select(DetectedSession).where(DetectedSession.session_id == session_id)
         result = self.session.execute(query)
         return result.scalar_one_or_none()
 
     def get_sessions_by_analysis_run(
-        self,
-        analysis_run_id: int,
-        include_iocs: bool = False
+        self, analysis_run_id: int, include_iocs: bool = False
     ) -> List[DetectedSession]:
         """
         Get all sessions for an analysis run.
@@ -361,10 +348,7 @@ class SessionRepository:
         result = self.session.execute(query)
         return list(result.scalars().all())
 
-    def get_sessions_by_mitre_technique(
-        self,
-        technique: str
-    ) -> List[DetectedSession]:
+    def get_sessions_by_mitre_technique(self, technique: str) -> List[DetectedSession]:
         """
         Get sessions that use a specific MITRE ATT&CK technique.
 
@@ -440,9 +424,7 @@ class IOCRepository:
         return ioc
 
     def save_iocs(
-        self,
-        session_id: int,
-        iocs_data: Dict[str, List[Dict[str, Any]]]
+        self, session_id: int, iocs_data: Dict[str, List[Dict[str, Any]]]
     ) -> List[IOC]:
         """
         Save multiple IOCs from a dictionary structure.
@@ -486,9 +468,7 @@ class IOCRepository:
         return result.scalar_one_or_none()
 
     def get_iocs_by_session(
-        self,
-        session_id: int,
-        include_threat_intel: bool = False
+        self, session_id: int, include_threat_intel: bool = False
     ) -> List[IOC]:
         """
         Get all IOCs for a detected session.
@@ -508,11 +488,7 @@ class IOCRepository:
         result = self.session.execute(query)
         return list(result.scalars().all())
 
-    def get_iocs_by_type(
-        self,
-        ioc_type: str,
-        limit: int = 100
-    ) -> List[IOC]:
+    def get_iocs_by_type(self, ioc_type: str, limit: int = 100) -> List[IOC]:
         """
         Get IOCs by type.
 
@@ -541,11 +517,7 @@ class IOCRepository:
         result = self.session.execute(query)
         return list(result.scalars().all())
 
-    def get_iocs_by_severity(
-        self,
-        severity: str,
-        limit: int = 100
-    ) -> List[IOC]:
+    def get_iocs_by_severity(self, severity: str, limit: int = 100) -> List[IOC]:
         """
         Get IOCs by severity level.
 
@@ -561,9 +533,7 @@ class IOCRepository:
         return list(result.scalars().all())
 
     def update_ioc_enrichment(
-        self,
-        ioc_id: int,
-        enriched: bool = True
+        self, ioc_id: int, enriched: bool = True
     ) -> Optional[IOC]:
         """
         Mark an IOC as enriched with threat intelligence.
@@ -639,15 +609,10 @@ class ThreatIntelligenceRepository:
         self.session.add(threat_intel)
         self.session.flush()
 
-        logger.info(
-            f"Saved threat intelligence from {provider} for IOC {ioc_id}"
-        )
+        logger.info(f"Saved threat intelligence from {provider} for IOC {ioc_id}")
         return threat_intel
 
-    def get_threat_intelligence(
-        self,
-        intel_id: int
-    ) -> Optional[ThreatIntelligence]:
+    def get_threat_intelligence(self, intel_id: int) -> Optional[ThreatIntelligence]:
         """
         Retrieve threat intelligence by ID.
 
@@ -661,10 +626,7 @@ class ThreatIntelligenceRepository:
         result = self.session.execute(query)
         return result.scalar_one_or_none()
 
-    def get_threat_intelligence_by_ioc(
-        self,
-        ioc_id: int
-    ) -> List[ThreatIntelligence]:
+    def get_threat_intelligence_by_ioc(self, ioc_id: int) -> List[ThreatIntelligence]:
         """
         Get all threat intelligence for an IOC.
 
@@ -674,16 +636,12 @@ class ThreatIntelligenceRepository:
         Returns:
             List of ThreatIntelligence instances
         """
-        query = select(ThreatIntelligence).where(
-            ThreatIntelligence.ioc_id == ioc_id
-        )
+        query = select(ThreatIntelligence).where(ThreatIntelligence.ioc_id == ioc_id)
         result = self.session.execute(query)
         return list(result.scalars().all())
 
     def get_threat_intelligence_by_provider(
-        self,
-        provider: str,
-        limit: int = 100
+        self, provider: str, limit: int = 100
     ) -> List[ThreatIntelligence]:
         """
         Get threat intelligence by provider.
@@ -695,16 +653,16 @@ class ThreatIntelligenceRepository:
         Returns:
             List of ThreatIntelligence instances
         """
-        query = select(ThreatIntelligence).where(
-            ThreatIntelligence.provider == provider
-        ).limit(limit)
+        query = (
+            select(ThreatIntelligence)
+            .where(ThreatIntelligence.provider == provider)
+            .limit(limit)
+        )
         result = self.session.execute(query)
         return list(result.scalars().all())
 
     def get_malicious_iocs(
-        self,
-        provider: Optional[str] = None,
-        limit: int = 100
+        self, provider: Optional[str] = None, limit: int = 100
     ) -> List[ThreatIntelligence]:
         """
         Get threat intelligence records for confirmed malicious IOCs.
@@ -723,9 +681,7 @@ class ThreatIntelligenceRepository:
         if provider:
             query = query.where(ThreatIntelligence.provider == provider)
 
-        query = query.order_by(
-            desc(ThreatIntelligence.last_checked)
-        ).limit(limit)
+        query = query.order_by(desc(ThreatIntelligence.last_checked)).limit(limit)
 
         result = self.session.execute(query)
         return list(result.scalars().all())

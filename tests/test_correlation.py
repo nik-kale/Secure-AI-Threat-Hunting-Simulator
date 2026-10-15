@@ -1,6 +1,7 @@
 """
 Tests for event correlation.
 """
+
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -29,7 +30,7 @@ class TestEventCorrelator:
                 account_id="123456789012",
                 region="us-east-1",
                 session_id="session-1",
-                principal="arn:aws:iam::123456789012:user/test"
+                principal="arn:aws:iam::123456789012:user/test",
             )
             for i in range(5)
         ]
@@ -42,10 +43,7 @@ class TestEventCorrelator:
 
     def test_correlate_by_principal(self):
         """Test correlation by principal."""
-        correlator = EventCorrelator(
-            time_window_minutes=60,
-            min_events_for_session=2
-        )
+        correlator = EventCorrelator(time_window_minutes=60, min_events_for_session=2)
 
         # Create events from same principal
         events = [
@@ -56,7 +54,7 @@ class TestEventCorrelator:
                 event_source="test",
                 account_id="123456789012",
                 region="us-east-1",
-                principal="arn:aws:iam::123456789012:user/test"
+                principal="arn:aws:iam::123456789012:user/test",
             )
             for i in range(5)
         ]
@@ -81,7 +79,7 @@ class TestEventCorrelator:
                 event_source="iam",
                 account_id="123456789012",
                 region="us-east-1",
-                metadata={"attack_stage": "persistence"}
+                metadata={"attack_stage": "persistence"},
             )
             session.add_event(event)
 

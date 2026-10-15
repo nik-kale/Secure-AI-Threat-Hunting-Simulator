@@ -4,7 +4,14 @@ Prometheus metrics for performance monitoring.
 Provides comprehensive metrics tracking for the analysis engine including
 request counts, durations, event processing, and resource utilization.
 """
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+
+from prometheus_client import (
+    Counter,
+    Histogram,
+    Gauge,
+    generate_latest,
+    CONTENT_TYPE_LATEST,
+)
 from functools import wraps
 from typing import Callable, Any
 import time
@@ -18,142 +25,147 @@ logger = logging.getLogger(__name__)
 
 # Analysis request metrics
 analysis_requests_total = Counter(
-    'analysis_requests_total',
-    'Total number of analysis requests',
-    ['scenario', 'status']
+    "analysis_requests_total",
+    "Total number of analysis requests",
+    ["scenario", "status"],
 )
 
 analysis_duration_seconds = Histogram(
-    'analysis_duration_seconds',
-    'Duration of analysis requests in seconds',
-    ['scenario'],
-    buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, float('inf'))
+    "analysis_duration_seconds",
+    "Duration of analysis requests in seconds",
+    ["scenario"],
+    buckets=(
+        0.1,
+        0.5,
+        1.0,
+        2.5,
+        5.0,
+        10.0,
+        30.0,
+        60.0,
+        120.0,
+        300.0,
+        600.0,
+        float("inf"),
+    ),
 )
 
 # Event processing metrics
 events_processed_total = Counter(
-    'events_processed_total',
-    'Total number of telemetry events processed',
-    ['event_source']
+    "events_processed_total",
+    "Total number of telemetry events processed",
+    ["event_source"],
 )
 
 events_processing_errors_total = Counter(
-    'events_processing_errors_total',
-    'Total number of event processing errors',
-    ['error_type']
+    "events_processing_errors_total",
+    "Total number of event processing errors",
+    ["error_type"],
 )
 
 # Session detection metrics
 sessions_detected_total = Counter(
-    'sessions_detected_total',
-    'Total number of sessions detected',
-    ['is_malicious']
+    "sessions_detected_total", "Total number of sessions detected", ["is_malicious"]
 )
 
 sessions_analysis_duration_seconds = Histogram(
-    'sessions_analysis_duration_seconds',
-    'Duration of individual session analysis in seconds',
-    buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0, float('inf'))
+    "sessions_analysis_duration_seconds",
+    "Duration of individual session analysis in seconds",
+    buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0, float("inf")),
 )
 
 # Resource utilization metrics
 current_analysis_jobs = Gauge(
-    'current_analysis_jobs',
-    'Number of currently running analysis jobs'
+    "current_analysis_jobs", "Number of currently running analysis jobs"
 )
 
 memory_usage_bytes = Gauge(
-    'memory_usage_bytes',
-    'Current memory usage in bytes',
-    ['type']
+    "memory_usage_bytes", "Current memory usage in bytes", ["type"]
 )
 
 file_upload_size_bytes = Histogram(
-    'file_upload_size_bytes',
-    'Size of uploaded files in bytes',
-    buckets=(1024, 10240, 102400, 1048576, 10485760, 52428800, 104857600, float('inf'))
+    "file_upload_size_bytes",
+    "Size of uploaded files in bytes",
+    buckets=(1024, 10240, 102400, 1048576, 10485760, 52428800, 104857600, float("inf")),
 )
 
 # AI Agent metrics
 llm_requests_total = Counter(
-    'llm_requests_total',
-    'Total number of LLM API requests',
-    ['agent', 'model', 'status']
+    "llm_requests_total",
+    "Total number of LLM API requests",
+    ["agent", "model", "status"],
 )
 
 llm_request_duration_seconds = Histogram(
-    'llm_request_duration_seconds',
-    'Duration of LLM API requests in seconds',
-    ['agent', 'model'],
-    buckets=(0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0, 60.0, float('inf'))
+    "llm_request_duration_seconds",
+    "Duration of LLM API requests in seconds",
+    ["agent", "model"],
+    buckets=(0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0, 60.0, float("inf")),
 )
 
 llm_tokens_used_total = Counter(
-    'llm_tokens_used_total',
-    'Total number of tokens used in LLM requests',
-    ['agent', 'model', 'token_type']
+    "llm_tokens_used_total",
+    "Total number of tokens used in LLM requests",
+    ["agent", "model", "token_type"],
 )
 
 # Database metrics
 database_queries_total = Counter(
-    'database_queries_total',
-    'Total number of database queries',
-    ['operation', 'table', 'status']
+    "database_queries_total",
+    "Total number of database queries",
+    ["operation", "table", "status"],
 )
 
 database_query_duration_seconds = Histogram(
-    'database_query_duration_seconds',
-    'Duration of database queries in seconds',
-    ['operation', 'table'],
-    buckets=(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, float('inf'))
+    "database_query_duration_seconds",
+    "Duration of database queries in seconds",
+    ["operation", "table"],
+    buckets=(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, float("inf")),
 )
 
 # HTTP endpoint metrics
 http_requests_total = Counter(
-    'http_requests_total',
-    'Total number of HTTP requests',
-    ['method', 'endpoint', 'status_code']
+    "http_requests_total",
+    "Total number of HTTP requests",
+    ["method", "endpoint", "status_code"],
 )
 
 http_request_duration_seconds = Histogram(
-    'http_request_duration_seconds',
-    'Duration of HTTP requests in seconds',
-    ['method', 'endpoint'],
-    buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, float('inf'))
+    "http_request_duration_seconds",
+    "Duration of HTTP requests in seconds",
+    ["method", "endpoint"],
+    buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, float("inf")),
 )
 
 # IOC extraction metrics
 iocs_extracted_total = Counter(
-    'iocs_extracted_total',
-    'Total number of IOCs extracted',
-    ['ioc_type']
+    "iocs_extracted_total", "Total number of IOCs extracted", ["ioc_type"]
 )
 
 # Error tracking
 errors_total = Counter(
-    'errors_total',
-    'Total number of errors',
-    ['error_type', 'component']
+    "errors_total", "Total number of errors", ["error_type", "component"]
 )
 
 # Health check metrics
 health_check_status = Gauge(
-    'health_check_status',
-    'Health check status (1 = healthy, 0 = unhealthy)',
-    ['component']
+    "health_check_status",
+    "Health check status (1 = healthy, 0 = unhealthy)",
+    ["component"],
 )
 
 health_check_duration_seconds = Histogram(
-    'health_check_duration_seconds',
-    'Duration of health checks in seconds',
-    ['component'],
-    buckets=(0.001, 0.01, 0.1, 0.5, 1.0, 5.0, float('inf'))
+    "health_check_duration_seconds",
+    "Duration of health checks in seconds",
+    ["component"],
+    buckets=(0.001, 0.01, 0.1, 0.5, 1.0, 5.0, float("inf")),
 )
 
 
 # ============================================================================
 # Decorator Functions
 # ============================================================================
+
 
 def track_analysis(scenario: str = "unknown"):
     """
@@ -173,6 +185,7 @@ def track_analysis(scenario: str = "unknown"):
             # Your analysis logic here
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -189,8 +202,7 @@ def track_analysis(scenario: str = "unknown"):
             except Exception as e:
                 status = "failure"
                 errors_total.labels(
-                    error_type=type(e).__name__,
-                    component="analysis"
+                    error_type=type(e).__name__, component="analysis"
                 ).inc()
                 raise
 
@@ -198,14 +210,9 @@ def track_analysis(scenario: str = "unknown"):
                 # Record metrics
                 duration = time.time() - start_time
 
-                analysis_requests_total.labels(
-                    scenario=scenario,
-                    status=status
-                ).inc()
+                analysis_requests_total.labels(scenario=scenario, status=status).inc()
 
-                analysis_duration_seconds.labels(
-                    scenario=scenario
-                ).observe(duration)
+                analysis_duration_seconds.labels(scenario=scenario).observe(duration)
 
                 # Decrement active jobs
                 current_analysis_jobs.dec()
@@ -216,6 +223,7 @@ def track_analysis(scenario: str = "unknown"):
                 )
 
         return wrapper
+
     return decorator
 
 
@@ -233,6 +241,7 @@ def track_session_analysis(func: Callable) -> Callable:
             # Session analysis logic
             pass
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs) -> Any:
         start_time = time.time()
@@ -241,7 +250,11 @@ def track_session_analysis(func: Callable) -> Callable:
             result = func(*args, **kwargs)
 
             # Track session detection
-            is_malicious = "true" if result.get("session_info", {}).get("risk_score", 0) > 0.5 else "false"
+            is_malicious = (
+                "true"
+                if result.get("session_info", {}).get("risk_score", 0) > 0.5
+                else "false"
+            )
             sessions_detected_total.labels(is_malicious=is_malicious).inc()
 
             return result
@@ -267,6 +280,7 @@ def track_llm_request(agent: str, model: str = "unknown"):
             # LLM API call
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -281,42 +295,31 @@ def track_llm_request(agent: str, model: str = "unknown"):
                     usage = result["usage"]
                     if "prompt_tokens" in usage:
                         llm_tokens_used_total.labels(
-                            agent=agent,
-                            model=model,
-                            token_type="prompt"
+                            agent=agent, model=model, token_type="prompt"
                         ).inc(usage["prompt_tokens"])
                     if "completion_tokens" in usage:
                         llm_tokens_used_total.labels(
-                            agent=agent,
-                            model=model,
-                            token_type="completion"
+                            agent=agent, model=model, token_type="completion"
                         ).inc(usage["completion_tokens"])
 
                 return result
 
             except Exception as e:
                 status = "failure"
-                errors_total.labels(
-                    error_type=type(e).__name__,
-                    component="llm"
-                ).inc()
+                errors_total.labels(error_type=type(e).__name__, component="llm").inc()
                 raise
 
             finally:
                 duration = time.time() - start_time
 
-                llm_requests_total.labels(
-                    agent=agent,
-                    model=model,
-                    status=status
-                ).inc()
+                llm_requests_total.labels(agent=agent, model=model, status=status).inc()
 
-                llm_request_duration_seconds.labels(
-                    agent=agent,
-                    model=model
-                ).observe(duration)
+                llm_request_duration_seconds.labels(agent=agent, model=model).observe(
+                    duration
+                )
 
         return wrapper
+
     return decorator
 
 
@@ -334,6 +337,7 @@ def track_database_query(operation: str, table: str):
             # Database query
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -347,8 +351,7 @@ def track_database_query(operation: str, table: str):
             except Exception as e:
                 status = "failure"
                 errors_total.labels(
-                    error_type=type(e).__name__,
-                    component="database"
+                    error_type=type(e).__name__, component="database"
                 ).inc()
                 raise
 
@@ -356,23 +359,22 @@ def track_database_query(operation: str, table: str):
                 duration = time.time() - start_time
 
                 database_queries_total.labels(
-                    operation=operation,
-                    table=table,
-                    status=status
+                    operation=operation, table=table, status=status
                 ).inc()
 
                 database_query_duration_seconds.labels(
-                    operation=operation,
-                    table=table
+                    operation=operation, table=table
                 ).observe(duration)
 
         return wrapper
+
     return decorator
 
 
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def record_event_processed(event_source: str = "unknown", count: int = 1):
     """
@@ -454,6 +456,7 @@ def get_content_type() -> str:
 # Metrics Collection
 # ============================================================================
 
+
 def collect_system_metrics():
     """
     Collect system-level metrics (memory, CPU, etc.).
@@ -462,6 +465,7 @@ def collect_system_metrics():
     """
     try:
         import psutil
+
         process = psutil.Process()
 
         # Memory metrics

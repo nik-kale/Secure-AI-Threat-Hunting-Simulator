@@ -119,7 +119,7 @@ analysis_engine/database/
 ├── migrations.py            - Database migration utilities (Alembic)
 ├── example_usage.py         - Usage examples
 ├── integration_example.py   - Pipeline integration examples
-├── test_database.py         - Unit tests
+├── (tests live in tests/test_database.py)
 └── SETUP_GUIDE.txt          - This file
 
 
@@ -143,11 +143,11 @@ RUNNING TESTS
 
 Run the database tests:
 
-    pytest analysis_engine/database/test_database.py -v
+    pytest tests/test_database.py -v
 
 Run with coverage:
 
-    pytest analysis_engine/database/test_database.py -v --cov=analysis_engine.database
+    pytest tests/test_database.py -v --cov=analysis_engine.database
 
 
 EXAMPLES
@@ -156,7 +156,7 @@ EXAMPLES
 See the following files for detailed examples:
   - example_usage.py         : Basic CRUD operations
   - integration_example.py   : Pipeline integration
-  - test_database.py         : Test examples
+  - tests/test_database.py   : Test examples
 
 
 TROUBLESHOOTING

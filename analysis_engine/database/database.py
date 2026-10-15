@@ -4,6 +4,7 @@ Database engine and session management for AI Threat Hunting Simulator.
 This module provides database connection setup, session management, and
 initialization utilities for the SQLAlchemy-based persistence layer.
 """
+
 import logging
 from contextlib import asynccontextmanager, contextmanager
 from typing import AsyncGenerator, Generator, Optional
@@ -74,7 +75,7 @@ class DatabaseConfig:
         user: str,
         password: str,
         port: int = 5432,
-        **kwargs
+        **kwargs,
     ) -> "DatabaseConfig":
         """Create configuration for PostgreSQL database."""
         url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
@@ -88,7 +89,7 @@ class DatabaseConfig:
         user: str,
         password: str,
         port: int = 5432,
-        **kwargs
+        **kwargs,
     ) -> "DatabaseConfig":
         """Create configuration for async PostgreSQL database."""
         url = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
@@ -142,6 +143,7 @@ class DatabaseManager:
                 connect_args={"check_same_thread": False},
                 poolclass=pool.StaticPool,
             )
+
             # Enable foreign keys for SQLite
             @event.listens_for(engine, "connect")
             def set_sqlite_pragma(dbapi_conn, connection_record):
@@ -341,7 +343,9 @@ _db_manager: Optional[DatabaseManager] = None
 _async_db_manager: Optional[AsyncDatabaseManager] = None
 
 
-def init_database(config: DatabaseConfig, create_tables: bool = True) -> DatabaseManager:
+def init_database(
+    config: DatabaseConfig, create_tables: bool = True
+) -> DatabaseManager:
     """
     Initialize the global database manager.
 
@@ -362,8 +366,7 @@ def init_database(config: DatabaseConfig, create_tables: bool = True) -> Databas
 
 
 async def init_async_database(
-    config: DatabaseConfig,
-    create_tables: bool = True
+    config: DatabaseConfig, create_tables: bool = True
 ) -> AsyncDatabaseManager:
     """
     Initialize the global async database manager.
@@ -395,9 +398,7 @@ def get_database() -> DatabaseManager:
         RuntimeError: If database not initialized
     """
     if _db_manager is None:
-        raise RuntimeError(
-            "Database not initialized. Call init_database() first."
-        )
+        raise RuntimeError("Database not initialized. Call init_database() first.")
     return _db_manager
 
 

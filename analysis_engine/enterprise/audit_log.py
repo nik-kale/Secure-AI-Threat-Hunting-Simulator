@@ -1,4 +1,5 @@
 """Enterprise audit logging for compliance and security."""
+
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -6,8 +7,10 @@ from enum import Enum
 import json
 import hashlib
 
+
 class AuditEventType(str, Enum):
     """Types of auditable events."""
+
     AUTHENTICATION = "authentication"
     AUTHORIZATION = "authorization"
     DATA_ACCESS = "data_access"
@@ -23,16 +26,20 @@ class AuditEventType(str, Enum):
     API_ACCESS = "api_access"
     SYSTEM_EVENT = "system_event"
 
+
 class AuditSeverity(str, Enum):
     """Audit event severity."""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
 
+
 @dataclass
 class AuditEvent:
     """Individual audit log entry."""
+
     event_id: str
     timestamp: datetime
     event_type: AuditEventType
@@ -52,9 +59,11 @@ class AuditEvent:
     previous_event_hash: Optional[str] = None
     event_hash: Optional[str] = None
 
+
 @dataclass
 class AuditQuery:
     """Query parameters for audit log search."""
+
     event_types: Optional[List[AuditEventType]] = None
     actor_ids: Optional[List[str]] = None
     resource_types: Optional[List[str]] = None
@@ -64,6 +73,7 @@ class AuditQuery:
     outcomes: Optional[List[str]] = None
     severities: Optional[List[AuditSeverity]] = None
     limit: int = 100
+
 
 class AuditLogger:
     """Enterprise audit logging system with tamper detection."""
@@ -87,7 +97,7 @@ class AuditLogger:
         source_ip: Optional[str] = None,
         user_agent: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> AuditEvent:
         """Log an auditable event.
 
@@ -126,7 +136,7 @@ class AuditLogger:
             outcome=outcome,
             details=details or {},
             metadata=metadata or {},
-            previous_event_hash=self.last_event_hash
+            previous_event_hash=self.last_event_hash,
         )
 
         # Calculate event hash for integrity
@@ -171,22 +181,26 @@ class AuditLogger:
         for event in self.events:
             # Check previous hash linkage
             if event.previous_event_hash != expected_previous_hash:
-                tampered_events.append({
-                    "event_id": event.event_id,
-                    "reason": "Previous hash mismatch",
-                    "expected": expected_previous_hash,
-                    "actual": event.previous_event_hash
-                })
+                tampered_events.append(
+                    {
+                        "event_id": event.event_id,
+                        "reason": "Previous hash mismatch",
+                        "expected": expected_previous_hash,
+                        "actual": event.previous_event_hash,
+                    }
+                )
 
             # Verify event hash
             calculated_hash = self._calculate_event_hash(event)
             if calculated_hash != event.event_hash:
-                tampered_events.append({
-                    "event_id": event.event_id,
-                    "reason": "Event hash mismatch",
-                    "expected": event.event_hash,
-                    "calculated": calculated_hash
-                })
+                tampered_events.append(
+                    {
+                        "event_id": event.event_id,
+                        "reason": "Event hash mismatch",
+                        "expected": event.event_hash,
+                        "calculated": calculated_hash,
+                    }
+                )
 
             expected_previous_hash = event.event_hash
 
@@ -195,7 +209,7 @@ class AuditLogger:
         return {
             "verified": not self.tamper_detected,
             "total_events": len(self.events),
-            "tampered_events": tampered_events
+            "tampered_events": tampered_events,
         }
 
     def query_events(self, query: AuditQuery) -> List[AuditEvent]:
@@ -242,12 +256,10 @@ class AuditLogger:
         # Sort by timestamp descending
         results = sorted(results, key=lambda e: e.timestamp, reverse=True)
 
-        return results[:query.limit]
+        return results[: query.limit]
 
     def get_activity_summary(
-        self,
-        actor_id: str,
-        time_window_hours: int = 24
+        self, actor_id: str, time_window_hours: int = 24
     ) -> Dict[str, Any]:
         """Get activity summary for an actor.
 
@@ -261,7 +273,8 @@ class AuditLogger:
         cutoff_time = datetime.now() - timedelta(hours=time_window_hours)
 
         events = [
-            e for e in self.events
+            e
+            for e in self.events
             if e.actor_id == actor_id and e.timestamp >= cutoff_time
         ]
 
@@ -269,7 +282,7 @@ class AuditLogger:
             return {
                 "actor_id": actor_id,
                 "total_events": 0,
-                "time_window_hours": time_window_hours
+                "time_window_hours": time_window_hours,
             }
 
         event_types = {}
@@ -285,7 +298,9 @@ class AuditLogger:
             outcomes[event.outcome] = outcomes.get(event.outcome, 0) + 1
 
             # Count resource types
-            resource_types[event.resource_type] = resource_types.get(event.resource_type, 0) + 1
+            resource_types[event.resource_type] = (
+                resource_types.get(event.resource_type, 0) + 1
+            )
 
         return {
             "actor_id": actor_id,
@@ -295,7 +310,7 @@ class AuditLogger:
             "outcomes": outcomes,
             "resource_types": resource_types,
             "first_event": events[-1].timestamp.isoformat(),
-            "last_event": events[0].timestamp.isoformat()
+            "last_event": events[0].timestamp.isoformat(),
         }
 
     def detect_anomalies(self, time_window_hours: int = 24) -> List[Dict[str, Any]]:
@@ -314,7 +329,8 @@ class AuditLogger:
 
         # Detect excessive failed authentication
         failed_auth = [
-            e for e in recent_events
+            e
+            for e in recent_events
             if e.event_type == AuditEventType.AUTHENTICATION and e.outcome == "failure"
         ]
 
@@ -324,64 +340,67 @@ class AuditLogger:
 
         for actor_id, failure_count in actor_failures.items():
             if failure_count >= 5:
-                anomalies.append({
-                    "type": "excessive_failed_auth",
-                    "actor_id": actor_id,
-                    "failure_count": failure_count,
-                    "severity": "high",
-                    "description": f"Actor {actor_id} had {failure_count} failed authentication attempts"
-                })
+                anomalies.append(
+                    {
+                        "type": "excessive_failed_auth",
+                        "actor_id": actor_id,
+                        "failure_count": failure_count,
+                        "severity": "high",
+                        "description": f"Actor {actor_id} had {failure_count} failed authentication attempts",
+                    }
+                )
 
         # Detect unusual time access
         for event in recent_events:
             hour = event.timestamp.hour
             if hour < 6 or hour > 22:  # Outside business hours
-                anomalies.append({
-                    "type": "unusual_time_access",
-                    "actor_id": event.actor_id,
-                    "timestamp": event.timestamp.isoformat(),
-                    "severity": "medium",
-                    "description": f"Access at unusual time: {event.timestamp.hour}:00"
-                })
+                anomalies.append(
+                    {
+                        "type": "unusual_time_access",
+                        "actor_id": event.actor_id,
+                        "timestamp": event.timestamp.isoformat(),
+                        "severity": "medium",
+                        "description": f"Access at unusual time: {event.timestamp.hour}:00",
+                    }
+                )
 
         # Detect bulk data export
         export_events = [
-            e for e in recent_events
-            if e.event_type == AuditEventType.EXPORT
+            e for e in recent_events if e.event_type == AuditEventType.EXPORT
         ]
 
         if len(export_events) > 10:
-            anomalies.append({
-                "type": "bulk_export",
-                "export_count": len(export_events),
-                "severity": "critical",
-                "description": f"{len(export_events)} export events detected in {time_window_hours} hours"
-            })
+            anomalies.append(
+                {
+                    "type": "bulk_export",
+                    "export_count": len(export_events),
+                    "severity": "critical",
+                    "description": f"{len(export_events)} export events detected in {time_window_hours} hours",
+                }
+            )
 
         # Detect privilege escalation attempts
         priv_changes = [
-            e for e in recent_events
-            if e.event_type == AuditEventType.ROLE_ASSIGNMENT
+            e for e in recent_events if e.event_type == AuditEventType.ROLE_ASSIGNMENT
         ]
 
         for event in priv_changes:
             if event.outcome == "success":
-                anomalies.append({
-                    "type": "privilege_escalation",
-                    "actor_id": event.actor_id,
-                    "resource_id": event.resource_id,
-                    "timestamp": event.timestamp.isoformat(),
-                    "severity": "high",
-                    "description": f"Privilege escalation by {event.actor_id}"
-                })
+                anomalies.append(
+                    {
+                        "type": "privilege_escalation",
+                        "actor_id": event.actor_id,
+                        "resource_id": event.resource_id,
+                        "timestamp": event.timestamp.isoformat(),
+                        "severity": "high",
+                        "description": f"Privilege escalation by {event.actor_id}",
+                    }
+                )
 
         return anomalies
 
     def export_compliance_report(
-        self,
-        start_time: datetime,
-        end_time: datetime,
-        format: str = "json"
+        self, start_time: datetime, end_time: datetime, format: str = "json"
     ) -> str:
         """Export compliance report for audit period.
 
@@ -393,11 +412,7 @@ class AuditLogger:
         Returns:
             Formatted report
         """
-        query = AuditQuery(
-            start_time=start_time,
-            end_time=end_time,
-            limit=10000
-        )
+        query = AuditQuery(start_time=start_time, end_time=end_time, limit=10000)
 
         events = self.query_events(query)
 
@@ -409,13 +424,15 @@ class AuditLogger:
             "integrity_verified": not self.tamper_detected,
             "event_breakdown": {},
             "actor_summary": {},
-            "critical_events": []
+            "critical_events": [],
         }
 
         # Event type breakdown
         for event in events:
             event_type = event.event_type.value
-            report["event_breakdown"][event_type] = report["event_breakdown"].get(event_type, 0) + 1
+            report["event_breakdown"][event_type] = (
+                report["event_breakdown"].get(event_type, 0) + 1
+            )
 
         # Actor summary
         for event in events:
@@ -423,7 +440,7 @@ class AuditLogger:
                 report["actor_summary"][event.actor_id] = {
                     "total_events": 0,
                     "failed_events": 0,
-                    "critical_events": 0
+                    "critical_events": 0,
                 }
 
             report["actor_summary"][event.actor_id]["total_events"] += 1
@@ -441,7 +458,7 @@ class AuditLogger:
                 "timestamp": e.timestamp.isoformat(),
                 "actor_id": e.actor_id,
                 "action": e.action,
-                "resource": f"{e.resource_type}/{e.resource_id}"
+                "resource": f"{e.resource_type}/{e.resource_id}",
             }
             for e in events
             if e.severity == AuditSeverity.CRITICAL

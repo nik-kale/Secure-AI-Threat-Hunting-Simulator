@@ -43,11 +43,11 @@ ENV/
 .env.local
 
 # Output and logs
-output/
+/output/
 *.log
-logs/
-reports/
-telemetry/
+/logs/
+/reports/
+/telemetry/
 
 # Node (UI)
 ui/soc_dashboard/node_modules/

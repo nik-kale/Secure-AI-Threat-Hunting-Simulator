@@ -1,14 +1,14 @@
 """
 Time utilities for telemetry generation.
 """
+
 from datetime import datetime, timedelta
 from typing import Optional
 import random
 
 
 def generate_timestamp(
-    base_time: Optional[datetime] = None,
-    offset_seconds: float = 0
+    base_time: Optional[datetime] = None, offset_seconds: float = 0
 ) -> str:
     """
     Generate an ISO 8601 timestamp.
@@ -31,7 +31,7 @@ def generate_time_sequence(
     start_time: datetime,
     duration_hours: float,
     num_events: int,
-    jitter_seconds: float = 60.0
+    jitter_seconds: float = 60.0,
 ) -> list[str]:
     """
     Generate a sequence of timestamps with realistic jitter.
@@ -88,8 +88,7 @@ def time_delta_seconds(ts1: str, ts2: str) -> float:
 
 
 def get_scenario_timeframe(
-    duration_hours: float = 2.0,
-    days_ago: int = 1
+    duration_hours: float = 2.0, days_ago: int = 1
 ) -> tuple[datetime, datetime]:
     """
     Get a realistic timeframe for a scenario.

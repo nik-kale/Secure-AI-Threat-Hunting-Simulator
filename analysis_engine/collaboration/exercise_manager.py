@@ -1,11 +1,14 @@
 """Exercise management and scheduling for team training."""
+
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 
+
 class ExerciseType(str, Enum):
     """Types of security exercises."""
+
     RED_TEAM = "red_team"
     BLUE_TEAM = "blue_team"
     PURPLE_TEAM = "purple_team"
@@ -13,35 +16,43 @@ class ExerciseType(str, Enum):
     TABLETOP = "tabletop"
     INCIDENT_RESPONSE_DRILL = "incident_response_drill"
 
+
 class ExerciseStatus(str, Enum):
     """Exercise lifecycle status."""
+
     SCHEDULED = "scheduled"
     IN_PROGRESS = "in_progress"
     PAUSED = "paused"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
+
 @dataclass
 class Participant:
     """Exercise participant."""
+
     user_id: str
     role: str
     team: str  # red, blue, purple, observer
     joined_at: Optional[datetime] = None
     score: float = 0.0
 
+
 @dataclass
 class ExerciseObjective:
     """Exercise learning objective."""
+
     objective_id: str
     description: str
     mitre_techniques: List[str]
     success_criteria: str
     achieved: bool = False
 
+
 @dataclass
 class ExerciseEvent:
     """Event that occurred during exercise."""
+
     event_id: str
     timestamp: datetime
     event_type: str
@@ -50,9 +61,11 @@ class ExerciseEvent:
     target: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class Exercise:
     """Security training exercise."""
+
     exercise_id: str
     title: str
     description: str
@@ -70,9 +83,11 @@ class Exercise:
     scenario_config: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ExerciseTemplate:
     """Reusable exercise template."""
+
     template_id: str
     name: str
     description: str
@@ -81,6 +96,7 @@ class ExerciseTemplate:
     objectives: List[ExerciseObjective]
     scenario_config: Dict[str, Any]
     recommended_team_size: int
+
 
 class ExerciseManager:
     """Manage security training exercises."""
@@ -104,30 +120,29 @@ class ExerciseManager:
                         objective_id="obj-001",
                         description="Detect ransomware execution within 15 minutes",
                         mitre_techniques=["T1486"],
-                        success_criteria="Identify malicious process and affected systems"
+                        success_criteria="Identify malicious process and affected systems",
                     ),
                     ExerciseObjective(
                         objective_id="obj-002",
                         description="Contain the attack by isolating affected systems",
                         mitre_techniques=["T1486"],
-                        success_criteria="Network isolation completed within 30 minutes"
+                        success_criteria="Network isolation completed within 30 minutes",
                     ),
                     ExerciseObjective(
                         objective_id="obj-003",
                         description="Identify C2 communication and block IOCs",
                         mitre_techniques=["T1071"],
-                        success_criteria="C2 domains/IPs blocked at firewall"
-                    )
+                        success_criteria="C2 domains/IPs blocked at firewall",
+                    ),
                 ],
                 scenario_config={
                     "attack_vector": "phishing_email",
                     "ransomware_family": "lockbit",
                     "encryption_speed_files_per_minute": 100,
-                    "initial_compromise": "workstation-ws-042"
+                    "initial_compromise": "workstation-ws-042",
                 },
-                recommended_team_size=6
+                recommended_team_size=6,
             ),
-
             ExerciseTemplate(
                 template_id="tmpl-002-apt-detection",
                 name="APT Detection and Hunting",
@@ -139,30 +154,29 @@ class ExerciseManager:
                         objective_id="obj-004",
                         description="Identify initial access technique",
                         mitre_techniques=["T1078", "T1566"],
-                        success_criteria="Detect spear-phishing or credential abuse"
+                        success_criteria="Detect spear-phishing or credential abuse",
                     ),
                     ExerciseObjective(
                         objective_id="obj-005",
                         description="Track lateral movement across environment",
                         mitre_techniques=["T1021.002", "T1550"],
-                        success_criteria="Map attacker's path through network"
+                        success_criteria="Map attacker's path through network",
                     ),
                     ExerciseObjective(
                         objective_id="obj-006",
                         description="Discover data exfiltration attempts",
                         mitre_techniques=["T1530", "T1048"],
-                        success_criteria="Identify exfiltration channels and volume"
-                    )
+                        success_criteria="Identify exfiltration channels and volume",
+                    ),
                 ],
                 scenario_config={
                     "apt_group": "APT29",
                     "duration_days": 14,
                     "compromised_systems": 8,
-                    "data_exfiltrated_gb": 250
+                    "data_exfiltrated_gb": 250,
                 },
-                recommended_team_size=10
+                recommended_team_size=10,
             ),
-
             ExerciseTemplate(
                 template_id="tmpl-003-cloud-breach",
                 name="Cloud Environment Breach Response",
@@ -174,30 +188,29 @@ class ExerciseManager:
                         objective_id="obj-007",
                         description="Identify compromised cloud credentials",
                         mitre_techniques=["T1552.001"],
-                        success_criteria="Locate leaked or stolen access keys"
+                        success_criteria="Locate leaked or stolen access keys",
                     ),
                     ExerciseObjective(
                         objective_id="obj-008",
                         description="Revoke compromised credentials and rotate keys",
                         mitre_techniques=["T1098"],
-                        success_criteria="All compromised credentials deactivated"
+                        success_criteria="All compromised credentials deactivated",
                     ),
                     ExerciseObjective(
                         objective_id="obj-009",
                         description="Assess blast radius of the breach",
                         mitre_techniques=["T1069"],
-                        success_criteria="Identify all accessed resources and data"
-                    )
+                        success_criteria="Identify all accessed resources and data",
+                    ),
                 ],
                 scenario_config={
                     "cloud_provider": "aws",
                     "compromised_role": "admin",
                     "breach_duration_hours": 12,
-                    "unauthorized_actions": 247
+                    "unauthorized_actions": 247,
                 },
-                recommended_team_size=4
+                recommended_team_size=4,
             ),
-
             ExerciseTemplate(
                 template_id="tmpl-004-insider-threat",
                 name="Insider Threat Investigation",
@@ -209,29 +222,29 @@ class ExerciseManager:
                         objective_id="obj-010",
                         description="Identify behavioral anomalies in user activity",
                         mitre_techniques=["T1213"],
-                        success_criteria="Detect unusual data access patterns"
+                        success_criteria="Detect unusual data access patterns",
                     ),
                     ExerciseObjective(
                         objective_id="obj-011",
                         description="Determine scope of unauthorized access",
                         mitre_techniques=["T1213", "T1005"],
-                        success_criteria="List all accessed sensitive resources"
+                        success_criteria="List all accessed sensitive resources",
                     ),
                     ExerciseObjective(
                         objective_id="obj-012",
                         description="Preserve evidence for investigation",
                         mitre_techniques=[],
-                        success_criteria="Collect logs and artifacts without alerting insider"
-                    )
+                        success_criteria="Collect logs and artifacts without alerting insider",
+                    ),
                 ],
                 scenario_config={
                     "insider_type": "malicious",
                     "motivation": "financial",
                     "access_level": "developer",
-                    "data_targeted": "source_code_and_customer_data"
+                    "data_targeted": "source_code_and_customer_data",
                 },
-                recommended_team_size=5
-            )
+                recommended_team_size=5,
+            ),
         ]
 
         for template in templates:
@@ -245,7 +258,7 @@ class ExerciseManager:
         scheduled_start: datetime,
         duration_hours: int,
         template_id: Optional[str] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ) -> Exercise:
         """Create a new exercise.
 
@@ -285,18 +298,14 @@ class ExerciseManager:
             scheduled_start=scheduled_start,
             scheduled_end=scheduled_end,
             objectives=objectives,
-            scenario_config=scenario_config
+            scenario_config=scenario_config,
         )
 
         self.exercises[exercise_id] = exercise
         return exercise
 
     def add_participant(
-        self,
-        exercise_id: str,
-        user_id: str,
-        role: str,
-        team: str
+        self, exercise_id: str, user_id: str, role: str, team: str
     ) -> Participant:
         """Add participant to exercise.
 
@@ -314,10 +323,7 @@ class ExerciseManager:
             raise ValueError(f"Exercise not found: {exercise_id}")
 
         participant = Participant(
-            user_id=user_id,
-            role=role,
-            team=team,
-            joined_at=datetime.now()
+            user_id=user_id, role=role, team=team, joined_at=datetime.now()
         )
 
         exercise.participants.append(participant)
@@ -381,19 +387,23 @@ class ExerciseManager:
         objectives_achieved = sum(1 for obj in exercise.objectives if obj.achieved)
         objectives_total = len(exercise.objectives)
 
-        participant_scores = {
-            p.user_id: p.score for p in exercise.participants
-        }
+        participant_scores = {p.user_id: p.score for p in exercise.participants}
 
         return {
             "actual_duration_minutes": int(actual_duration.total_seconds() / 60),
             "objectives_achieved": objectives_achieved,
             "objectives_total": objectives_total,
-            "success_rate": objectives_achieved / objectives_total if objectives_total > 0 else 0,
+            "success_rate": (
+                objectives_achieved / objectives_total if objectives_total > 0 else 0
+            ),
             "participant_count": len(exercise.participants),
             "participant_scores": participant_scores,
-            "average_score": sum(participant_scores.values()) / len(participant_scores) if participant_scores else 0,
-            "event_count": len(exercise.events)
+            "average_score": (
+                sum(participant_scores.values()) / len(participant_scores)
+                if participant_scores
+                else 0
+            ),
+            "event_count": len(exercise.events),
         }
 
     def record_event(
@@ -403,7 +413,7 @@ class ExerciseManager:
         actor: str,
         action: str,
         target: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ExerciseEvent:
         """Record an event during exercise.
 
@@ -429,17 +439,14 @@ class ExerciseManager:
             actor=actor,
             action=action,
             target=target,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         exercise.events.append(event)
         return event
 
     def update_objective_status(
-        self,
-        exercise_id: str,
-        objective_id: str,
-        achieved: bool
+        self, exercise_id: str, objective_id: str, achieved: bool
     ) -> ExerciseObjective:
         """Update objective completion status.
 
@@ -472,8 +479,10 @@ class ExerciseManager:
             List of upcoming exercises
         """
         upcoming = [
-            ex for ex in self.exercises.values()
-            if ex.status == ExerciseStatus.SCHEDULED and ex.scheduled_start > datetime.now()
+            ex
+            for ex in self.exercises.values()
+            if ex.status == ExerciseStatus.SCHEDULED
+            and ex.scheduled_start > datetime.now()
         ]
 
         return sorted(upcoming, key=lambda x: x.scheduled_start)[:limit]
@@ -501,11 +510,15 @@ class ExerciseManager:
             "objectives": {
                 "achieved": exercise.metrics.get("objectives_achieved", 0),
                 "total": exercise.metrics.get("objectives_total", 0),
-                "success_rate": exercise.metrics.get("success_rate", 0)
+                "success_rate": exercise.metrics.get("success_rate", 0),
             },
             "scores": exercise.metrics.get("participant_scores", {}),
             "average_score": exercise.metrics.get("average_score", 0),
             "events_recorded": len(exercise.events),
-            "started_at": exercise.actual_start.isoformat() if exercise.actual_start else None,
-            "completed_at": exercise.actual_end.isoformat() if exercise.actual_end else None
+            "started_at": (
+                exercise.actual_start.isoformat() if exercise.actual_start else None
+            ),
+            "completed_at": (
+                exercise.actual_end.isoformat() if exercise.actual_end else None
+            ),
         }
