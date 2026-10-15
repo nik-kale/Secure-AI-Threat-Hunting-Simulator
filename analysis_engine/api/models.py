@@ -214,6 +214,70 @@ class AnalysisResult(BaseModel):
         }
 
 
+def _step_text(step: Any) -> str:
+    """Flatten a response-plan step (dict or string) to its action text."""
+    if isinstance(step, dict):
+        return str(step.get("action") or step.get("details") or step)
+    return str(step)
+
+
+def session_from_analysis(analysis: Dict[str, Any]) -> "Session":
+    """
+    Build the API Session model from one pipeline session analysis.
+
+    The pipeline nests session facts under session_info, mitre, kill_chain,
+    iocs, narrative and response_plan; the API exposes them flattened.
+    """
+    info = analysis.get("session_info") or {}
+    iocs = (analysis.get("iocs") or {}).get("iocs") or {}
+    plan = analysis.get("response_plan") or {}
+    narrative = analysis.get("narrative") or {}
+    principals = info.get("principals") or []
+
+    return Session(
+        session_id=str(info.get("session_id", "")),
+        principal=", ".join(str(p) for p in principals) or "unknown",
+        risk_score=min(max(float(info.get("risk_score") or 0.0), 0.0), 1.0),
+        event_count=int(info.get("num_events") or 0),
+        start_time=str(info.get("start_time") or ""),
+        end_time=str(info.get("end_time") or ""),
+        mitre_techniques=list((analysis.get("mitre") or {}).get("technique_ids") or []),
+        kill_chain_stages=list((analysis.get("kill_chain") or {}).get("active_stages") or []),
+        iocs=IOCs(**{
+            field: [str(v) for v in iocs.get(field, [])]
+            for field in IOCs.model_fields
+        }),
+        narrative=str(narrative.get("executive_summary") or ""),
+        response_plan=ResponsePlan(
+            immediate_actions=[
+                ResponseAction(
+                    priority=str(step.get("priority", "MEDIUM")),
+                    action=str(step.get("action", "")),
+                    details=step.get("details"),
+                )
+                if isinstance(step, dict)
+                else ResponseAction(priority="MEDIUM", action=str(step))
+                for step in plan.get("immediate_actions") or []
+            ],
+            containment=[_step_text(s) for s in plan.get("containment") or []],
+            eradication=[_step_text(s) for s in plan.get("eradication") or []],
+            recovery=[_step_text(s) for s in plan.get("recovery") or []],
+            lessons_learned=[_step_text(s) for s in plan.get("lessons_learned") or []],
+        ),
+    )
+
+
+def analysis_result_from_summary(summary: Dict[str, Any]) -> "AnalysisResult":
+    """Build the API AnalysisResult model from a pipeline summary."""
+    return AnalysisResult(
+        total_events=summary.get("total_events", 0),
+        total_sessions=summary.get("total_sessions", 0),
+        suspicious_sessions=summary.get("suspicious_sessions", 0),
+        sessions=[session_from_analysis(s) for s in summary.get("sessions") or []],
+        analysis_duration_seconds=summary.get("analysis_duration_seconds"),
+    )
+
+
 class GenerateScenarioResponse(BaseModel):
     """Response from scenario generation."""
     status: str = Field(..., description="Generation status")
