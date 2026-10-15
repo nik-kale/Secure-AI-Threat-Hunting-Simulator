@@ -407,8 +407,8 @@ def generate_iam_privilege_escalation_scenario(
 
 if __name__ == "__main__":
     # Example usage
-    output_dir = Path(__file__).parent / "output"
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("output") / "iam_priv_escalation"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = generate_iam_privilege_escalation_scenario(
         output_dir=output_dir,

@@ -194,8 +194,8 @@ def generate_credential_stuffing_scenario(
 
 
 if __name__ == "__main__":
-    output_dir = Path(__file__).parent / "output"
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("output") / "cred_stuffing"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = generate_credential_stuffing_scenario(
         output_dir=output_dir,

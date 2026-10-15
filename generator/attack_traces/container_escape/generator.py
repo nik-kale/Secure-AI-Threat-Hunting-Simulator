@@ -351,8 +351,8 @@ def generate_container_escape_scenario(
 
 
 if __name__ == "__main__":
-    output_dir = Path(__file__).parent / "output"
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("output") / "container_escape"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = generate_container_escape_scenario(
         output_dir=output_dir,

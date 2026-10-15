@@ -741,8 +741,8 @@ def generate_supply_chain_scenario(
 
 if __name__ == "__main__":
     # Example usage
-    output_dir = Path(__file__).parent / "output"
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("output") / "supply_chain"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = generate_supply_chain_scenario(
         output_dir=output_dir,
