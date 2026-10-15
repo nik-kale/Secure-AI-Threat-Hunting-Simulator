@@ -26,7 +26,8 @@
 - Packaging: `config.py` is included in installs, and `sqlalchemy[asyncio]`
   brings in greenlet, without which database persistence was disabled.
 - Docker: the API image installs libmagic and includes `config.py` and the
-  Sigma rules; the dashboard production build compiles.
+  Sigma rules; the dashboard production build compiles, and its image installs
+  with npm 10 (TypeScript pinned to 4.9, the range react-scripts 5 supports).
 
 ### Security
 
