@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from collections import Counter
 import logging
 
+from .features import is_failure
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -42,7 +44,7 @@ class EventClassifier:
         
         # Determine risk level
         is_suspicious = event.get('metadata', {}).get('suspicious', False)
-        is_failed = event.get('status') == 'failed'
+        is_failed = is_failure(event)
         
         if is_suspicious:
             risk_level = 'high'

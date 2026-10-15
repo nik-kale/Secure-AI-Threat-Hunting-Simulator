@@ -1,6 +1,9 @@
 """ML-enhanced risk scoring."""
 from typing import Dict, Any, List
 
+from .features import is_failure
+
+
 class MLRiskScorer:
     """ML-enhanced risk score calculation."""
     
@@ -24,7 +27,7 @@ class MLRiskScorer:
             score += self.weights['mitre_techniques'] * min(len(techniques) / 5.0, 1.0)
         
         # Failed actions
-        if event.get('status') == 'failed':
+        if is_failure(event):
             score += self.weights['failed_actions']
         
         # Anomaly score from ML model

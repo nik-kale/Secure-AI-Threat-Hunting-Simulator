@@ -1,290 +1,142 @@
 """
 Tests for ML behavioral baseline module.
 """
-import pytest
 from datetime import datetime, timedelta
 
-from analysis_engine.ml.behavioral_baseline import BehavioralBaseline
+from analysis_engine.ml.behavioral_baseline import BaselineProfile, BehavioralBaseline
+
+EMPLOYEE = "arn:aws:iam::123456789012:user/employee"
 
 
-class TestBehavioralBaseline:
-    """Test behavioral baseline functionality."""
+def _event(when, action="GetUser", status="success", source_ip="203.0.113.10",
+           resource="arn:aws:s3:::reports", principal=EMPLOYEE):
+    return {
+        "timestamp": when.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "event_type": f"iam.{action.lower()}",
+        "action": action,
+        "status": status,
+        "principal": principal,
+        "resource": resource,
+        "source_ip": source_ip,
+    }
 
-    def test_behavioral_baseline_initialization(self):
-        """Test behavioral baseline can be initialized."""
-        baseline = BehavioralBaseline(learning_period_days=7)
-        assert baseline is not None
-        assert hasattr(baseline, 'build_baseline')
-        assert hasattr(baseline, 'detect_deviations')
 
-    def test_build_baseline_from_events(self, sample_iam_events):
-        """Test building baseline from historical events."""
-        baseline = BehavioralBaseline()
-        
-        # Build baseline
-        baseline.build_baseline(sample_iam_events)
-        
-        # Should have learned patterns
-        assert hasattr(baseline, 'baseline_model') or hasattr(baseline, 'patterns')
+def _office_hours(days=14, hours=(9, 12, 15), start=datetime(2025, 1, 6)):
+    """Three actions a day at fixed hours across `days` days."""
+    events = []
+    for day in range(days):
+        for hour in hours:
+            for action in ("GetUser", "ListRoles", "GetObject"):
+                events.append(_event(start + timedelta(days=day, hours=hour), action=action))
+    return events
 
-    def test_detect_deviations_from_baseline(self, telemetry_synthesizer):
-        """Test detecting deviations from established baseline."""
-        baseline = BehavioralBaseline()
-        
-        # Build baseline with normal events
-        normal_events = []
-        base_time = datetime.utcnow()
-        
-        for day in range(7):
-            for hour in [9, 12, 15]:  # Consistent times
-                normal_events.append(
-                    telemetry_synthesizer.create_iam_event(
-                        action="GetUser",
-                        principal="arn:aws:iam::123456789012:user/employee",
-                        timestamp=(base_time + timedelta(days=day, hours=hour)).isoformat() + "Z"
-                    )
-                )
-        
-        baseline.build_baseline(normal_events)
-        
-        # Test with anomalous events
-        anomalous_events = [
-            telemetry_synthesizer.create_iam_event(
-                action="AttachUserPolicy",  # Unusual action
-                principal="arn:aws:iam::123456789012:user/employee",
-                timestamp=(base_time + timedelta(days=8)).isoformat() + "Z",
-                metadata={"unusual_action": True}
-            )
-        ]
-        
-        deviations = baseline.detect_deviations(anomalous_events)
-        
-        assert isinstance(deviations, list)
-        # May detect deviation depending on implementation
-        if len(deviations) > 0:
-            assert "deviation_type" in deviations[0] or "anomaly" in str(deviations[0])
 
-    def test_principal_behavior_profile(self, telemetry_synthesizer):
-        """Test per-principal behavior profiling."""
-        baseline = BehavioralBaseline()
-        
-        base_time = datetime.utcnow()
-        events = []
-        
-        # Principal 1: Always accesses S3
-        for i in range(10):
-            events.append(
-                telemetry_synthesizer.create_s3_event(
-                    action="GetObject",
-                    principal="arn:aws:iam::123456789012:user/data-analyst",
-                    bucket="analytics-bucket",
-                    key=f"data/file_{i}.csv",
-                    timestamp=(base_time + timedelta(hours=i)).isoformat() + "Z"
-                )
-            )
-        
-        # Principal 2: Always does IAM operations
-        for i in range(10):
-            events.append(
-                telemetry_synthesizer.create_iam_event(
-                    action="ListUsers",
-                    principal="arn:aws:iam::123456789012:user/admin",
-                    timestamp=(base_time + timedelta(hours=i)).isoformat() + "Z"
-                )
-            )
-        
-        baseline.build_baseline(events)
-        
-        # Test: Principal 1 suddenly does IAM (unusual)
-        test_events = [
-            telemetry_synthesizer.create_iam_event(
-                action="CreateAccessKey",
-                principal="arn:aws:iam::123456789012:user/data-analyst",
-                timestamp=(base_time + timedelta(days=1)).isoformat() + "Z",
-                metadata={"unusual_for_principal": True}
-            )
-        ]
-        
-        deviations = baseline.detect_deviations(test_events)
-        
-        assert isinstance(deviations, list)
+class TestBuildBaseline:
+    def test_skips_entities_below_minimum_events(self):
+        baseline = BehavioralBaseline(min_training_events=10)
 
-    def test_time_of_day_baseline(self, telemetry_synthesizer):
-        """Test time-of-day behavior baseline."""
-        baseline = BehavioralBaseline()
-        
-        events = []
-        
-        # Establish pattern: activity only during business hours
-        for day in range(7):
-            for hour in range(9, 17):  # 9 AM to 5 PM
-                events.append(
-                    telemetry_synthesizer.create_iam_event(
-                        action="GetUser",
-                        principal="arn:aws:iam::123456789012:user/employee",
-                        timestamp=datetime(2024, 1, day + 1, hour, 0, 0).isoformat() + "Z"
-                    )
-                )
-        
-        baseline.build_baseline(events)
-        
-        # Test: activity at 3 AM (unusual)
-        test_events = [
-            telemetry_synthesizer.create_iam_event(
-                action="CreateAccessKey",
-                principal="arn:aws:iam::123456789012:user/employee",
-                timestamp=datetime(2024, 1, 8, 3, 0, 0).isoformat() + "Z",
-                metadata={"unusual_time": True}
-            )
-        ]
-        
-        deviations = baseline.detect_deviations(test_events)
-        
-        assert isinstance(deviations, list)
+        profiles = baseline.build_baseline(_office_hours(days=1, hours=(9,)))
 
-    def test_frequency_baseline(self, telemetry_synthesizer):
-        """Test event frequency baseline."""
-        baseline = BehavioralBaseline()
-        
-        base_time = datetime.utcnow()
-        events = []
-        
-        # Normal: ~10 events per hour
-        for day in range(7):
-            for hour in range(24):
-                for _ in range(10):
-                    events.append(
-                        telemetry_synthesizer.create_iam_event(
-                            action="GetUser",
-                            principal="arn:aws:iam::123456789012:user/service",
-                            timestamp=(
-                                base_time + 
-                                timedelta(days=day, hours=hour, minutes=_ * 5)
-                            ).isoformat() + "Z"
-                        )
-                    )
-        
-        baseline.build_baseline(events)
-        
-        # Test: 100 events in 5 minutes (unusual burst)
-        test_events = []
-        for i in range(100):
-            test_events.append(
-                telemetry_synthesizer.create_iam_event(
-                    action="GetUser",
-                    principal="arn:aws:iam::123456789012:user/service",
-                    timestamp=(base_time + timedelta(days=8, seconds=i * 3)).isoformat() + "Z"
-                )
-            )
-        
-        deviations = baseline.detect_deviations(test_events)
-        
-        assert isinstance(deviations, list)
+        assert profiles == {}
 
-    def test_empty_baseline(self):
-        """Test behavior with no baseline data."""
-        baseline = BehavioralBaseline()
-        
-        # Try to detect deviations without building baseline
-        # Should handle gracefully
-        try:
-            deviations = baseline.detect_deviations([])
-            assert isinstance(deviations, list)
-        except Exception as e:
-            # Some implementations may raise error if no baseline
-            assert "baseline" in str(e).lower() or "not built" in str(e).lower()
+    def test_learns_actions_ips_and_resources(self):
+        baseline = BehavioralBaseline(min_training_events=10)
 
-    def test_update_baseline(self, sample_iam_events):
-        """Test updating an existing baseline with new data."""
-        baseline = BehavioralBaseline()
-        
-        # Initial baseline
-        baseline.build_baseline(sample_iam_events[:2])
-        
-        # Update with more data
-        if hasattr(baseline, 'update_baseline'):
-            baseline.update_baseline(sample_iam_events[2:])
-            
-            # Baseline should now include all patterns
-            assert True  # Baseline updated successfully
-        else:
-            # Rebuild baseline
-            baseline.build_baseline(sample_iam_events)
-            assert True
+        profile = baseline.build_baseline(_office_hours())[EMPLOYEE]
 
-    def test_source_ip_baseline(self, telemetry_synthesizer):
-        """Test source IP behavior baseline."""
-        baseline = BehavioralBaseline()
-        
-        base_time = datetime.utcnow()
-        events = []
-        
-        # Establish pattern: always from same IP
-        for i in range(50):
-            events.append(
-                telemetry_synthesizer.create_iam_event(
-                    action="GetUser",
-                    principal="arn:aws:iam::123456789012:user/employee",
-                    timestamp=(base_time + timedelta(hours=i)).isoformat() + "Z",
-                    source_ip="203.0.113.10"  # Same IP
-                )
-            )
-        
-        baseline.build_baseline(events)
-        
-        # Test: sudden access from different IP
-        test_events = [
-            telemetry_synthesizer.create_iam_event(
-                action="CreateAccessKey",
-                principal="arn:aws:iam::123456789012:user/employee",
-                timestamp=(base_time + timedelta(days=3)).isoformat() + "Z",
-                source_ip="198.51.100.99"  # Different IP
-            )
-        ]
-        
-        deviations = baseline.detect_deviations(test_events)
-        
-        assert isinstance(deviations, list)
+        assert isinstance(profile, BaselineProfile)
+        assert set(profile.typical_actions) == {"GetUser", "ListRoles", "GetObject"}
+        assert profile.typical_source_ips == {"203.0.113.10"}
+        assert profile.typical_resources == {"arn:aws:s3:::reports"}
+        assert profile.total_events_analyzed == 14 * 3 * 3
 
-    def test_resource_access_baseline(self, telemetry_synthesizer):
-        """Test resource access pattern baseline."""
-        baseline = BehavioralBaseline()
-        
-        base_time = datetime.utcnow()
-        events = []
-        
-        # Principal only accesses specific buckets
-        allowed_buckets = ["bucket-a", "bucket-b"]
-        
-        for day in range(7):
-            for bucket in allowed_buckets:
-                for i in range(5):
-                    events.append(
-                        telemetry_synthesizer.create_s3_event(
-                            action="GetObject",
-                            principal="arn:aws:iam::123456789012:user/analyst",
-                            bucket=bucket,
-                            key=f"data/file_{i}.csv",
-                            timestamp=(
-                                base_time + timedelta(days=day, hours=i)
-                            ).isoformat() + "Z"
-                        )
-                    )
-        
-        baseline.build_baseline(events)
-        
-        # Test: access to never-before-seen bucket
-        test_events = [
-            telemetry_synthesizer.create_s3_event(
-                action="GetObject",
-                principal="arn:aws:iam::123456789012:user/analyst",
-                bucket="sensitive-restricted-bucket",
-                key="secrets/password.txt",
-                timestamp=(base_time + timedelta(days=8)).isoformat() + "Z"
-            )
-        ]
-        
-        deviations = baseline.detect_deviations(test_events)
-        
-        assert isinstance(deviations, list)
+    def test_typical_hours_require_activity_on_a_quarter_of_days(self):
+        """One stray 03:00 event across 14 days is not a typical hour."""
+        events = _office_hours() + [_event(datetime(2025, 1, 8, 3, 0))]
+        baseline = BehavioralBaseline(min_training_events=10)
 
+        profile = baseline.build_baseline(events)[EMPLOYEE]
+
+        assert profile.typical_hours == {9, 12, 15}
+
+    def test_training_period_ignores_event_order(self):
+        events = list(reversed(_office_hours()))
+        baseline = BehavioralBaseline(min_training_events=10)
+
+        profile = baseline.build_baseline(events)[EMPLOYEE]
+
+        assert profile.training_period_days == 13
+
+    def test_confidence_includes_training_period(self):
+        baseline = BehavioralBaseline(min_training_events=10, training_period_days=7)
+
+        profile = baseline.build_baseline(_office_hours())[EMPLOYEE]
+
+        # 0.4 (events) + 0.3 (14 days >= 7) + 0.3 (diversity)
+        assert profile.confidence_score == 1.0
+
+    def test_failure_rate_uses_schema_status_values(self):
+        events = _office_hours()
+        for event in events[:9]:
+            event["status"] = "failure"
+        baseline = BehavioralBaseline(min_training_events=10)
+
+        profile = baseline.build_baseline(events)[EMPLOYEE]
+
+        assert profile.typical_failure_rate == 9 / len(events)
+
+
+class TestDetectDeviations:
+    def _trained(self):
+        baseline = BehavioralBaseline(min_training_events=10)
+        baseline.build_baseline(_office_hours())
+        return baseline
+
+    def test_unknown_entity_has_no_baseline(self):
+        deviations = self._trained().detect_deviations(
+            [_event(datetime(2025, 2, 1, 9), principal="arn:aws:iam::123456789012:user/new")]
+        )
+
+        [entry] = deviations["arn:aws:iam::123456789012:user/new"]
+        assert entry["deviation_type"] == "no_baseline"
+
+    def test_normal_event_has_no_deviation(self):
+        deviations = self._trained().detect_deviations([_event(datetime(2025, 1, 13, 9))])
+
+        assert deviations == {}
+
+    def test_flags_new_action_ip_resource_and_hour(self):
+        event = _event(
+            datetime(2025, 1, 13, 3),
+            action="AttachUserPolicy",
+            source_ip="198.51.100.50",
+            resource="arn:aws:iam::aws:policy/AdministratorAccess",
+        )
+
+        deviations = self._trained().detect_deviations([event])
+
+        types = {d["deviation_type"] for d in deviations[EMPLOYEE]}
+        assert {"new_action", "new_source_ip", "new_resource", "unusual_time"} <= types
+
+    def test_flags_schema_failure_status(self):
+        deviations = self._trained().detect_deviations(
+            [_event(datetime(2025, 1, 13, 9), status="denied")]
+        )
+
+        types = {d["deviation_type"] for d in deviations[EMPLOYEE]}
+        assert "unusual_failure" in types
+
+
+class TestProfileSerialisation:
+    def test_export_import_round_trip(self):
+        baseline = BehavioralBaseline(min_training_events=10)
+        baseline.build_baseline(_office_hours())
+
+        restored = BehavioralBaseline()
+        restored.import_profiles(baseline.export_profiles())
+
+        original = baseline.get_profile(EMPLOYEE)
+        copy = restored.get_profile(EMPLOYEE)
+        assert copy.typical_hours == original.typical_hours
+        assert copy.typical_actions == original.typical_actions
+        assert copy.confidence_score == original.confidence_score

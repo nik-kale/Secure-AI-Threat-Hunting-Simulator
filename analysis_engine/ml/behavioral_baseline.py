@@ -11,6 +11,8 @@ from collections import defaultdict, Counter
 import statistics
 import logging
 
+from .features import is_failure
+
 logger = logging.getLogger(__name__)
 
 
@@ -148,23 +150,27 @@ class BehavioralBaseline:
         hours_counter = Counter()
         days_counter = Counter()
         hourly_event_counts = defaultdict(int)
+        hour_active_dates = defaultdict(set)
+        timestamps = []
 
         for event in events:
             if 'timestamp' in event:
                 try:
                     ts = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
+                    timestamps.append(ts)
                     hours_counter[ts.hour] += 1
                     days_counter[ts.weekday()] += 1
                     hour_key = f"{ts.date()}_{ts.hour}"
                     hourly_event_counts[hour_key] += 1
-                except:
+                    hour_active_dates[ts.hour].add(ts.date())
+                except (AttributeError, TypeError, ValueError):
                     pass
 
-        # Typical hours (hours with activity in at least 25% of days)
-        total_days = len(set(events[0].get('timestamp', '').split('T')[0] for events in [events]))
+        # Typical hours (hours with activity in at least 25% of active days)
+        total_days = len({ts.date() for ts in timestamps})
         profile.typical_hours = {
-            hour for hour, count in hours_counter.items()
-            if count / max(total_days, 1) >= 0.25
+            hour for hour, dates in hour_active_dates.items()
+            if len(dates) / max(total_days, 1) >= 0.25
         }
 
         # Typical days
@@ -206,26 +212,22 @@ class BehavioralBaseline:
                 profile.typical_locations.add(location)
 
         # Calculate success/failure ratios
-        statuses = [event.get('status', '') for event in events]
-        success_count = statuses.count('success')
-        failed_count = statuses.count('failed')
+        success_count = sum(1 for event in events if event.get('status') == 'success')
+        failed_count = sum(1 for event in events if is_failure(event))
         total_status_events = success_count + failed_count
 
         if total_status_events > 0:
             profile.success_rate = success_count / total_status_events
             profile.typical_failure_rate = failed_count / total_status_events
 
-        # Calculate confidence score
-        profile.confidence_score = self._calculate_confidence(profile)
+        # Training period (events need not arrive in time order)
+        if timestamps:
+            profile.training_period_days = (max(timestamps) - min(timestamps)).days or 1
+        else:
+            profile.training_period_days = 1
 
-        # Training period
-        if events:
-            try:
-                first_ts = datetime.fromisoformat(events[0]['timestamp'].replace('Z', '+00:00'))
-                last_ts = datetime.fromisoformat(events[-1]['timestamp'].replace('Z', '+00:00'))
-                profile.training_period_days = (last_ts - first_ts).days or 1
-            except:
-                profile.training_period_days = 1
+        # Confidence depends on the training period, so it is computed last
+        profile.confidence_score = self._calculate_confidence(profile)
 
         return profile
 
@@ -400,7 +402,7 @@ class BehavioralBaseline:
             })
 
         # Failure rate deviations
-        if event.get('status') == 'failed':
+        if is_failure(event):
             # High failure rate might indicate brute force
             if profile.typical_failure_rate < 0.1:  # Normally low failures
                 deviations.append({

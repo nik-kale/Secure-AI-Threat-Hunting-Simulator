@@ -11,6 +11,8 @@ import numpy as np
 import logging
 from collections import Counter, defaultdict
 
+from .features import is_failure, stable_bucket
+
 try:
     from sklearn.ensemble import IsolationForest
     from sklearn.preprocessing import StandardScaler
@@ -113,24 +115,28 @@ class AnomalyDetector:
 
             # Event type encoding (hash-based)
             event_type = event.get('event_type', '')
-            feature_vector.append(hash(event_type) % 1000)
+            feature_vector.append(stable_bucket(event_type))
 
             # Action encoding
             action = event.get('action', '')
-            feature_vector.append(hash(action) % 1000)
+            feature_vector.append(stable_bucket(action))
 
             # Status encoding
-            status = event.get('status', 'unknown')
-            status_code = {'success': 1, 'failed': -1, 'unknown': 0}.get(status, 0)
+            if is_failure(event):
+                status_code = -1
+            elif event.get('status') == 'success':
+                status_code = 1
+            else:
+                status_code = 0
             feature_vector.append(status_code)
 
             # Principal encoding
             principal = event.get('principal', '')
-            feature_vector.append(hash(principal) % 1000)
+            feature_vector.append(stable_bucket(principal))
 
             # Resource encoding
             resource = event.get('resource', '')
-            feature_vector.append(hash(resource) % 1000)
+            feature_vector.append(stable_bucket(resource))
 
             # Metadata features
             metadata = event.get('metadata', {})
@@ -173,7 +179,7 @@ class AnomalyDetector:
         # Extract features
         X = self.extract_features(events)
 
-        if SKLEARN_AVAILABLE and self.model:
+        if SKLEARN_AVAILABLE and self.model is not None:
             # Scale features
             X_scaled = self.scaler.fit_transform(X)
 
@@ -237,7 +243,7 @@ class AnomalyDetector:
             return []
 
         # Use ML model if available and fitted
-        if SKLEARN_AVAILABLE and self.model and self.is_fitted:
+        if SKLEARN_AVAILABLE and self.model is not None and self.is_fitted:
             return self._ml_predict(events)
         else:
             # Fallback to statistical detection
@@ -348,7 +354,7 @@ class AnomalyDetector:
                 anomalies.append('marked_suspicious')
 
             # Failed actions are more suspicious
-            if event.get('status') == 'failed':
+            if is_failure(event):
                 score += 0.1
                 anomalies.append('failed_action')
 
