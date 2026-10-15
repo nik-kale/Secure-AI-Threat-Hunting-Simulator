@@ -588,7 +588,7 @@ class TelemetrySynthesizer:
             time_diff = (end_dt - start_dt).total_seconds()
             random_offset = random.uniform(0, time_diff)
             random_dt = start_dt + timedelta(seconds=random_offset)
-            timestamp = random_dt.isoformat()
+            timestamp = random_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
             event_type = random.choice(["iam", "s3", "api", "network"])
 
@@ -644,7 +644,7 @@ class TelemetrySynthesizer:
         output_path: Path
     ) -> None:
         """
-        Write events to a JSONL file.
+        Write events to a JSONL file in chronological order.
 
         Args:
             events: List of event dictionaries
@@ -653,7 +653,7 @@ class TelemetrySynthesizer:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_path, 'w') as f:
-            for event in events:
+            for event in sorted(events, key=lambda e: e.get("timestamp", "")):
                 f.write(json.dumps(event) + '\n')
 
     def write_events_json(
@@ -662,7 +662,7 @@ class TelemetrySynthesizer:
         output_path: Path
     ) -> None:
         """
-        Write events to a JSON file.
+        Write events to a JSON file in chronological order.
 
         Args:
             events: List of event dictionaries
@@ -671,4 +671,4 @@ class TelemetrySynthesizer:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_path, 'w') as f:
-            json.dump(events, f, indent=2)
+            json.dump(sorted(events, key=lambda e: e.get("timestamp", "")), f, indent=2)
