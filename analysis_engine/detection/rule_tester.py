@@ -191,8 +191,9 @@ class SigmaRuleParser:
             return value.endswith(pattern[:-1])
         elif "*" in pattern or "?" in pattern:
             # Wildcard match
-            regex_pattern = pattern.replace("*", ".*").replace("?", ".")
-            return bool(re.match(f"^{regex_pattern}$", value, re.IGNORECASE))
+            # Escape everything else so rule text cannot inject regex syntax
+            regex_pattern = re.escape(pattern).replace(r"\*", ".*").replace(r"\?", ".")
+            return bool(re.fullmatch(regex_pattern, value, re.IGNORECASE | re.DOTALL))
         else:
             # Case-insensitive exact match
             return value.lower() == pattern.lower()
@@ -212,34 +213,107 @@ class SigmaRuleParser:
     @staticmethod
     def _evaluate_condition(condition: str, selections: Dict[str, bool]) -> bool:
         """
-        Evaluate Sigma condition.
+        Evaluate a Sigma condition against selection results.
 
-        Supports: and, or, not, 1 of, all of, (parentheses)
+        Supports and, or, not, parentheses, and "1 of" / "any of" / "all of"
+        followed by a selection name, a name prefix ending in "*", or "them".
+        The condition comes from rule content that callers may supply, so it
+        is parsed here and never executed. Unknown selection names are False.
         """
-        # Simple evaluation for basic conditions
-        # For production, would need full boolean expression parser
-
-        # Replace selection names with their boolean values
-        expr = condition
-        for name, value in selections.items():
-            expr = expr.replace(name, str(value))
-
-        # Handle "1 of" pattern
-        if "1 of" in expr:
-            return any(selections.values())
-
-        # Handle "all of" pattern
-        if "all of" in expr:
-            return all(selections.values())
-
-        # Simple and/or/not evaluation
-        expr = expr.replace("and", " and ").replace("or", " or ").replace("not", " not ")
-
         try:
-            return eval(expr)
-        except Exception:
-            logger.warning(f"Could not evaluate condition: {condition}")
+            return _SigmaConditionParser(condition, selections).parse()
+        except ValueError as e:
+            logger.warning(f"Could not evaluate condition {condition!r}: {e}")
             return False
+
+
+class _SigmaConditionParser:
+    """Recursive-descent evaluator for Sigma condition expressions."""
+
+    _TOKEN = re.compile(r"\s*(\(|\)|[A-Za-z0-9_*]+)")
+
+    def __init__(self, condition: str, selections: Dict[str, bool]):
+        self.selections = selections
+        self.tokens = self._tokenize(condition)
+        self.pos = 0
+
+    @classmethod
+    def _tokenize(cls, condition: str) -> List[str]:
+        tokens = []
+        pos = 0
+        text = condition.strip()
+        while pos < len(text):
+            match = cls._TOKEN.match(text, pos)
+            if not match:
+                raise ValueError(f"unexpected character at offset {pos}")
+            tokens.append(match.group(1))
+            pos = match.end()
+            while pos < len(text) and text[pos].isspace():
+                pos += 1
+        if not tokens:
+            raise ValueError("empty condition")
+        return tokens
+
+    def _peek(self) -> Optional[str]:
+        return self.tokens[self.pos] if self.pos < len(self.tokens) else None
+
+    def _take(self) -> str:
+        token = self._peek()
+        if token is None:
+            raise ValueError("unexpected end of condition")
+        self.pos += 1
+        return token
+
+    def parse(self) -> bool:
+        result = self._or()
+        if self._peek() is not None:
+            raise ValueError(f"unexpected token {self._peek()!r}")
+        return result
+
+    def _or(self) -> bool:
+        result = self._and()
+        while self._peek() == "or":
+            self._take()
+            rhs = self._and()
+            result = result or rhs
+        return result
+
+    def _and(self) -> bool:
+        result = self._not()
+        while self._peek() == "and":
+            self._take()
+            rhs = self._not()
+            result = result and rhs
+        return result
+
+    def _not(self) -> bool:
+        if self._peek() == "not":
+            self._take()
+            return not self._not()
+        return self._atom()
+
+    def _atom(self) -> bool:
+        token = self._take()
+        if token == "(":
+            result = self._or()
+            if self._take() != ")":
+                raise ValueError("missing closing parenthesis")
+            return result
+        if token in ("1", "any", "all") and self._peek() == "of":
+            self._take()
+            values = self._quantified(self._take())
+            return bool(values) and (all(values) if token == "all" else any(values))
+        if token in ("and", "or", "not", "of", ")"):
+            raise ValueError(f"unexpected token {token!r}")
+        return bool(self.selections.get(token, False))
+
+    def _quantified(self, target: str) -> List[bool]:
+        if target == "them":
+            return list(self.selections.values())
+        if target.endswith("*"):
+            prefix = target[:-1]
+            return [v for name, v in self.selections.items() if name.startswith(prefix)]
+        return [bool(self.selections.get(target, False))]
 
 
 class DetectionRuleTester:
