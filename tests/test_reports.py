@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from analysis_engine.pipeline import ThreatHuntingPipeline
-from analysis_engine.reports import JsonReporter, MarkdownReporter
+from analysis_engine.reports import HTMLReportGenerator, JsonReporter, MarkdownReporter
 from generator.attack_traces.lateral_movement.generator import generate_lateral_movement_scenario
 
 
@@ -107,3 +107,26 @@ class TestPipelineReports:
         assert json.loads((out / "analysis_report.json").read_text())["sessions"] == []
         assert (out / "analysis_report.md").exists()
         assert (out / "iocs.json").exists()
+
+
+class TestHTMLReportGenerator:
+    def test_telemetry_values_are_escaped(self, temp_output_dir):
+        payload = "<script>alert(1)</script>"
+        result = {
+            "total_events": 1,
+            "suspicious_sessions": 1,
+            "sessions": [{"session_info": {"principals": [payload]}}],
+        }
+
+        path = HTMLReportGenerator().generate(result, temp_output_dir / "report.html")
+
+        page = path.read_text()
+        assert payload not in page
+        assert "&lt;script&gt;alert(1)&lt;/script&gt;" in page
+
+    def test_sessions_detected_shows_a_count(self, temp_output_dir):
+        result = {"suspicious_sessions": 2, "sessions": [{}, {}]}
+
+        page = HTMLReportGenerator().generate(result, temp_output_dir / "r.html").read_text()
+
+        assert "<td>Sessions Detected</td><td>2</td>" in page
