@@ -189,7 +189,7 @@ def analyze(
         click.echo(f"\nAnalyzing telemetry from: {telemetry_file.name}")
 
         results = pipeline.analyze_telemetry_file(
-            telemetry_file=telemetry_file,
+            telemetry_path=telemetry_file,
             output_dir=output
         )
 
@@ -205,15 +205,16 @@ def analyze(
         if 'sessions' in results and results['sessions']:
             click.echo(f"\nTop Suspicious Sessions:")
             for i, session in enumerate(results['sessions'][:5], 1):
-                click.echo(f"\n  {i}. Session ID: {session.get('session_id', 'N/A')}")
-                click.echo(f"     Risk Score:  {session.get('risk_score', 0):.2f}")
-                click.echo(f"     Event Count: {session.get('event_count', 0)}")
-                click.echo(f"     Principal:   {session.get('principal', 'N/A')}")
+                info = session.get('session_info', {})
+                principals = info.get('principals') or ['N/A']
+                click.echo(f"\n  {i}. Session ID: {info.get('session_id', 'N/A')}")
+                click.echo(f"     Risk Score:  {info.get('risk_score', 0):.2f}")
+                click.echo(f"     Event Count: {info.get('num_events', 0)}")
+                click.echo(f"     Principal:   {', '.join(principals)}")
 
-                if 'mitre_techniques' in session:
-                    techniques = session['mitre_techniques']
-                    if techniques:
-                        click.echo(f"     MITRE:       {', '.join(techniques[:3])}")
+                techniques = session.get('mitre', {}).get('technique_ids', [])
+                if techniques:
+                    click.echo(f"     MITRE:       {', '.join(techniques[:3])}")
 
         # Report file paths
         click.echo(f"\n{'='*70}")
