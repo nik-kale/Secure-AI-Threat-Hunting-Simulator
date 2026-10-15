@@ -15,7 +15,6 @@ import logging
 from typing import Any, Optional, Dict, List
 from datetime import timedelta
 from functools import wraps
-import pickle
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +58,7 @@ class RedisCache:
     Redis-based caching layer with automatic serialization.
 
     Features:
-    - Automatic JSON/pickle serialization
+    - Automatic JSON serialization
     - TTL support
     - Key namespacing
     - Cache statistics
@@ -129,12 +128,10 @@ class RedisCache:
         Returns:
             Serialized bytes
         """
-        try:
-            # Try JSON first (faster, human-readable in Redis)
-            return json.dumps(value).encode('utf-8')
-        except (TypeError, ValueError):
-            # Fall back to pickle for complex objects
-            return pickle.dumps(value)
+        # JSON only: values read back from Redis are deserialised, and
+        # unpickling data from a shared store would execute whatever it holds.
+        # Values that are not JSON-serialisable raise TypeError and are not cached.
+        return json.dumps(value).encode('utf-8')
 
     def _deserialize(self, data: bytes) -> Any:
         """
@@ -146,12 +143,7 @@ class RedisCache:
         Returns:
             Deserialized value
         """
-        try:
-            # Try JSON first
-            return json.loads(data.decode('utf-8'))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            # Fall back to pickle
-            return pickle.loads(data)
+        return json.loads(data.decode('utf-8'))
 
     def get(self, namespace: str, key: str) -> Optional[Any]:
         """
