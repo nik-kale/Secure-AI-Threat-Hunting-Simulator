@@ -67,13 +67,13 @@ export class APIClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+    const headers = new Headers(options.headers);
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
 
     if (this.apiKey) {
-      headers['X-API-Key'] = this.apiKey;
+      headers.set('X-API-Key', this.apiKey);
     }
 
     const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -125,7 +125,7 @@ export class APIClient {
     const formData = new FormData();
     formData.append('file', file);
 
-    const headers: HeadersInit = {};
+    const headers: Record<string, string> = {};
     if (this.apiKey) {
       headers['X-API-Key'] = this.apiKey;
     }
