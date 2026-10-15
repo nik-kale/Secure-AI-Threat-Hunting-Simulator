@@ -34,6 +34,9 @@ class SIEMExporter:
     """Export events and detections to SIEM platforms."""
 
     def __init__(self, config: SIEMConfig):
+        # Accept plain strings ("splunk") as well as SIEMType members; an
+        # unsupported name raises ValueError here rather than mid-export.
+        config.siem_type = SIEMType(config.siem_type)
         self.config = config
         self.events_buffer: List[Dict[str, Any]] = []
         self._formatters = {
