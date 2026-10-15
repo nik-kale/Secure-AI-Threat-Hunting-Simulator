@@ -11,7 +11,7 @@ Implements:
 from fastapi import Request, Response, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Optional
 import uuid
 import time
 import logging
@@ -471,7 +471,8 @@ class AuditLogger:
         request_id: str,
         description: str,
         client_ip: str,
-        severity: str = "WARNING"
+        severity: str = "WARNING",
+        metadata: Optional[Dict[str, Any]] = None
     ):
         """Log security event."""
         log_func = getattr(logger, severity.lower(), logger.warning)
@@ -481,6 +482,7 @@ class AuditLogger:
                 "event_type": f"security_{event_type}",
                 "request_id": request_id,
                 "client_ip": client_ip,
-                "severity": severity
+                "severity": severity,
+                "security_metadata": metadata or {}
             }
         )
