@@ -27,6 +27,8 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/ai-threat-hunting-simulator",
     packages=find_packages(exclude=["tests", "tests.*", "docs", "scripts"]),
+    # config.py is a top-level module imported by the CLI and the API server
+    py_modules=["config"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
