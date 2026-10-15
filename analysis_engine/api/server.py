@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict
 import tempfile
 import logging
+import re
 import json
 import os
 import time
@@ -18,7 +19,7 @@ from analysis_engine.api.auth import verify_api_key, verify_admin_key
 from analysis_engine.api.models import (
     HealthResponse, AnalysisResult, GenerateScenarioRequest,
     GenerateScenarioResponse, ScenarioListResponse, ErrorResponse,
-    AnalyzeDataRequest, ScenarioInfo, ScenarioName
+    AnalyzeDataRequest, ScenarioInfo, ScenarioName, analysis_result_from_summary
 )
 from analysis_engine.api.security import (
     RequestIDMiddleware, SecurityHeadersMiddleware,
@@ -124,6 +125,26 @@ try:
 except Exception as e:
     logger.warning(f"Cache initialization failed: {e}. Running without cache.")
     cache = None
+
+SCENARIOS_DIR = Path("output/scenarios")
+RULES_DIR = Path("detection_rules/sigma")
+
+# Scenario and rule names map straight onto directory and file names, so
+# only plain identifiers are accepted.
+_SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}")
+
+
+def validate_resource_name(name: str, kind: str = "scenario") -> str:
+    """
+    Reject names that are not plain identifiers.
+
+    Raises:
+        HTTPException: 400 if the name could escape its directory
+    """
+    if not _SAFE_NAME.fullmatch(name or ""):
+        raise HTTPException(status_code=400, detail=f"Invalid {kind} name")
+    return name
+
 
 # Request tracking middleware
 @app.middleware("http")
@@ -517,7 +538,7 @@ async def analyze_upload(
         if "total_events" in results:
             record_event_processed("upload", results["total_events"])
 
-        return AnalysisResult(**results)
+        return analysis_result_from_summary(results)
 
     except HTTPException:
         raise
@@ -658,10 +679,7 @@ async def get_scenario(request: Request, scenario_name: str) -> Dict[str, Any]:
     Raises:
         HTTPException: If scenario not found
     """
-    # Sanitize scenario name to prevent path traversal
-    scenario_name = scenario_name.replace("..", "").replace("/", "").replace("\\", "")
-
-    scenario_path = Path("output/scenarios") / scenario_name
+    scenario_path = SCENARIOS_DIR / validate_resource_name(scenario_name)
 
     if not scenario_path.exists():
         raise HTTPException(status_code=404, detail="Scenario not found")
@@ -702,10 +720,7 @@ async def delete_scenario(scenario_name: str) -> Dict[str, str]:
     """
     import shutil
 
-    # Sanitize scenario name
-    scenario_name = scenario_name.replace("..", "").replace("/", "").replace("\\", "")
-
-    scenario_path = Path("output/scenarios") / scenario_name
+    scenario_path = SCENARIOS_DIR / validate_resource_name(scenario_name)
 
     if not scenario_path.exists():
         raise HTTPException(status_code=404, detail="Scenario not found")
@@ -1164,10 +1179,7 @@ async def get_detection_rule(request: Request, rule_name: str) -> Dict[str, Any]
     Raises:
         HTTPException: If rule not found
     """
-    # Sanitize rule name
-    rule_name = rule_name.replace("..", "").replace("/", "").replace("\\", "")
-
-    rule_file = Path("detection_rules/sigma") / f"{rule_name}.yml"
+    rule_file = RULES_DIR / f"{validate_resource_name(rule_name, 'rule')}.yml"
 
     if not rule_file.exists():
         raise HTTPException(status_code=404, detail="Detection rule not found")
@@ -1227,7 +1239,7 @@ async def generate_detection_rule(
     try:
         # If events not provided, load from scenario
         if not events:
-            scenario_path = Path("output/scenarios") / scenario_name / "telemetry.jsonl"
+            scenario_path = SCENARIOS_DIR / validate_resource_name(scenario_name) / "telemetry.jsonl"
 
             if not scenario_path.exists():
                 raise HTTPException(
