@@ -228,6 +228,12 @@ server {
 }
 ```
 
+The API only honours `X-Forwarded-For` and `X-Real-IP` from peers listed in
+`TRUSTED_PROXIES` (comma-separated IPs). Set it to the address nginx connects
+from, or every request is attributed to the proxy. The headers are ignored
+from any other peer, since a client could otherwise pick its own address and
+evade the API-key lockout.
+
 ## Kubernetes Deployment
 
 ### Prerequisites

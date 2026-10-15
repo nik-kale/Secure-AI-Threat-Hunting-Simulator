@@ -3,6 +3,7 @@ API Authentication and Authorization with brute force protection.
 """
 from fastapi import Security, HTTPException, status, Request
 from fastapi.security import APIKeyHeader
+import hmac
 import os
 import logging
 import time
@@ -86,7 +87,7 @@ async def verify_api_key(request: Request, api_key: str = Security(api_key_heade
             headers={"WWW-Authenticate": "ApiKey"},
         )
 
-    if api_key != expected_key:
+    if not hmac.compare_digest(api_key.encode(), expected_key.encode()):
         logger.warning(f"Invalid API key attempted from {client_ip}")
         _record_failed_attempt(request, client_ip, "invalid_api_key")
         raise HTTPException(
@@ -251,7 +252,7 @@ async def verify_admin_key(request: Request, api_key: str = Security(api_key_hea
         # If no admin key set, fall back to regular API key check
         return await verify_api_key(request, api_key)
 
-    if api_key != admin_key:
+    if not api_key or not hmac.compare_digest(api_key.encode(), admin_key.encode()):
         logger.warning(f"Non-admin key used for admin endpoint from {get_client_ip(request)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

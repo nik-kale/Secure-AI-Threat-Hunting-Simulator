@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, Optional
 import uuid
 import time
 import logging
+import os
 import hashlib
 import magic
 from pathlib import Path
@@ -367,11 +368,19 @@ def sanitize_path(path: str) -> str:
 
 # ===== Rate Limit Helpers =====
 
+def _trusted_proxies() -> set:
+    """Peers allowed to set forwarding headers, from TRUSTED_PROXIES (comma-separated)."""
+    return {ip.strip() for ip in os.getenv("TRUSTED_PROXIES", "").split(",") if ip.strip()}
+
+
 def get_client_ip(request: Request) -> str:
     """
     Get client IP address from request.
 
-    Handles X-Forwarded-For and X-Real-IP headers.
+    X-Forwarded-For and X-Real-IP are client-controlled, so they are only
+    honoured when the direct peer is listed in TRUSTED_PROXIES. Behind
+    trusted proxies, the address is the right-most X-Forwarded-For entry
+    that is not itself a trusted proxy.
 
     Args:
         request: FastAPI request
@@ -379,22 +388,24 @@ def get_client_ip(request: Request) -> str:
     Returns:
         Client IP address
     """
-    # Check X-Forwarded-For (from reverse proxy)
+    peer = request.client.host if request.client else "unknown"
+    trusted = _trusted_proxies()
+
+    if peer not in trusted:
+        return peer
+
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
-        # Take first IP in chain
-        return forwarded_for.split(",")[0].strip()
+        hops = [hop.strip() for hop in forwarded_for.split(",") if hop.strip()]
+        for hop in reversed(hops):
+            if hop not in trusted:
+                return hop
 
-    # Check X-Real-IP
     real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
+    if real_ip and real_ip.strip():
         return real_ip.strip()
 
-    # Fall back to direct client
-    if request.client:
-        return request.client.host
-
-    return "unknown"
+    return peer
 
 
 # ===== Audit Logging =====

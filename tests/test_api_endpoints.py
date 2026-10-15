@@ -309,3 +309,49 @@ class TestFileValidation:
         )
 
         assert response.status_code == 400
+
+
+class TestClientIdentity:
+    """Forwarding headers must not let a client choose its own identity."""
+
+    @staticmethod
+    def _request(peer, headers=None):
+        from starlette.requests import Request
+
+        raw_headers = [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
+        return Request({"type": "http", "client": (peer, 1234), "headers": raw_headers})
+
+    def test_forwarded_for_ignored_from_untrusted_peer(self, monkeypatch):
+        from analysis_engine.api.security import get_client_ip
+
+        monkeypatch.delenv("TRUSTED_PROXIES", raising=False)
+        request = self._request("203.0.113.9", {"X-Forwarded-For": "1.2.3.4", "X-Real-IP": "5.6.7.8"})
+
+        assert get_client_ip(request) == "203.0.113.9"
+
+    def test_forwarded_for_used_behind_trusted_proxy(self, monkeypatch):
+        from analysis_engine.api.security import get_client_ip
+
+        monkeypatch.setenv("TRUSTED_PROXIES", "10.0.0.2, 10.0.0.3")
+        # Client-supplied junk first, then the address nginx actually saw, then an inner proxy.
+        request = self._request("10.0.0.2", {"X-Forwarded-For": "6.6.6.6, 198.51.100.7, 10.0.0.3"})
+
+        assert get_client_ip(request) == "198.51.100.7"
+
+    def test_rotating_forwarded_for_does_not_evade_lockout(self, client, monkeypatch):
+        from analysis_engine.api import auth
+
+        monkeypatch.delenv("TRUSTED_PROXIES", raising=False)
+        monkeypatch.setattr(auth, "failed_attempts", __import__("collections").defaultdict(list))
+        monkeypatch.setattr(auth, "locked_ips", {})
+
+        statuses = [
+            client.post(
+                "/analyze/upload",
+                files={"file": ("t.jsonl", b"{}\n", "application/json")},
+                headers={"X-API-Key": "wrong", "X-Forwarded-For": f"192.0.2.{i}"},
+            ).status_code
+            for i in range(auth.LOCKOUT_THRESHOLD + 1)
+        ]
+
+        assert statuses[-1] == 429
