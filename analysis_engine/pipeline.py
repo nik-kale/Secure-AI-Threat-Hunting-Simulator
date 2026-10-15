@@ -26,6 +26,12 @@ from .agents import (
 )
 from .reports import JsonReporter, MarkdownReporter
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Optional database persistence
 try:
     from .database import (
@@ -64,11 +70,6 @@ except ImportError:
     THREAT_INTEL_AVAILABLE = False
     logger.info("Threat intelligence integration not available.")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 # File size threshold for automatic streaming (50 MB)
 STREAMING_THRESHOLD_BYTES = 50 * 1024 * 1024
@@ -293,8 +294,8 @@ class ThreatHuntingPipeline:
         }
 
         # Write reports if output directory specified
-        if output_dir and analysis_results:
-            self.write_reports(analysis_results[0], output_dir)
+        if output_dir:
+            self.write_reports(summary, output_dir)
 
         # Save to database if enabled
         if self.enable_database and self.db_manager:
@@ -625,10 +626,11 @@ class ThreatHuntingPipeline:
         Write analysis reports to files.
 
         Args:
-            analysis_results: Complete analysis results
+            analysis_results: Analysis summary covering every suspicious session
             output_dir: Output directory
         """
         output_dir.mkdir(parents=True, exist_ok=True)
+        sessions = analysis_results.get("sessions") or []
 
         # JSON report
         json_path = output_dir / "analysis_report.json"
@@ -638,12 +640,12 @@ class ThreatHuntingPipeline:
         md_path = output_dir / "analysis_report.md"
         MarkdownReporter.generate_report(analysis_results, md_path)
 
-        # IOC report
+        # IOC report, merged across all suspicious sessions
         ioc_path = output_dir / "iocs.json"
-        JsonReporter.generate_ioc_report(analysis_results.get("iocs", {}), ioc_path)
+        JsonReporter.generate_ioc_report(JsonReporter.merge_iocs(sessions), ioc_path)
 
         # Graph export (if graph analysis was performed)
-        if self.enable_graph_analysis and "graph_analysis" in analysis_results:
+        if self.enable_graph_analysis and any("graph_analysis" in s for s in sessions):
             try:
                 graph_path = output_dir / "attack_graph.graphml"
                 self.graph_correlator.export_to_graphml(graph_path)
@@ -801,8 +803,8 @@ class StreamingPipeline(ThreatHuntingPipeline):
         }
 
         # Write reports if output directory specified
-        if output_dir and analysis_results:
-            self.write_reports(analysis_results[0], output_dir)
+        if output_dir:
+            self.write_reports(summary, output_dir)
 
         # Save to database if enabled
         if self.enable_database and self.db_manager:
